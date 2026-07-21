@@ -11,8 +11,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useTenant } from '@/lib/tenant/context'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 export default function RegisterCompletePage() {
+  const { t } = useTranslation()
   const tenant = useTenant()
   const router = useRouter()
   const [accepted, setAccepted] = useState(false)
@@ -20,7 +22,7 @@ export default function RegisterCompletePage() {
 
   async function handleAccept() {
     if (!accepted) {
-      toast.error('Veuillez accepter les CGV pour continuer.')
+      toast.error(t('register_complete.must_accept'))
       return
     }
     setLoading(true)
@@ -38,7 +40,7 @@ export default function RegisterCompletePage() {
       // Nouveau compte → grand onboarding (la page renvoie vers /dashboard si déjà fait).
       router.push('/onboarding')
     } catch {
-      toast.error('Une erreur est survenue. Veuillez réessayer.')
+      toast.error(t('register_complete.error'))
       setLoading(false)
     }
   }
@@ -56,9 +58,9 @@ export default function RegisterCompletePage() {
           <div className="flex justify-center mb-4">
             <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
           </div>
-          <CardTitle className="text-2xl font-bold">Bienvenue sur {tenant.appName}</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t('register_complete.title', { app: tenant.appName })}</CardTitle>
           <CardDescription>
-            Votre compte Google a bien été créé. Avant de continuer, veuillez accepter nos conditions.
+            {t('register_complete.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -69,25 +71,25 @@ export default function RegisterCompletePage() {
               onCheckedChange={(v) => setAccepted(v === true)}
             />
             <label htmlFor="terms" className="text-sm text-muted-foreground leading-tight cursor-pointer">
-              J&apos;accepte les{' '}
+              {t('register_complete.accept_prefix')}{' '}
               <Link href="/cgu" className="text-primary hover:underline" target="_blank">
-                Conditions générales d&apos;utilisation
+                {t('register_complete.terms_link')}
               </Link>{' '}
-              et la{' '}
+              {t('register_complete.and_the')}{' '}
               <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                Politique de confidentialité
+                {t('register_complete.privacy_link')}
               </Link>{' '}
-              de {tenant.appName}.
+              {t('register_complete.of_app', { app: tenant.appName })}
             </label>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
           <Button className="w-full" onClick={handleAccept} disabled={loading || !accepted}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Continuer vers {tenant.appName}
+            {t('register_complete.continue', { app: tenant.appName })}
           </Button>
           <Button variant="ghost" className="w-full text-muted-foreground" onClick={handleDecline} disabled={loading}>
-            Refuser et se déconnecter
+            {t('register_complete.decline')}
           </Button>
         </CardFooter>
       </Card>

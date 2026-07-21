@@ -8,6 +8,7 @@ import {
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/i18n/context'
 import { Checkbox } from '@/components/ui/checkbox'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
 
@@ -39,39 +40,43 @@ type Bubble =
   | { kind: 'carousel' }
 
 // Les scénarios joués en boucle. Chacun montre une facette du produit.
-const SCENARIOS: Bubble[][] = [
+type TFn = (key: string, params?: Record<string, string | number>) => string
+
+// Les scénarios joués en boucle, dans la langue du MARCHAND : c'est une démo
+// d'interface, pas un message réellement envoyé à un client.
+const scenarios = (t: TFn): Bubble[][] => [
   [
-    { kind: 'them', text: 'Bonjour ! Une idée de cadeau à moins de 50 € ? 🎁' },
-    { kind: 'ai', text: 'Avec plaisir 😊 Voici 3 best-sellers du moment :' },
+    { kind: 'them', text: t('welcome_screen.s1_1') },
+    { kind: 'ai', text: t('welcome_screen.s1_2') },
     { kind: 'carousel' },
-    { kind: 'them', text: 'Le 2ᵉ est parfait, je le prends !' },
-    { kind: 'ai', text: 'Excellent choix 🙌 Voici votre lien de paiement sécurisé.', button: 'Payer maintenant' },
+    { kind: 'them', text: t('welcome_screen.s1_3') },
+    { kind: 'ai', text: t('welcome_screen.s1_4'), button: t('welcome_screen.s1_btn') },
   ],
   [
-    { kind: 'them', text: 'Où en est ma commande #1024 ?' },
-    { kind: 'ai', text: 'Bonne nouvelle 🚚 Elle a été expédiée hier, livraison prévue jeudi.', button: 'Suivre mon colis' },
-    { kind: 'them', text: 'Parfait, merci pour la rapidité !' },
-    { kind: 'ai', text: 'Avec plaisir 😊 Je reste là si besoin.' },
+    { kind: 'them', text: t('welcome_screen.s2_1') },
+    { kind: 'ai', text: t('welcome_screen.s2_2'), button: t('welcome_screen.s2_btn') },
+    { kind: 'them', text: t('welcome_screen.s2_3') },
+    { kind: 'ai', text: t('welcome_screen.s2_4') },
   ],
   [
-    { kind: 'ai', text: 'Psst… votre Coffret Thé vous attend toujours dans le panier 🍵' },
-    { kind: 'ai', text: '-10 % pendant 24 h avec le code XEYO10 🎉', button: 'Finaliser ma commande' },
-    { kind: 'them', text: 'Ah super, j’y retourne tout de suite !' },
+    { kind: 'ai', text: t('welcome_screen.s3_1') },
+    { kind: 'ai', text: t('welcome_screen.s3_2'), button: t('welcome_screen.s3_btn') },
+    { kind: 'them', text: t('welcome_screen.s3_3') },
   ],
 ]
 
-const PRODUCTS = [
-  { name: 'Bougie Ambre', price: '24 €', emoji: '🕯️' },
-  { name: 'Coffret Thé', price: '39 €', emoji: '🍵' },
-  { name: 'Carnet cuir', price: '29 €', emoji: '📓' },
+const products = (t: TFn) => [
+  { name: t('welcome_screen.p1_name'), price: '24 €', emoji: '🕯️' },
+  { name: t('welcome_screen.p2_name'), price: '39 €', emoji: '🍵' },
+  { name: t('welcome_screen.p3_name'), price: '29 €', emoji: '📓' },
 ]
 
 // Cartes flottantes ANCRÉES AU TÉLÉPHONE (right/left:100% du mockup).
-const FLOATERS = [
-  { side: 'left' as const, icon: ShoppingBag, title: 'Commande suivie', sub: 'Réponse en 2 s', color: 'text-sky-400', top: '14%' },
-  { side: 'right' as const, icon: Flame, title: '+38 % de ventes', sub: 'Paniers relancés', color: 'text-orange-400', top: '24%' },
-  { side: 'left' as const, icon: Bot, title: 'Agent IA actif', sub: '24 h/24', color: 'text-violet-400', top: '56%' },
-  { side: 'right' as const, icon: Star, title: '4,9 / 5', sub: 'Clients satisfaits', color: 'text-amber-400', top: '66%' },
+const floaters = (t: TFn) => [
+  { side: 'left' as const, icon: ShoppingBag, title: t('welcome_screen.floater_order_title'), sub: t('welcome_screen.floater_order_sub'), color: 'text-sky-400', top: '14%' },
+  { side: 'right' as const, icon: Flame, title: t('welcome_screen.floater_sales_title'), sub: t('welcome_screen.floater_sales_sub'), color: 'text-orange-400', top: '24%' },
+  { side: 'left' as const, icon: Bot, title: t('welcome_screen.floater_agent_title'), sub: t('welcome_screen.floater_agent_sub'), color: 'text-violet-400', top: '56%' },
+  { side: 'right' as const, icon: Star, title: t('welcome_screen.floater_rating_title'), sub: t('welcome_screen.floater_rating_sub'), color: 'text-amber-400', top: '66%' },
 ]
 
 // Rythme des bulles : rapide (retour utilisateur — la conversation traînait).
@@ -88,6 +93,9 @@ const PHONE_NOM_W = 417
 const PHONE_NOM_H = 876
 
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
+  const { t } = useTranslation()
+  const SCENARIOS = scenarios(t)
+  const FLOATERS = floaters(t)
   const reduced = useReducedMotion()
   const [phase, setPhase] = useState(reduced ? 5 : 0)
   // Acceptation CGU + politique de confidentialité + traitement IA des messages.
@@ -262,10 +270,10 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                 className="flex flex-col items-center"
               >
                 <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-white/40">
-                  <Sparkles className="h-3.5 w-3.5" /> Bienvenue sur Xeyo
+                  <Sparkles className="h-3.5 w-3.5" /> {t('welcome_screen.eyebrow')}
                 </p>
                 <h2 className="mt-2 max-w-xl text-lg font-bold tracking-tight text-white sm:text-xl">
-                  Une IA qui répond, conseille et vend sur WhatsApp, à partir de votre boutique.
+                  {t('welcome_screen.headline')}
                 </h2>
 
                 {/* Consentement légal : sobre, lisible, mais pas envahissant. */}
@@ -280,15 +288,13 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                     htmlFor="onboarding-terms"
                     className="cursor-pointer text-[12px] leading-snug text-white/50"
                   >
-                    J&apos;accepte les Conditions Générales d&apos;Utilisation et la Politique de
-                    Confidentialité. Je comprends que mes messages WhatsApp seront traités par une
-                    intelligence artificielle pour générer des réponses automatiques.{' '}
+                    {t('welcome_screen.consent')}{' '}
                     <Link href="/cgu" target="_blank" className="text-white/80 underline underline-offset-2 hover:text-white">
-                      Conditions Générales d&apos;Utilisation
+                      {t('welcome_screen.terms_link')}
                     </Link>{' '}
                     &amp;{' '}
                     <Link href="/privacy" target="_blank" className="text-white/80 underline underline-offset-2 hover:text-white">
-                      Politique de Confidentialité
+                      {t('welcome_screen.privacy_link')}
                     </Link>
                   </label>
                 </div>
@@ -309,7 +315,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                   disabled={!accepted}
                   className="group mt-4 h-11 bg-white px-8 text-base text-black shadow-lg shadow-black/30 hover:bg-white/90 disabled:opacity-40"
                 >
-                  Configurer mon agent
+                  {t('welcome_screen.cta')}
                   <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Button>
               </motion.div>
@@ -442,6 +448,8 @@ function WhatsAppPhone({
 
 /** Carrousel de produits en mode sombre (cartes #1f2c34, prix et CTA verts). */
 function ProductCarousel() {
+  const { t } = useTranslation()
+  const PRODUCTS = products(t)
   return (
     <div className="-mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {PRODUCTS.map((p, i) => (
