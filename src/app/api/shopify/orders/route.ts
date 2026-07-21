@@ -71,8 +71,12 @@ export async function GET(req: NextRequest) {
       .map((o: { order_number?: string | number }) => String(o.order_number ?? '').replace(/\D/g, ''))
       .filter(Boolean)
   )
+  // Le filtre s'applique sur une liste LARGE (30) : la troncature d'affichage
+  // vient donc APRÈS, sinon les commandes du contact — plus anciennes que les
+  // dernières de la boutique — étaient coupées avant d'être reconnues.
   const restrict = (orders: { name: string }[]) =>
-    allowed.size === 0 ? orders : orders.filter((o) => allowed.has(String(o.name).replace(/\D/g, '')))
+    (allowed.size === 0 ? orders : orders.filter((o) => allowed.has(String(o.name).replace(/\D/g, ''))))
+      .slice(0, 10)
 
   // Si le contact est RELIÉ à un client Shopify → recherche fiable par
   // customer_id (pas de faux positifs). C'est le chemin privilégié.

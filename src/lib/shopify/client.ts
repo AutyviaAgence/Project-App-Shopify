@@ -835,7 +835,8 @@ export async function findOrdersByCustomer(
 
   const orders = res.data.orders.edges
     .filter((e) => matches(e.node))
-    .slice(0, 5)
+    // Marge suffisante : l'appelant restreint encore aux commandes du contact.
+    .slice(0, 30)
     .map((e) => ({
     id: e.node.id,
     name: e.node.name,
@@ -936,7 +937,12 @@ export async function findOrdersByCustomerId(
   shop: string,
   accessToken: string,
   customerId: string,
-  limit = 5
+  // ⚠️ 5 était trop court : l'appelant FILTRE ensuite sur les commandes
+  // réellement rattachées au contact (Shopify regroupe sous un même client des
+  // commandes de contacts WhatsApp distincts). En ne remontant que les 5
+  // dernières de la boutique, celles du contact — plus anciennes — étaient
+  // coupées AVANT le filtre, et le panneau s'affichait vide.
+  limit = 30
 ) {
   const res = await shopifyGraphQL<{ customer: { orders: { edges: { node: OrderNode }[] } } | null }>(
     shop,
