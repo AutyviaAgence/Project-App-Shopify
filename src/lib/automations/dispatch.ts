@@ -151,6 +151,28 @@ export async function sendTemplateToContact(params: {
 
   // Résolution des variables nommées dans l'ordre.
   let keys = Array.isArray(tpl.variable_keys) ? tpl.variable_keys : []
+
+  // ⚠️ VARIANTE DE LANGUE AUX CLES INCOHERENTES → on garde celles de la BASE.
+  //
+  // Les variantes d'un même modèle doivent mapper les MÊMES variables, dans le
+  // même ordre : seul le texte change. Quatre modèles avaient dérivé (la version
+  // EN attendait `store_name` là où la FR attendait `tracking_url`), et le client
+  // recevait le nom de la boutique à la place du lien : « Complete your order
+  // here: xeyo-dev? ».
+  //
+  // La traduction automatique recopie bien `variable_keys` ; ces divergences
+  // viennent d'un import Meta ou d'une création manuelle. On ne peut pas les
+  // corriger à l'envoi — mais on peut refuser de faire confiance à la variante.
+  if (tpl.id !== baseTpl.id) {
+    const baseKeys = Array.isArray(baseTpl.variable_keys) ? baseTpl.variable_keys : []
+    const diverge = baseKeys.length > 0
+      && (keys.length !== baseKeys.length || keys.some((k, i) => k !== baseKeys[i]))
+    if (diverge) {
+      console.warn(`[dispatch] ${tpl.name}: variante ${tpl.language} aux clés divergentes`,
+        { variante: keys, base: baseKeys })
+      keys = baseKeys
+    }
+  }
   // Fallback : ancien template par défaut sans variable_keys (seed historique) →
   // on récupère le mapping depuis la bibliothèque par défaut (par nom). Évite
   // l'erreur Meta 131008 "Required parameter is missing".
@@ -185,10 +207,14 @@ export async function sendTemplateToContact(params: {
   const resolved = resolveVariables(keys, vars)
   // Valeur de secours par variable VIDE : Meta refuse les paramètres vides
   // (#131008). Ex : prénom inconnu (client opt-in popup sans nom) → « bonjour ».
+  // ⚠️ Le repli suit la langue du MODELE ENVOYE, pas le français en dur : un
+  // client anglophone recevait « Hello cher client » au milieu d'un message
+  // anglais.
+  const en = tpl.language?.startsWith('en')
   const fallbackFor = (key: string | undefined): string => {
     if (!key) return '—'
-    if (/store_name|shop_name|boutique/.test(key)) return 'notre boutique'
-    if (/first_name|full_name|last_name|name/.test(key)) return 'cher client'
+    if (/store_name|shop_name|boutique/.test(key)) return en ? 'our store' : 'notre boutique'
+    if (/first_name|full_name|last_name|name/.test(key)) return en ? 'there' : 'cher client'
     if (/url|link/.test(key)) return ''  // une URL vide casserait un bouton → géré ailleurs
     return '—'
   }
