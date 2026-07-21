@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Loader2, Send, Sparkles } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 import { cn } from '@/lib/utils'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -47,6 +48,7 @@ export function AgentTryChat({
   /** Plafond de questions d'essai (limite les coûts tokens). Absent = illimité. */
   maxQuestions?: number
 }) {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -69,10 +71,10 @@ export function AgentTryChat({
         body: JSON.stringify({ message: msg, history, system_prompt_override: `${systemPrompt}\n\n${PREVIEW_RULE}` }),
       })
       const json = await res.json()
-      const reply = json?.data?.response || json?.error || 'Désolé, une erreur est survenue.'
+      const reply = json?.data?.response || json?.error || t('onboarding_agent_chat.error_generic')
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
     } catch {
-      setMessages((m) => [...m, { role: 'assistant', content: 'Impossible de contacter l’agent, réessayez.' }])
+      setMessages((m) => [...m, { role: 'assistant', content: t('onboarding_agent_chat.error_network') }])
     } finally {
       setSending(false)
       requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 9e9, behavior: 'smooth' }))
@@ -84,10 +86,10 @@ export function AgentTryChat({
   return (
     <div className="overflow-hidden rounded-xl border">
       <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5 text-primary" /> Testez votre agent
+        <Sparkles className="h-3.5 w-3.5 text-primary" /> {t('onboarding_agent_chat.header')}
         {maxQuestions != null && (
           <span className="ml-auto tabular-nums text-muted-foreground/70">
-            {questionsUsed}/{maxQuestions} questions
+            {t('onboarding_agent_chat.counter', { used: questionsUsed, max: maxQuestions })}
           </span>
         )}
       </div>
@@ -97,7 +99,7 @@ export function AgentTryChat({
       <div ref={scrollRef} className="max-h-72 min-h-[92px] space-y-2.5 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="mx-auto max-w-sm py-4 text-center text-xs leading-relaxed text-muted-foreground">
-            Posez une question comme le ferait un client, l’agent répond avec les infos de votre boutique.
+            {t('onboarding_agent_chat.empty_hint')}
           </p>
         )}
         {messages.map((m, i) => (
@@ -132,7 +134,7 @@ export function AgentTryChat({
       {/* Saisie, remplacée par une note quand la limite d'essai est atteinte. */}
       {limitReached ? (
         <p className="border-t bg-muted/30 px-3 py-2.5 text-center text-xs text-muted-foreground">
-          Limite d’essai atteinte ✓ Vous pourrez continuer à discuter avec votre agent après la configuration.
+          {t('onboarding_agent_chat.limit_reached')}
         </p>
       ) : (
         <div className="flex items-center gap-2 border-t p-3">
@@ -140,11 +142,11 @@ export function AgentTryChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') send(input) }}
-            placeholder="Écrivez un message…"
+            placeholder={t('onboarding_agent_chat.input_placeholder')}
             disabled={sending}
             className="h-10 flex-1 rounded-lg border border-input bg-background px-3.5 text-sm"
           />
-          <button onClick={() => send(input)} disabled={sending || !input.trim()}
+          <button onClick={() => send(input)} disabled={sending || !input.trim()} aria-label={t('onboarding_agent_chat.send')}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
             <Send className="h-4 w-4" />
           </button>

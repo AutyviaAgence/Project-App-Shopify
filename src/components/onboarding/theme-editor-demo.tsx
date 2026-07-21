@@ -5,6 +5,7 @@ import {
   MessageCircle, PartyPopper, Search, MousePointer2, Check,
   PanelLeft, Layers, Settings, Blocks, Home, Store, Plus, ChevronDown, X,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * DÉMO ANIMÉE — « activer Xeyo dans l'éditeur de thème ».
@@ -36,17 +37,21 @@ type Beat = {
   caption: string
 }
 
-const BEATS: Beat[] = [
-  { page: 'accueil', target: 'bubble', step: 'Applications', caption: 'Activez la Bulle WhatsApp' },
-  { page: 'accueil', target: 'popup', step: 'Applications', caption: 'Activez la Popup opt-in' },
-  { page: 'remerciements', target: 'pagesel', step: 'Changer de page', caption: 'Passez sur la page Remerciements' },
-  { page: 'remerciements', target: 'thanks', step: 'Ajouter le bloc', caption: 'Ajoutez le bloc Opt-in WhatsApp' },
-  { page: 'remerciements', target: 'save', step: 'Enregistrer', caption: 'Enregistrez, c’est en ligne' },
+type TFn = (key: string, params?: Record<string, string | number>) => string
+
+const beats = (t: TFn): Beat[] => [
+  { page: 'accueil', target: 'bubble', step: t('onboarding_theme_editor.beat_bubble_step'), caption: t('onboarding_theme_editor.beat_bubble_caption') },
+  { page: 'accueil', target: 'popup', step: t('onboarding_theme_editor.beat_popup_step'), caption: t('onboarding_theme_editor.beat_popup_caption') },
+  { page: 'remerciements', target: 'pagesel', step: t('onboarding_theme_editor.beat_pagesel_step'), caption: t('onboarding_theme_editor.beat_pagesel_caption') },
+  { page: 'remerciements', target: 'thanks', step: t('onboarding_theme_editor.beat_thanks_step'), caption: t('onboarding_theme_editor.beat_thanks_caption') },
+  { page: 'remerciements', target: 'save', step: t('onboarding_theme_editor.beat_save_step'), caption: t('onboarding_theme_editor.beat_save_caption') },
 ]
 
 const BEAT_MS = 2100
 
 export function ThemeEditorDemo() {
+  const { t } = useTranslation()
+  const BEATS = beats(t)
   const [i, setI] = useState(0)
   const [reduced, setReduced] = useState(false)
   const [clicking, setClicking] = useState(false)
@@ -110,12 +115,12 @@ export function ThemeEditorDemo() {
           <span className="flex items-center gap-1">
             <Layers className="h-2.5 w-2.5 text-neutral-400" />
             <span className="text-[9px] font-medium text-neutral-600">test-data</span>
-            <span className="rounded bg-emerald-100 px-1 py-px text-[8px] font-semibold text-emerald-700">Actif</span>
+            <span className="rounded bg-emerald-100 px-1 py-px text-[8px] font-semibold text-emerald-700">{t('onboarding_theme_editor.theme_active')}</span>
           </span>
           <span className="flex items-center gap-1">
             <Home className="h-2.5 w-2.5 text-neutral-400" />
             <span className="text-[9px] text-neutral-500">
-              {beat.page === 'accueil' ? 'Page d’accueil' : 'Remerciements'}
+              {beat.page === 'accueil' ? t('onboarding_theme_editor.page_home') : t('onboarding_theme_editor.page_thanks')}
             </span>
           </span>
         </div>
@@ -129,7 +134,7 @@ export function ThemeEditorDemo() {
             done('save') && !reduced ? 'ring-2 ring-primary/50' : '',
           ].join(' ')}
         >
-          Enregistrer
+          {t('onboarding_theme_editor.save')}
         </span>
       </div>
 
@@ -149,7 +154,7 @@ export function ThemeEditorDemo() {
 
           <div className="min-h-0 flex-1 p-2">
             <p className="mb-1.5 text-[9px] font-semibold text-neutral-700">
-              {beat.page === 'accueil' ? 'Intégrations d’applications' : 'Applications'}
+              {beat.page === 'accueil' ? t('onboarding_theme_editor.panel_title_home') : t('onboarding_theme_editor.panel_title_thanks')}
             </p>
 
             <div
@@ -162,18 +167,18 @@ export function ThemeEditorDemo() {
               ].join(' ')}
             >
               <Search className="h-2.5 w-2.5 text-neutral-300" />
-              <span className="truncate text-[8px] text-neutral-400">Rechercher…</span>
+              <span className="truncate text-[8px] text-neutral-400">{t('onboarding_theme_editor.search_placeholder')}</span>
               <ChevronDown className="ml-auto h-2.5 w-2.5 shrink-0 text-neutral-300" />
             </div>
 
             {beat.page === 'accueil' ? (
               <div className="space-y-1">
-                <Row t="bubble" name="Bulle WhatsApp Xeyo" sub="Xeyo — WhatsApp Support…" on={done('bubble')} />
-                <Row t="popup" name="Xeyo — Popup opt-in" sub="Xeyo — WhatsApp Support…" on={done('popup')} />
+                <Row t="bubble" name={t('onboarding_theme_editor.app_bubble_name')} sub={t('onboarding_theme_editor.app_bubble_sub')} on={done('bubble')} />
+                <Row t="popup" name={t('onboarding_theme_editor.app_popup_name')} sub={t('onboarding_theme_editor.app_popup_sub')} on={done('popup')} />
                 {/* Les apps concurrentes du marchand : c'est ce qu'il voit vraiment,
                     et ça l'aide à repérer LESQUELLES activer parmi les autres. */}
-                <Row t="other1" name="Kanal Widget" sub="KANAL — WhatsApp Mark…" on={false} dim />
-                <Row t="other2" name="WhatsApp Widget" sub="Dondy: WhatsApp" on={false} dim />
+                <Row t="other1" name={t('onboarding_theme_editor.app_other1_name')} sub={t('onboarding_theme_editor.app_other1_sub')} on={false} dim />
+                <Row t="other2" name={t('onboarding_theme_editor.app_other2_name')} sub={t('onboarding_theme_editor.app_other2_sub')} on={false} dim />
               </div>
             ) : (
               /* Page Remerciements : PAS un interrupteur — un bloc à AJOUTER. Le geste
@@ -191,8 +196,8 @@ export function ThemeEditorDemo() {
                   <PartyPopper className="h-2.5 w-2.5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[9px] font-semibold text-neutral-800">Xeyo — Opt-in WhatsApp</p>
-                  <p className="truncate text-[8px] text-neutral-400">Remerciements</p>
+                  <p className="truncate text-[9px] font-semibold text-neutral-800">{t('onboarding_theme_editor.block_optin_name')}</p>
+                  <p className="truncate text-[8px] text-neutral-400">{t('onboarding_theme_editor.block_optin_sub')}</p>
                 </div>
                 {done('thanks')
                   ? <Check className="h-3 w-3 shrink-0 text-primary" />
@@ -242,17 +247,17 @@ export function ThemeEditorDemo() {
               >
                 <X className="absolute right-1.5 top-1.5 h-2 w-2 text-neutral-300" />
                 <p className="pr-3 text-[7px] font-bold leading-tight text-neutral-800">
-                  📦 Suivez votre commande sur WhatsApp
+                  {t('onboarding_theme_editor.popup_title')}
                 </p>
                 <p className="mt-0.5 text-[6px] leading-tight text-neutral-500">
-                  Recevez le suivi et nos offres exclusives.
+                  {t('onboarding_theme_editor.popup_sub')}
                 </p>
                 <div className="mt-1 flex gap-1">
                   <span className="h-3 w-6 rounded-sm border border-neutral-200 bg-white" />
                   <span className="h-3 flex-1 rounded-sm border border-neutral-200 bg-white" />
                 </div>
                 <div className="mt-1 flex h-3.5 items-center justify-center rounded-sm bg-[#25D366]">
-                  <span className="text-[6px] font-bold text-white">Recevoir sur WhatsApp</span>
+                  <span className="text-[6px] font-bold text-white">{t('onboarding_theme_editor.popup_cta')}</span>
                 </div>
               </div>
 
@@ -273,7 +278,7 @@ export function ThemeEditorDemo() {
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
                   <Check className="h-2.5 w-2.5 text-white" />
                 </span>
-                <p className="text-[9px] font-semibold text-neutral-800">Merci pour votre commande</p>
+                <p className="text-[9px] font-semibold text-neutral-800">{t('onboarding_theme_editor.thanks_heading')}</p>
               </div>
               <div className="space-y-1 rounded-md border border-neutral-100 p-1.5">
                 <div className="h-1 w-2/3 rounded-full bg-neutral-100" />
@@ -292,7 +297,7 @@ export function ThemeEditorDemo() {
               >
                 <span className="mt-px h-2.5 w-2.5 shrink-0 rounded-sm border border-neutral-300 bg-white" />
                 <p className="text-[7px] leading-snug text-neutral-700">
-                  Recevoir le suivi de ma commande et les offres exclusives sur{' '}
+                  {t('onboarding_theme_editor.optin_label')}{' '}
                   <span className="font-semibold">WhatsApp</span>
                 </p>
               </div>
@@ -339,7 +344,7 @@ export function ThemeEditorDemo() {
         </span>
         <p className="min-w-0 truncate text-[10px] font-medium text-neutral-600">
           {reduced
-            ? 'Activez les deux blocs, ajoutez l’opt-in sur la page Remerciements, puis enregistrez.'
+            ? t('onboarding_theme_editor.reduced_caption')
             : beat.caption}
         </p>
         {!reduced && (

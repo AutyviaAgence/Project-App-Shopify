@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Camera, Clock, ExternalLink, MessageSquare, Paperclip, Smile, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/i18n/context'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
 
 /**
@@ -27,28 +28,29 @@ import IPhoneMockup from '@/components/ui/iphone-mockup'
 
 export type IntroModule = 'agent' | 'templates' | 'automations'
 
-const COPY: Record<IntroModule, { title: string; lines: string; illuH: number }> = {
+type TFn = (key: string, params?: Record<string, string | number>) => string
+
+const copy = (t: TFn): Record<IntroModule, { title: string; lines: string; illuH: number }> => ({
   agent: {
-    title: 'C’est quoi, un agent IA ?',
-    lines:
-      'C’est votre conseiller de vente et SAV, disponible 24h/24 sur WhatsApp. Lorsqu’un client vous pose une question, il répond avec les infos de VOTRE boutique : produits, commandes, politiques.',
+    title: t('onboarding_module_intro.agent_title'),
+    lines: t('onboarding_module_intro.agent_lines'),
     illuH: 500,
   },
   templates: {
-    title: 'C’est quoi, un modèle de message ?',
-    lines:
-      'Un message pré-écrit et validé par WhatsApp, avec des variables remplies automatiquement pour chaque client : le prénom, le numéro de commande, le lien de suivi…',
+    title: t('onboarding_module_intro.templates_title'),
+    lines: t('onboarding_module_intro.templates_lines'),
     illuH: 300,
   },
   automations: {
-    title: 'C’est quoi, une automatisation ?',
-    lines:
-      'Elle envoie le bon modèle au bon moment, toute seule : un événement se produit, un délai s’écoule, le message part. Vous n’avez rien à faire.',
+    title: t('onboarding_module_intro.automations_title'),
+    lines: t('onboarding_module_intro.automations_lines'),
     illuH: 220,
   },
-}
+})
 
 export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart: () => void }) {
+  const { t } = useTranslation()
+  const COPY = copy(t)
   const reduced = useReducedMotion()
   const [phase, setPhase] = useState(reduced ? 3 : 0)
   const meta = COPY[module]
@@ -124,7 +126,7 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
             transition={{ type: 'spring', stiffness: 240, damping: 22 }}
           >
             <Button size="lg" onClick={onStart} className="group h-12 px-10 text-base shadow-lg shadow-primary/25">
-              C’est parti
+              {t('onboarding_module_intro.cta')}
               <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </motion.div>
@@ -140,20 +142,22 @@ const PHONE_NOM_H = 876
 
 // Les scénarios de l'intro agent : ils BOUCLENT (fondu entre deux).
 // side 'right' = le client (vert), 'left' = l'agent (gris).
-const AGENT_SCENARIOS: { side: 'left' | 'right'; text: string }[][] = [
+// Dans la langue du MARCHAND : c'est une démo d'interface, pas un message
+// réellement envoyé à un client.
+const agentScenarios = (t: TFn): { side: 'left' | 'right'; text: string }[][] => [
   [
-    { side: 'right', text: 'Vous avez ma taille en 42 ?' },
-    { side: 'left', text: 'Oui ! Il reste 3 paires en 42 🎿 Je vous envoie le lien ?' },
-    { side: 'right', text: 'Parfait, je prends !' },
+    { side: 'right', text: t('onboarding_module_intro.s1_1') },
+    { side: 'left', text: t('onboarding_module_intro.s1_2') },
+    { side: 'right', text: t('onboarding_module_intro.s1_3') },
   ],
   [
-    { side: 'right', text: 'Où en est ma commande #1024 ?' },
-    { side: 'left', text: 'Expédiée hier 🚚 Livraison prévue jeudi. Voici le suivi.' },
-    { side: 'right', text: 'Top, merci !' },
+    { side: 'right', text: t('onboarding_module_intro.s2_1') },
+    { side: 'left', text: t('onboarding_module_intro.s2_2') },
+    { side: 'right', text: t('onboarding_module_intro.s2_3') },
   ],
   [
-    { side: 'right', text: 'C’est quoi votre politique de retour ?' },
-    { side: 'left', text: '30 jours pour changer d’avis, retour gratuit 😊' },
+    { side: 'right', text: t('onboarding_module_intro.s3_1') },
+    { side: 'left', text: t('onboarding_module_intro.s3_2') },
   ],
 ]
 
@@ -165,6 +169,8 @@ const AGENT_FADE_MS = 500
 /** Agent : un GRAND iPhone WhatsApp fidèle (barre d'envoi comprise) où la
  *  conversation se joue, DÉFILE (layout) et CHANGE de scénario en boucle. */
 function AgentScene({ reduced }: { reduced: boolean }) {
+  const { t } = useTranslation()
+  const AGENT_SCENARIOS = agentScenarios(t)
   const [scen, setScen] = useState(0)
   const [msgs, setMsgs] = useState(reduced ? AGENT_SCENARIOS[0].length : 0)
   const [typing, setTyping] = useState<null | 'left' | 'right'>(null)
@@ -202,8 +208,8 @@ function AgentScene({ reduced }: { reduced: boolean }) {
               <img src="/mascots/peeking.png" alt="" className="mt-2 h-10 w-10 object-contain" />
             </div>
             <div className="min-w-0 text-left">
-              <p className="truncate text-[18px] font-medium leading-tight text-[#e9edef]">Xeyo · Assistant</p>
-              <p className="text-[13px] leading-tight text-[#8696a0]">en ligne</p>
+              <p className="truncate text-[18px] font-medium leading-tight text-[#e9edef]">{t('onboarding_module_intro.chat_name')}</p>
+              <p className="text-[13px] leading-tight text-[#8696a0]">{t('onboarding_module_intro.chat_status')}</p>
             </div>
           </div>
 
@@ -260,7 +266,7 @@ function AgentScene({ reduced }: { reduced: boolean }) {
           <div className="flex items-center gap-2 bg-[#0b141a] px-3 pb-4 pt-2">
             <div className="flex h-12 flex-1 items-center gap-2.5 rounded-full bg-[#1f2c34] px-4">
               <Smile className="h-6 w-6 shrink-0 text-[#8696a0]" />
-              <span className="flex-1 text-left text-[15px] text-[#8696a0]">Message</span>
+              <span className="flex-1 text-left text-[15px] text-[#8696a0]">{t('onboarding_module_intro.chat_input_placeholder')}</span>
               <Paperclip className="h-5 w-5 shrink-0 rotate-45 text-[#8696a0]" />
               <Camera className="h-6 w-6 shrink-0 text-[#8696a0]" />
             </div>
@@ -275,22 +281,25 @@ function AgentScene({ reduced }: { reduced: boolean }) {
 }
 
 // Les exemples de modèles : 2 classiques + 1 CARROUSEL produits.
-const TEMPLATE_EXAMPLES = [
-  { title: 'Commande expédiée 🚚', body: 'Bonjour Marie, votre commande #1024 est en route !', button: 'Suivre mon colis' },
-  { title: 'Panier abandonné 🛒', body: 'Votre panier vous attend toujours, Marie 🙂', button: 'Finaliser ma commande' },
+const templateExamples = (t: TFn) => [
+  { title: t('onboarding_module_intro.tpl1_title'), body: t('onboarding_module_intro.tpl1_body'), button: t('onboarding_module_intro.tpl1_button') },
+  { title: t('onboarding_module_intro.tpl2_title'), body: t('onboarding_module_intro.tpl2_body'), button: t('onboarding_module_intro.tpl2_button') },
 ]
-const CAROUSEL_EXAMPLE = {
-  title: 'Carrousel produits 🛍️',
-  body: 'Nos best-sellers du moment :',
+const carouselExample = (t: TFn) => ({
+  title: t('onboarding_module_intro.carousel_title'),
+  body: t('onboarding_module_intro.carousel_body'),
   products: [
-    { emoji: '🕯️', name: 'Bougie', price: '24 €' },
-    { emoji: '🍵', name: 'Coffret', price: '39 €' },
-    { emoji: '📓', name: 'Carnet', price: '29 €' },
+    { emoji: '🕯️', name: t('onboarding_module_intro.carousel_p1_name'), price: '24 €' },
+    { emoji: '🍵', name: t('onboarding_module_intro.carousel_p2_name'), price: '39 €' },
+    { emoji: '📓', name: t('onboarding_module_intro.carousel_p3_name'), price: '29 €' },
   ],
-}
+})
 
 /** Modèles : 4 cartes-exemples qui défilent depuis la droite. */
 function TemplateScene({ reduced }: { reduced: boolean }) {
+  const { t } = useTranslation()
+  const TEMPLATE_EXAMPLES = templateExamples(t)
+  const CAROUSEL_EXAMPLE = carouselExample(t)
   return (
     <div className="flex w-full max-w-4xl flex-wrap items-stretch justify-center gap-3 px-2 py-2">
       {TEMPLATE_EXAMPLES.map((t, i) => (
@@ -347,7 +356,7 @@ function TemplateScene({ reduced }: { reduced: boolean }) {
           </div>
         </div>
         <div className="flex items-center justify-center gap-1.5 border-t border-white/10 py-2 text-[13px] font-medium text-[#25d366]">
-          <ExternalLink className="h-3.5 w-3.5" /> Voir
+          <ExternalLink className="h-3.5 w-3.5" /> {t('onboarding_module_intro.carousel_view')}
         </div>
       </motion.div>
     </div>
@@ -356,6 +365,7 @@ function TemplateScene({ reduced }: { reduced: boolean }) {
 
 /** Automatisations : le pipeline SE CONSTRUIT, puis un point lumineux voyage. */
 function AutomationScene({ reduced }: { reduced: boolean }) {
+  const { t } = useTranslation()
   return (
     <div className="flex w-full max-w-2xl items-center justify-center py-2">
       <motion.div
@@ -371,7 +381,7 @@ function AutomationScene({ reduced }: { reduced: boolean }) {
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut', delay: 0.4 }}
         />
         <Zap className="h-7 w-7 text-amber-400" />
-        <p className="text-center text-[13px] font-medium leading-tight text-white">Commande<br />expédiée</p>
+        <p className="text-center text-[13px] font-medium leading-tight text-white">{t('onboarding_module_intro.auto_trigger_l1')}<br />{t('onboarding_module_intro.auto_trigger_l2')}</p>
       </motion.div>
 
       <ConnectorLine delay={0.6} reduced={reduced} />
@@ -388,7 +398,7 @@ function AutomationScene({ reduced }: { reduced: boolean }) {
         >
           <Clock className="h-7 w-7 text-sky-400" />
         </motion.span>
-        <p className="text-center text-[13px] font-medium leading-tight text-white">Attend 1 h</p>
+        <p className="text-center text-[13px] font-medium leading-tight text-white">{t('onboarding_module_intro.auto_delay')}</p>
       </motion.div>
 
       <ConnectorLine delay={1.3} reduced={reduced} />
@@ -401,7 +411,7 @@ function AutomationScene({ reduced }: { reduced: boolean }) {
       >
         <MessageSquare className="h-7 w-7 text-emerald-400" />
         <div className="rounded-lg bg-[#005c4b] px-2.5 py-1.5 text-[12px] leading-tight text-white shadow-sm">
-          Votre colis est en route !
+          {t('onboarding_module_intro.auto_message')}
           <motion.span
             initial={{ color: '#9ca3af' }}
             animate={{ color: reduced ? '#53bdeb' : ['#9ca3af', '#9ca3af', '#53bdeb'] }}

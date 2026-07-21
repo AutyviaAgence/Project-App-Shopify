@@ -4,6 +4,7 @@ import { AnimatePresence, animate, motion, useMotionValue, useTransform } from '
 import { Check, Copy, ExternalLink, Heart, Loader2, Pencil, Reply, RotateCcw, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/i18n/context'
 import { cn } from '@/lib/utils'
 
 /**
@@ -73,6 +74,7 @@ export function TemplateSwiper({
   onValidate: () => void
   busy: boolean
 }) {
+  const { t } = useTranslation()
   const [index, setIndex] = useState(0)
   const [lastDir, setLastDir] = useState(1)
   // Modèles exclus DANS la carte courante (hors du lot même si « like »).
@@ -131,21 +133,21 @@ export function TemplateSwiper({
         </span>
         <div>
           <p className="text-lg font-bold text-white">
-            {keptCount} modèle{keptCount > 1 ? 's' : ''} gardé{keptCount > 1 ? 's' : ''}
+            {t(keptCount > 1 ? 'onboarding_template_swiper.summary_kept_many' : 'onboarding_template_swiper.summary_kept_one', { n: keptCount })}
           </p>
           {dropped > 0 && (
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {dropped} écarté{dropped > 1 ? 's' : ''}, récupérables plus tard depuis le dashboard
+              {t(dropped > 1 ? 'onboarding_template_swiper.summary_dropped_many' : 'onboarding_template_swiper.summary_dropped_one', { n: dropped })}
             </p>
           )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => setIndex(groups.length - 1)}>
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Revenir au dernier groupe
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> {t('onboarding_template_swiper.back_to_last_group')}
           </Button>
           <Button disabled={busy || keptCount === 0} onClick={onValidate}>
             {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-            Valider ces modèles
+            {t('onboarding_template_swiper.validate')}
           </Button>
         </div>
       </motion.div>
@@ -195,9 +197,9 @@ export function TemplateSwiper({
                 demoPhase === 'pills' && 'border-primary/40 bg-primary/10 text-primary',
               )}
             >
-              {demoPhase === 'right' && '❤️ Glissez à droite : GARDER ces modèles'}
-              {demoPhase === 'left' && '✗ À gauche : écarter ce groupe'}
-              {demoPhase === 'pills' && 'Les cases ✓ affinent modèle par modèle · ✏️ modifie le texte'}
+              {demoPhase === 'right' && t('onboarding_template_swiper.demo_right')}
+              {demoPhase === 'left' && t('onboarding_template_swiper.demo_left')}
+              {demoPhase === 'pills' && t('onboarding_template_swiper.demo_pills')}
             </motion.p>
           )}
         </AnimatePresence>
@@ -239,7 +241,7 @@ export function TemplateSwiper({
           whileTap={{ scale: 0.82 }}
           onClick={() => decide(false)}
           disabled={busy}
-          aria-label="Écarter ce groupe"
+          aria-label={t('onboarding_template_swiper.aria_reject_group')}
           className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-[#0e1626] text-red-400 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.8)] transition-transform hover:scale-110"
         >
           <X className="h-8 w-8" strokeWidth={2.5} />
@@ -248,7 +250,7 @@ export function TemplateSwiper({
           whileTap={{ scale: 0.82 }}
           onClick={undo}
           disabled={busy || index === 0}
-          aria-label="Revenir au groupe précédent"
+          aria-label={t('onboarding_template_swiper.aria_undo_group')}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#0e1626] text-amber-400 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.8)] transition-transform hover:scale-110 disabled:opacity-40"
         >
           <RotateCcw className="h-5 w-5" />
@@ -257,7 +259,7 @@ export function TemplateSwiper({
           whileTap={{ scale: 0.82 }}
           onClick={() => decide(true)}
           disabled={busy}
-          aria-label="Garder ce groupe"
+          aria-label={t('onboarding_template_swiper.aria_keep_group')}
           className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-[#0e1626] text-emerald-400 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.8)] transition-transform hover:scale-110"
         >
           <Heart className="h-8 w-8 fill-current" strokeWidth={0} />
@@ -265,7 +267,7 @@ export function TemplateSwiper({
       </div>
 
       <button onClick={keepAllRemaining} disabled={busy} className="text-xs text-muted-foreground underline-offset-4 hover:text-white hover:underline">
-        Tout garder et passer au récapitulatif
+        {t('onboarding_template_swiper.keep_all')}
       </button>
     </div>
   )
@@ -307,6 +309,7 @@ function SwipeCard({
   onEditBody: (trigger: string, body: string) => void
   onSwipe: (keep: boolean) => void
 }) {
+  const { t } = useTranslation()
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-260, 260], [-14, 14])
   const likeOpacity = useTransform(x, [40, SWIPE_THRESHOLD], [0, 1])
@@ -395,9 +398,9 @@ function SwipeCard({
       {/* Rappel permanent du geste, en haut de la carte. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center bg-gradient-to-b from-black/75 via-black/40 to-transparent pb-7 pt-3">
         <p className="text-[12.5px] font-semibold tracking-wide text-white/75">
-          <span className="text-red-400">← Refuser</span>
-          <span className="mx-2 font-normal text-white/40">Swipez</span>
-          <span className="text-emerald-400">Garder →</span>
+          <span className="text-red-400">{t('onboarding_template_swiper.hint_reject')}</span>
+          <span className="mx-2 font-normal text-white/40">{t('onboarding_template_swiper.hint_swipe')}</span>
+          <span className="text-emerald-400">{t('onboarding_template_swiper.hint_keep')}</span>
         </p>
       </div>
 
@@ -429,11 +432,11 @@ function SwipeCard({
                       />
                       {varWarn ? (
                         <p className="mt-1 text-[10px] font-medium text-red-400">
-                          Les variables {'{{x}}'} sont verrouillées, modifiez le texte autour, pas dedans.
+                          {t('onboarding_template_swiper.var_locked_warning', { tokens: '{{x}}' })}
                         </p>
                       ) : (
                         <p className="mt-1 text-[10px] text-[#8696a0]">
-                          Variables (verrouillées) : {it.variable_keys.map((k, i) => `{{${i + 1}}} = ${k}`).join(' · ')}
+                          {t('onboarding_template_swiper.var_list', { list: it.variable_keys.map((k, i) => `{{${i + 1}}} = ${k}`).join(' · ') })}
                         </p>
                       )}
                     </div>
@@ -484,7 +487,7 @@ function SwipeCard({
                         )}
                         <p className="truncate px-2 py-1 text-[11px] text-[#e9edef]">{card.body_text}</p>
                         <div className="flex items-center justify-center gap-1 border-t border-white/10 py-1 text-[11px] font-medium text-[#25d366]">
-                          <ExternalLink className="h-3 w-3" /> Voir
+                          <ExternalLink className="h-3 w-3" /> {t('onboarding_template_swiper.carousel_view')}
                         </div>
                       </div>
                     ))}
@@ -494,7 +497,9 @@ function SwipeCard({
                 {/* Pastille inclure/exclure + crayon, à côté de la bulle. */}
                 <div className="flex shrink-0 flex-col gap-1 pt-1">
                   <button
-                    aria-label={off ? `Inclure ${it.label}` : `Exclure ${it.label}`}
+                    aria-label={off
+                      ? t('onboarding_template_swiper.aria_include', { label: it.label })
+                      : t('onboarding_template_swiper.aria_exclude', { label: it.label })}
                     onClick={() => setRowOff((prev) => { const s = new Set(prev); if (s.has(it.trigger)) s.delete(it.trigger); else s.add(it.trigger); return s })}
                     className={cn(
                       'flex h-6 w-6 items-center justify-center rounded-full border transition-colors',
@@ -505,7 +510,7 @@ function SwipeCard({
                     <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   </button>
                   <button
-                    aria-label={`Modifier ${it.label}`}
+                    aria-label={t('onboarding_template_swiper.aria_edit', { label: it.label })}
                     onClick={() => setEditing(isEditing ? null : it.trigger)}
                     className={cn(
                       'flex h-6 w-6 items-center justify-center rounded-full border transition-colors',
@@ -526,7 +531,9 @@ function SwipeCard({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-5 pb-4 pt-14 text-left">
         <p className="text-2xl font-bold tracking-tight text-white">
           {group.title}
-          <span className="ml-2 align-middle text-base font-medium text-white/50">{group.items.length} modèles</span>
+          <span className="ml-2 align-middle text-base font-medium text-white/50">
+            {t(group.items.length > 1 ? 'onboarding_template_swiper.group_count_many' : 'onboarding_template_swiper.group_count_one', { n: group.items.length })}
+          </span>
         </p>
         {group.pitch && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-white/60">{group.pitch}</p>}
       </div>
@@ -550,13 +557,13 @@ function SwipeCard({
         style={{ opacity: likeOpacity }}
         className="pointer-events-none absolute left-4 top-4 z-20 -rotate-12 rounded-lg border-4 border-emerald-400 px-3 py-1 text-2xl font-black tracking-widest text-emerald-400"
       >
-        GARDER
+        {t('onboarding_template_swiper.stamp_keep')}
       </motion.span>
       <motion.span
         style={{ opacity: nopeOpacity }}
         className="pointer-events-none absolute right-4 top-4 z-20 rotate-12 rounded-lg border-4 border-red-400 px-3 py-1 text-2xl font-black tracking-widest text-red-400"
       >
-        ÉCARTER
+        {t('onboarding_template_swiper.stamp_drop')}
       </motion.span>
     </motion.div>
   )
