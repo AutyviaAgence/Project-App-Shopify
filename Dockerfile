@@ -13,13 +13,24 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
-# Casse-cache : invalide TOUT ce qui suit (COPY du code source + build) à chaque
-# build. Évite qu'un cache Docker Dokploy serve un ancien bundle après un push.
-# Bump cette valeur (ou laisse Dokploy passer --build-arg CACHEBUST=$(date)).
-ARG CACHEBUST=2026-07-08-181
-RUN echo "cache bust: $CACHEBUST"
-
+# ⚠️ CASSE-CACHE — NE PLUS DÉPENDRE D'UNE VALEUR À BUMPER À LA MAIN.
+#
+# `ARG CACHEBUST=<date en dur>` était resté figé au 2026-07-08 : Docker voyait
+# une couche identique, réutilisait son cache pour TOUT ce qui suit (COPY du
+# code, version.json, npm run build) et produisait une image contenant l'ANCIEN
+# code. Dokploy affichait « Done » sur le bon commit — mais rien n'était
+# reconstruit, et le serveur continuait de servir un bundle vieux de plusieurs
+# heures. Des correctifs poussés semblaient donc « ne rien changer ».
+#
+# Le vrai invalidateur, c'est le CODE lui-même : on copie d'abord les fichiers
+# de source, ce qui casse le cache dès qu'un seul octet change — sans rien à
+# maintenir.
 COPY . .
+
+# Trace de build (utile dans les logs Dokploy pour vérifier qu'on a bien
+# reconstruit). `CACHEBUST` reste accepté si Dokploy le passe explicitement.
+ARG CACHEBUST=auto
+RUN echo "cache bust: $CACHEBUST"
 
 # Next.js inlines NEXT_PUBLIC_* vars at build time
 ARG NEXT_PUBLIC_SUPABASE_URL
@@ -41,8 +52,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Commit + date de build, écrits dans public/version.json (statique, servi tel
 # quel). Permet de vérifier la version RÉELLEMENT déployée via
-# https://app.xeyo.io/version.json. Dokploy peut passer SOURCE_COMMIT ; sinon on
-# dérive du .git présent dans le contexte (COPY . . l'inclut).
+# https://app.xeyo.io/version.json.
+#
+# ⚠️ `.git` est exclu par .dockerignore : le fallback `git rev-parse` ne peut
+# PAS fonctionner, d'où le `commit: "unknown"` observé en prod. Pour avoir le
+# vrai SHA, passer `--build-arg BUILD_COMMIT=<sha>` depuis Dokploy. En
+# attendant, c'est `builtAt` qui fait foi pour savoir si un build est récent.
 ARG BUILD_COMMIT
 RUN COMMIT="$BUILD_COMMIT"; \
     if [ -z "$COMMIT" ] && [ -d .git ]; then \
