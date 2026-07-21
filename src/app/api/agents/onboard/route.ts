@@ -41,7 +41,7 @@ const OBJECTIVE_LABELS: Record<string, string> = {
 const ORDER_TALK =
   /\b(commande|colis|livraison\s+de\s+ma|suivi\s+de|tracking|num[ée]ro\s+de\s+commande|order|#\s*\d{3,})\b/i
 
-function sanitizeSampleQuestions(raw: unknown): string[] {
+function sanitizeSampleQuestions(raw: unknown, en = false): string[] {
   const list = (Array.isArray(raw) ? raw : [])
     .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 0)
     .map((q) => q.trim())
@@ -52,7 +52,9 @@ function sanitizeSampleQuestions(raw: unknown): string[] {
   // champ vide : ces deux questions marchent sur n'importe quelle boutique, et l'agent
   // sait y répondre — il a le catalogue et les politiques.
   if (list.length === 0) {
-    return ['Quels sont vos délais de livraison ?', 'Je peux retourner un article ?']
+    return en
+      ? ['What are your delivery times?', 'Can I return an item?']
+      : ['Quels sont vos délais de livraison ?', 'Je peux retourner un article ?']
   }
   return list
 }
@@ -178,7 +180,7 @@ Question hors du périmètre de l'agent (juridique, demande sur-mesure, gros vol
         escalation_situations: (typeof cfg.escalation_situations === 'string' && cfg.escalation_situations.trim())
           ? cfg.escalation_situations.trim()
           : DEFAULT_SITUATIONS,
-        sample_questions: sanitizeSampleQuestions(cfg.sample_questions),
+        sample_questions: sanitizeSampleQuestions(cfg.sample_questions, merchantEn),
         objectives,
       },
     })
