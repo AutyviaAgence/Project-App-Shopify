@@ -135,7 +135,14 @@ ${specLines}`
     for (const it of parsed.items || []) {
       if (it?.id && typeof it.body === 'string') generated[it.id] = { header: it.header ?? null, body: it.body }
     }
-  } catch {
+  } catch (e) {
+    // ⚠️ NE PLUS AVALER L'ERREUR EN SILENCE.
+    //
+    // Un `catch {}` muet faisait retomber TOUT le pack sur les corps de secours
+    // sans que rien n'apparaisse : cle OpenAI absente, quota depasse ou modele
+    // refuse donnaient le meme resultat qu'une generation reussie — un pack
+    // complet, en 900 ms au lieu de plusieurs secondes.
+    console.error('[generate-pack] appel OpenAI echoue, fallback integral:', e)
     generated = {} // fallback intégral sur les corps de secours
   }
 

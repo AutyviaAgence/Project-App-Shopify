@@ -194,7 +194,18 @@ Question hors du périmètre de l'agent (juridique, demande sur-mesure, gros vol
         objectives,
       },
     })
-  } catch {
-    return NextResponse.json({ error: 'Génération indisponible, réessayez.' }, { status: 502 })
+  } catch (e) {
+    // ⚠️ CE 502 EST NOTRE PROPRE REPONSE, pas une panne d'infrastructure.
+    //
+    // Le `catch` etait muet : un echec OpenAI (cle absente, quota, modele
+    // refuse) ressemblait exactement a un plantage serveur — meme code 502,
+    // aucun log, aucune trace. On journalise donc la cause reelle, et on la
+    // renvoie au client pour qu'elle soit diagnosticable sans acces aux logs.
+    const detail = e instanceof Error ? e.message : String(e)
+    console.error('[agents/onboard] generation echouee:', detail, e)
+    return NextResponse.json(
+      { error: 'Génération indisponible, réessayez.', detail },
+      { status: 502 },
+    )
   }
 }
