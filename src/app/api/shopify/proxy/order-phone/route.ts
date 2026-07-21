@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/rate-limit/middleware'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from '@/lib/shopify/client'
 import { getValidAccessToken } from '@/lib/shopify/token'
@@ -68,7 +69,28 @@ export async function GET(req: NextRequest) {
   const signed = verifyAppProxySignature(searchParams)
   const fromShopify = isShopifyOrigin(req)
   const hasOpaqueId = (searchParams.get('id') || '').startsWith('gid://shopify/')
-  if (!signed && !(fromShopify && hasOpaqueId)) {
+
+  // ⚠️ `Origin: null` — cas RÉEL de l'extension Merci.
+  //
+  // Les Checkout UI Extensions tournent dans un iframe sandbox : le navigateur
+  // y envoie `Origin: null`, pas le domaine de la boutique. Mesuré :
+  // myshopify.com et extensions.shopifycdn.com → 200, mais `null` → 401.
+  // C'est ce qui empêchait À LA FOIS le pré-remplissage du numéro ET la
+  // détection d'un opt-in déjà donné (le bloc se reproposait à chaque commande).
+  //
+  // On l'accepte donc, MAIS uniquement avec le `gid` complet — non devinable,
+  // contrairement au numéro de commande séquentiel — et sous limite de débit,
+  // pour qu'un identifiant fuité ne permette pas de balayage.
+  const nullOrigin = (req.headers.get('origin') || '') === 'null'
+  if (!signed && nullOrigin && hasOpaqueId) {
+    const limited = checkRateLimit(req, 'AUTH')
+    if (limited) {
+      Object.entries(CORS).forEach(([k, v]) => limited.headers.set(k, v))
+      return limited
+    }
+  }
+
+  if (!signed && !((fromShopify || nullOrigin) && hasOpaqueId)) {
     // Trace de diagnostic : l'origine exacte envoyée par l'extension n'est pas
     // documentée (iframe sandbox du checkout). Sans elle, on ne peut que deviner.
     console.warn('[order-phone] refusé', {
