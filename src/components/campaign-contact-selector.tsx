@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { useTranslation } from '@/i18n/context'
 
 type EligibleContact = {
   contact_id: string
@@ -59,6 +60,7 @@ export function CampaignContactSelector({
   campaignId,
   onContactsUpdated,
 }: CampaignContactSelectorProps) {
+  const { t } = useTranslation()
   const [contacts, setContacts] = useState<EligibleContact[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -119,7 +121,7 @@ export function CampaignContactSelector({
         })
       }
     } catch {
-      toast.error('Erreur lors du chargement des contacts')
+      toast.error(t('components.campaign_toast_load_err'))
     } finally {
       setLoading(false)
     }
@@ -176,7 +178,7 @@ export function CampaignContactSelector({
     // Pour ça on doit récupérer tous les IDs
     const allIds = contacts.map(c => c.contact_id)
     setSelectedIds(new Set(allIds))
-    toast.info(`${allIds.length} contacts sélectionnés sur cette page. Naviguez sur les autres pages pour en sélectionner plus.`)
+    toast.info(t('components.campaign_toast_page_selected', { count: allIds.length }))
   }
 
   function deselectAll() {
@@ -203,7 +205,7 @@ export function CampaignContactSelector({
 
         if (!removeRes.ok) {
           const json = await removeRes.json()
-          throw new Error(json.error || 'Erreur lors de la suppression')
+          throw new Error(json.error || t('components.campaign_toast_remove_err'))
         }
       }
 
@@ -220,24 +222,24 @@ export function CampaignContactSelector({
 
         if (!addRes.ok) {
           const json = await addRes.json()
-          throw new Error(json.error || 'Erreur lors de l\'ajout')
+          throw new Error(json.error || t('components.campaign_toast_add_err'))
         }
       }
 
       const changes = []
-      if (toAdd.length > 0) changes.push(`${toAdd.length} ajouté(s)`)
-      if (toRemove.length > 0) changes.push(`${toRemove.length} retiré(s)`)
+      if (toAdd.length > 0) changes.push(t('components.campaign_change_added', { count: toAdd.length }))
+      if (toRemove.length > 0) changes.push(t('components.campaign_change_removed', { count: toRemove.length }))
 
       if (changes.length > 0) {
-        toast.success(`Contacts mis à jour : ${changes.join(', ')}`)
+        toast.success(t('components.campaign_toast_updated', { changes: changes.join(', ') }))
       } else {
-        toast.info('Aucune modification')
+        toast.info(t('components.campaign_toast_no_change'))
       }
 
       onContactsUpdated()
       onOpenChange(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la sauvegarde')
+      toast.error(error instanceof Error ? error.message : t('components.campaign_toast_save_err'))
     } finally {
       setSaving(false)
     }
@@ -255,11 +257,10 @@ export function CampaignContactSelector({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Sélectionner les prospects
+            {t('components.campaign_select_prospects')}
           </DialogTitle>
           <DialogDescription>
-            {totalCount} contacts éligibles selon vos critères de ciblage.
-            Cochez les contacts à inclure dans la campagne.
+            {t('components.campaign_eligible_desc', { count: totalCount })}
           </DialogDescription>
         </DialogHeader>
 
@@ -268,7 +269,7 @@ export function CampaignContactSelector({
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom ou numéro..."
+              placeholder={t('components.campaign_search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -277,11 +278,11 @@ export function CampaignContactSelector({
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={selectAll}>
               <CheckCircle className="mr-2 h-4 w-4" />
-              Tout sélectionner
+              {t('components.campaign_select_all')}
             </Button>
             <Button variant="outline" size="sm" onClick={deselectAll}>
               <XCircle className="mr-2 h-4 w-4" />
-              Tout désélectionner
+              {t('components.campaign_deselect_all')}
             </Button>
           </div>
         </div>
@@ -289,11 +290,11 @@ export function CampaignContactSelector({
         {/* Compteur de sélection */}
         <div className="flex items-center gap-2 text-sm">
           <Badge variant="secondary">
-            {selectedIds.size} contact{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+            {t('components.campaign_selected_count', { count: selectedIds.size, plural: selectedIds.size > 1 ? 's' : '' })}
           </Badge>
           {hasChanges && (
             <Badge variant="outline" className="text-primary">
-              Modifications non sauvegardées
+              {t('components.campaign_unsaved_changes')}
             </Badge>
           )}
         </div>
@@ -309,8 +310,8 @@ export function CampaignContactSelector({
               <Users className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-sm">
                 {debouncedSearch
-                  ? 'Aucun contact ne correspond à votre recherche'
-                  : 'Aucun contact éligible'}
+                  ? t('components.campaign_no_match')
+                  : t('components.campaign_no_eligible')}
               </p>
             </div>
           ) : (
@@ -327,12 +328,12 @@ export function CampaignContactSelector({
                         }
                       }}
                       onCheckedChange={toggleAll}
-                      aria-label="Sélectionner tous"
+                      aria-label={t('components.campaign_select_all_aria')}
                     />
                   </TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Dernière activité</TableHead>
-                  <TableHead className="text-right">Statut</TableHead>
+                  <TableHead>{t('components.campaign_col_contact')}</TableHead>
+                  <TableHead>{t('components.campaign_col_last_activity')}</TableHead>
+                  <TableHead className="text-right">{t('components.campaign_col_status')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -348,7 +349,7 @@ export function CampaignContactSelector({
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleContact(contact.contact_id)}
-                          aria-label={`Sélectionner ${contact.contact_name || contact.phone_number}`}
+                          aria-label={t('components.campaign_select_contact_aria', { name: contact.contact_name || contact.phone_number })}
                         />
                       </TableCell>
                       <TableCell>
@@ -358,7 +359,7 @@ export function CampaignContactSelector({
                           </div>
                           <div>
                             <div className="font-medium">
-                              {contact.contact_name || 'Sans nom'}
+                              {contact.contact_name || t('components.campaign_no_name')}
                             </div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1">
                               <Phone className="h-3 w-3" />
@@ -373,20 +374,20 @@ export function CampaignContactSelector({
                               addSuffix: true,
                               locale: fr,
                             })
-                          : 'Jamais'}
+                          : t('components.campaign_never')}
                       </TableCell>
                       <TableCell className="text-right">
                         {contact.isSelected && !isSelected ? (
                           <Badge variant="outline" className="text-destructive">
-                            À retirer
+                            {t('components.campaign_to_remove')}
                           </Badge>
                         ) : isSelected && !contact.isSelected ? (
                           <Badge variant="outline" className="text-primary">
-                            À ajouter
+                            {t('components.campaign_to_add')}
                           </Badge>
                         ) : isSelected ? (
                           <Badge variant="secondary">
-                            Dans la campagne
+                            {t('components.campaign_in_campaign')}
                           </Badge>
                         ) : null}
                       </TableCell>
@@ -402,7 +403,7 @@ export function CampaignContactSelector({
         {totalPages > 1 && (
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              Page {page} sur {totalPages}
+              {t('components.campaign_page_x_of_y', { page, total: totalPages })}
             </span>
             <div className="flex gap-2">
               <Button
@@ -427,18 +428,18 @@ export function CampaignContactSelector({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
+            {t('components.campaign_cancel')}
           </Button>
           <Button onClick={handleSave} disabled={saving || !hasChanges}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Enregistrement...
+                {t('components.campaign_saving')}
               </>
             ) : (
               <>
                 <CheckCircle className="mr-2 h-4 w-4" />
-                Enregistrer ({selectedIds.size} contacts)
+                {t('components.campaign_save_count', { count: selectedIds.size })}
               </>
             )}
           </Button>

@@ -41,25 +41,39 @@ export const TRIGGER_CAVEATS: Partial<Record<TriggerEvent, string>> = {
     'Se déclenche au paiement encaissé. Une commande créée à la main dans l’admin Shopify reste « en attente de paiement » : elle ne déclenchera pas ce message.',
 }
 
-export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: string; group: string }[] = [
+/**
+ * ⚠️ `label`/`description`/`group` EN FRANÇAIS = À NE PAS SUPPRIMER.
+ *
+ * Ces champs ont un DOUBLE usage : l'UI (à traduire) ET les prompts IA côté
+ * serveur — `converse/route.ts:71` lit `e.label` pour construire le prompt.
+ * Les remplacer par des clés i18n ferait recevoir « automations.trigger.xxx »
+ * au modèle au lieu de « Commande payée », cassant la génération de scénarios.
+ *
+ * D'où les champs PARALLÈLES `labelKey`/`descKey`/`groupKey` : l'UI les résout
+ * via `t()` au rendu, le serveur continue de lire les labels français.
+ */
+export const TRIGGER_EVENTS: {
+  value: TriggerEvent; label: string; description: string; group: string
+  labelKey: string; descKey: string; groupKey: string
+}[] = [
   // Commande
-  { value: 'order_created', label: 'Commande créée', description: 'Dès qu’une commande est passée.', group: 'Commande' },
-  { value: 'order_paid', label: 'Commande payée', description: 'Quand le paiement est confirmé.', group: 'Commande' },
-  { value: 'order_fulfilled', label: 'Commande expédiée', description: 'Quand la commande est expédiée (suivi disponible).', group: 'Commande' },
-  { value: 'order_delivered', label: 'Commande livrée', description: 'Quand le colis est livré au client.', group: 'Commande' },
-  { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.', group: 'Commande' },
-  { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande' },
-  { value: 'return_requested', label: 'Demande de retour', description: 'Quand un client ouvre une demande de retour (SAV).', group: 'Commande' },
-  { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.', group: 'Commande' },
+  { value: 'order_created', label: 'Commande créée', description: 'Dès qu’une commande est passée.', group: 'Commande', labelKey: 'automations.trigger.order_created_label', descKey: 'automations.trigger.order_created_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'order_paid', label: 'Commande payée', description: 'Quand le paiement est confirmé.', group: 'Commande', labelKey: 'automations.trigger.order_paid_label', descKey: 'automations.trigger.order_paid_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'order_fulfilled', label: 'Commande expédiée', description: 'Quand la commande est expédiée (suivi disponible).', group: 'Commande', labelKey: 'automations.trigger.order_fulfilled_label', descKey: 'automations.trigger.order_fulfilled_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'order_delivered', label: 'Commande livrée', description: 'Quand le colis est livré au client.', group: 'Commande', labelKey: 'automations.trigger.order_delivered_label', descKey: 'automations.trigger.order_delivered_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.', group: 'Commande', labelKey: 'automations.trigger.order_cancelled_label', descKey: 'automations.trigger.order_cancelled_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande', labelKey: 'automations.trigger.refund_created_label', descKey: 'automations.trigger.refund_created_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'return_requested', label: 'Demande de retour', description: 'Quand un client ouvre une demande de retour (SAV).', group: 'Commande', labelKey: 'automations.trigger.return_requested_label', descKey: 'automations.trigger.return_requested_desc', groupKey: 'automations.trigger.group_order' },
+  { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.', group: 'Commande', labelKey: 'automations.trigger.checkout_abandoned_label', descKey: 'automations.trigger.checkout_abandoned_desc', groupKey: 'automations.trigger.group_order' },
   // Contact
-  { value: 'contact_opted_in', label: 'Opt-in reçu', description: 'Un client vient de s’abonner sur WhatsApp (peu importe la source : popup, checkout, page Merci). Idéal pour un message de bienvenue.', group: 'Contact' },
-  { value: 'optin_popup', label: 'Opt-in via popup', description: 'Un client s’abonne spécifiquement via la popup WhatsApp du site (pas au checkout). Pour un message dédié aux visiteurs qui laissent leur numéro sur le site.', group: 'Contact' },
+  { value: 'contact_opted_in', label: 'Opt-in reçu', description: 'Un client vient de s’abonner sur WhatsApp (peu importe la source : popup, checkout, page Merci). Idéal pour un message de bienvenue.', group: 'Contact', labelKey: 'automations.trigger.contact_opted_in_label', descKey: 'automations.trigger.contact_opted_in_desc', groupKey: 'automations.trigger.group_contact' },
+  { value: 'optin_popup', label: 'Opt-in via popup', description: 'Un client s’abonne spécifiquement via la popup WhatsApp du site (pas au checkout). Pour un message dédié aux visiteurs qui laissent leur numéro sur le site.', group: 'Contact', labelKey: 'automations.trigger.optin_popup_label', descKey: 'automations.trigger.optin_popup_desc', groupKey: 'automations.trigger.group_contact' },
   // Conversation / temps
-  { value: 'button_clicked', label: 'Clic sur un bouton', description: 'Le client clique sur un bouton « réponse rapide » d’un message (ex : « Suivre ma commande »).', group: 'Conversation' },
-  { value: 'message_read', label: 'Message lu', description: 'Le client vient de lire un message envoyé (double coche bleue WhatsApp). Idéal pour relancer un lecteur silencieux.', group: 'Conversation' },
-  { value: 'no_customer_reply', label: 'Pas de réponse client', description: 'Le client n’a pas répondu depuis un certain temps (relance SAV).', group: 'Conversation' },
-  { value: 'scheduled_date', label: 'Date précise', description: 'À une date/heure choisie (campagne planifiée).', group: 'Planifié' },
-  { value: 'customer_birthday', label: 'Anniversaire client', description: 'Le jour de l’anniversaire du client (si connu).', group: 'Planifié' },
+  { value: 'button_clicked', label: 'Clic sur un bouton', description: 'Le client clique sur un bouton « réponse rapide » d’un message (ex : « Suivre ma commande »).', group: 'Conversation', labelKey: 'automations.trigger.button_clicked_label', descKey: 'automations.trigger.button_clicked_desc', groupKey: 'automations.trigger.group_conversation' },
+  { value: 'message_read', label: 'Message lu', description: 'Le client vient de lire un message envoyé (double coche bleue WhatsApp). Idéal pour relancer un lecteur silencieux.', group: 'Conversation', labelKey: 'automations.trigger.message_read_label', descKey: 'automations.trigger.message_read_desc', groupKey: 'automations.trigger.group_conversation' },
+  { value: 'no_customer_reply', label: 'Pas de réponse client', description: 'Le client n’a pas répondu depuis un certain temps (relance SAV).', group: 'Conversation', labelKey: 'automations.trigger.no_customer_reply_label', descKey: 'automations.trigger.no_customer_reply_desc', groupKey: 'automations.trigger.group_conversation' },
+  { value: 'scheduled_date', label: 'Date précise', description: 'À une date/heure choisie (campagne planifiée).', group: 'Planifié', labelKey: 'automations.trigger.scheduled_date_label', descKey: 'automations.trigger.scheduled_date_desc', groupKey: 'automations.trigger.group_scheduled' },
+  { value: 'customer_birthday', label: 'Anniversaire client', description: 'Le jour de l’anniversaire du client (si connu).', group: 'Planifié', labelKey: 'automations.trigger.customer_birthday_label', descKey: 'automations.trigger.customer_birthday_desc', groupKey: 'automations.trigger.group_scheduled' },
 ]
 
 /** Quels déclencheurs proposer dans l'onglet Campagnes (marketing) vs

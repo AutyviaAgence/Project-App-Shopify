@@ -223,10 +223,10 @@ export function WorkflowWizard({
               <div className="flex flex-wrap gap-1.5">
                 {allowedTriggers.filter((e) => e.group === group).map((e) => (
                   <button key={e.value} onClick={() => setEvent(e.value)}
-                    title={e.description}
+                    title={t(e.descKey)}
                     className={cn('rounded-lg border px-3 py-1.5 text-sm transition-colors',
                       event === e.value ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted')}>
-                    {e.label}
+                    {t(e.labelKey)}
                   </button>
                 ))}
               </div>
@@ -351,7 +351,7 @@ export function WorkflowWizard({
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
           </div>
           <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-            <p><span className="text-muted-foreground">{t('automations.builder.recap_trigger')}</span> {TRIGGER_EVENTS.find((e) => e.value === event)?.label}</p>
+            <p><span className="text-muted-foreground">{t('automations.builder.recap_trigger')}</span> {(() => { const ev = TRIGGER_EVENTS.find((e) => e.value === event); return ev ? t(ev.labelKey) : '' })()}</p>
             {useCondition && <p><span className="text-muted-foreground">{t('automations.builder.recap_condition')}</span> {(() => { const f = CONDITION_FIELDS.find((f) => f.value === rule.field); return f ? t(f.labelKey) : '' })()} {rule.op} {String(rule.value)}</p>}
             <p><span className="text-muted-foreground">{t('automations.builder.recap_delay')}</span> {(() => { const d = DELAY_PRESETS.find((d) => d.minutes === delayMin); return d ? t(d.labelKey) : `${delayMin} min` })()}</p>
             <p><span className="text-muted-foreground">{t('automations.builder.recap_message')}</span> {abTest ? t('automations.builder.ab_test_variants_count', { count: variants.filter((v) => v.templateId).length }) : (templates.find((tpl) => tpl.id === singleTemplate)?.name || '—')}</p>

@@ -30,6 +30,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { formatDistanceToNow, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { useTranslation } from '@/i18n/context'
 
 type ContactProfilePanelProps = {
   contactId: string | null
@@ -44,6 +45,7 @@ export function ContactProfilePanel({
   onOpenChange,
   onContactDeleted,
 }: ContactProfilePanelProps) {
+  const { t } = useTranslation()
   const [contact, setContact] = useState<Contact | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -72,10 +74,10 @@ export function ContactProfilePanel({
         setNotes(json.data.notes || '')
         setLanguage(json.data.preferred_language || '')
       } else {
-        toast.error(json.error || 'Erreur lors du chargement du contact')
+        toast.error(json.error || t('components.contact_toast_load_err'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('components.contact_toast_network_err'))
     } finally {
       setLoading(false)
     }
@@ -108,12 +110,12 @@ export function ContactProfilePanel({
       const json = await res.json()
       if (res.ok && json.data) {
         setContact(json.data)
-        toast.success('Contact mis à jour')
+        toast.success(t('components.contact_toast_updated'))
       } else {
-        toast.error(json.error || 'Erreur lors de la mise à jour')
+        toast.error(json.error || t('components.contact_toast_update_err'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('components.contact_toast_network_err'))
     } finally {
       setSaving(false)
     }
@@ -129,12 +131,12 @@ export function ContactProfilePanel({
       const json = await res.json()
       if (res.ok && json.data) {
         setContact(json.data)
-        toast.success('Résumé généré')
+        toast.success(t('components.contact_toast_summary_generated'))
       } else {
-        toast.error(json.error || 'Erreur lors de la génération du résumé')
+        toast.error(json.error || t('components.contact_toast_summary_err'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('components.contact_toast_network_err'))
     } finally {
       setGeneratingSummary(false)
     }
@@ -158,32 +160,32 @@ export function ContactProfilePanel({
         // Remplir uniquement les champs vides (ne pas écraser les valeurs existantes)
         if (extracted.first_name && extracted.first_name !== 'null' && !firstName.trim()) {
           setFirstName(extracted.first_name)
-          updates.push('prénom')
+          updates.push(t('components.contact_field_first_name'))
         }
         if (extracted.last_name && extracted.last_name !== 'null' && !lastName.trim()) {
           setLastName(extracted.last_name)
-          updates.push('nom')
+          updates.push(t('components.contact_field_last_name'))
         }
         if (extracted.email && extracted.email !== 'null' && !email.trim()) {
           setEmail(extracted.email)
-          updates.push('email')
+          updates.push(t('components.contact_field_email'))
         }
         if (extracted.notes && extracted.notes !== 'null' && !notes.trim()) {
           setNotes(extracted.notes)
-          updates.push('notes')
+          updates.push(t('components.contact_field_notes'))
         }
 
         if (updates.length > 0) {
-          toast.success(`Informations extraites : ${updates.join(', ')}`)
+          toast.success(t('components.contact_toast_extracted', { fields: updates.join(', ') }))
         } else {
-          toast.info('Aucune nouvelle information à compléter')
+          toast.info(t('components.contact_toast_nothing_to_complete'))
         }
       } else {
-        toast.error(json.error || 'Erreur lors de l\'extraction')
+        toast.error(json.error || t('components.contact_toast_extract_err'))
       }
     } catch (err) {
       console.error('[extract-info] Error:', err)
-      toast.error('Erreur réseau')
+      toast.error(t('components.contact_toast_network_err'))
     } finally {
       setExtractingInfo(false)
     }
@@ -206,14 +208,14 @@ export function ContactProfilePanel({
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success('Contact supprimé')
+        toast.success(t('components.contact_toast_deleted'))
         onOpenChange(false)
         onContactDeleted?.()
       } else {
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('components.contact_toast_delete_err'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('components.contact_toast_network_err'))
     } finally {
       setDeleting(false)
       setDeleteDialogOpen(false)
@@ -225,13 +227,13 @@ export function ContactProfilePanel({
     if (contact.first_name || contact.last_name) {
       return `${contact.first_name || ''} ${contact.last_name || ''}`.trim()
     }
-    return contact.name || 'Contact inconnu'
+    return contact.name || t('components.contact_unknown')
   }
 
   function getInitials() {
     if (!contact) return ''
     const name = getDisplayName()
-    if (name && name !== 'Contact inconnu') {
+    if (name && name !== t('components.contact_unknown')) {
       return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     }
     return contact.phone_number?.slice(-2) || '??'
@@ -241,9 +243,9 @@ export function ContactProfilePanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-auto sm:max-w-sm p-0">
         <SheetHeader className="sr-only">
-          <SheetTitle>Profil du contact</SheetTitle>
+          <SheetTitle>{t('components.contact_profile_title')}</SheetTitle>
           <SheetDescription>
-            Informations et notes sur le contact
+            {t('components.contact_profile_desc')}
           </SheetDescription>
         </SheetHeader>
 
@@ -293,7 +295,7 @@ export function ContactProfilePanel({
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold flex items-center gap-1.5">
                     <User className="h-3 w-3 text-muted-foreground" />
-                    Informations
+                    {t('components.contact_info')}
                   </h3>
                   <Button
                     size="sm"
@@ -307,32 +309,32 @@ export function ContactProfilePanel({
                     ) : (
                       <Sparkles className="h-3 w-3" />
                     )}
-                    <span className="ml-1">Compléter via IA</span>
+                    <span className="ml-1">{t('components.contact_complete_ai')}</span>
                   </Button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label htmlFor="first_name" className="text-[10px] text-muted-foreground">
-                      Prénom
+                      {t('components.contact_first_name')}
                     </Label>
                     <Input
                       id="first_name"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="Prénom"
+                      placeholder={t('components.contact_first_name')}
                       className="h-8 text-xs"
                     />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="last_name" className="text-[10px] text-muted-foreground">
-                      Nom
+                      {t('components.contact_last_name')}
                     </Label>
                     <Input
                       id="last_name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Nom"
+                      placeholder={t('components.contact_last_name')}
                       className="h-8 text-xs"
                     />
                   </div>
@@ -340,7 +342,7 @@ export function ContactProfilePanel({
 
                 <div className="space-y-1">
                   <Label htmlFor="email" className="text-[10px] text-muted-foreground">
-                    Email
+                    {t('components.contact_email')}
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -349,23 +351,23 @@ export function ContactProfilePanel({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="email@exemple.com"
+                      placeholder={t('components.contact_email_placeholder')}
                       className="pl-8 h-8 text-xs"
                     />
                   </div>
                   {/* Statut de liaison au client Shopify. */}
                   {contact?.shopify_customer_id ? (
                     <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <ShoppingBag className="h-3 w-3" /> Client Shopify relié
+                      <ShoppingBag className="h-3 w-3" /> {t('components.contact_shopify_linked')}
                     </div>
                   ) : (
-                    <p className="mt-1 text-[10px] text-muted-foreground">Non relié à un client Shopify (aucune commande visible tant que le compte n&apos;est pas identifié).</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">{t('components.contact_shopify_not_linked')}</p>
                   )}
                 </div>
 
                 <div className="space-y-1">
                   <Label htmlFor="contact-language" className="text-[10px] text-muted-foreground">
-                    Langue préférée
+                    {t('components.contact_preferred_language')}
                   </Label>
                   <div className="relative">
                     <Languages className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -375,33 +377,33 @@ export function ContactProfilePanel({
                       onChange={(e) => setLanguage(e.target.value)}
                       className="h-8 w-full rounded-md border bg-background pl-8 pr-2 text-xs"
                     >
-                      <option value="">Auto (détectée)</option>
-                      <option value="fr">Français</option>
-                      <option value="en">Anglais</option>
-                      <option value="es">Espagnol</option>
-                      <option value="de">Allemand</option>
-                      <option value="it">Italien</option>
-                      <option value="pt">Portugais</option>
-                      <option value="nl">Néerlandais</option>
+                      <option value="">{t('components.contact_lang_auto')}</option>
+                      <option value="fr">{t('components.contact_lang_fr')}</option>
+                      <option value="en">{t('components.contact_lang_en')}</option>
+                      <option value="es">{t('components.contact_lang_es')}</option>
+                      <option value="de">{t('components.contact_lang_de')}</option>
+                      <option value="it">{t('components.contact_lang_it')}</option>
+                      <option value="pt">{t('components.contact_lang_pt')}</option>
+                      <option value="nl">{t('components.contact_lang_nl')}</option>
                     </select>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Utilisée pour envoyer les modèles dans la bonne langue.
+                    {t('components.contact_language_hint')}
                     {contact?.language_source && contact.language_source !== 'manual' && !language && (
-                      <> Détectée via {contact.language_source === 'shopify' ? 'Shopify' : contact.language_source === 'country' ? 'le pays' : 'la conversation'}.</>
+                      <> {t('components.contact_language_detected_via', { source: contact.language_source === 'shopify' ? t('components.contact_source_shopify') : contact.language_source === 'country' ? t('components.contact_source_country') : t('components.contact_source_conversation') })}</>
                     )}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <Label htmlFor="notes" className="text-[10px] text-muted-foreground">
-                    Notes
+                    {t('components.contact_notes')}
                   </Label>
                   <Textarea
                     id="notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Notes sur ce contact..."
+                    placeholder={t('components.contact_notes_placeholder')}
                     rows={3}
                     className="text-xs resize-none"
                   />
@@ -413,7 +415,7 @@ export function ContactProfilePanel({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-[#3B82F6]" />
-                    <span className="text-xs font-semibold">Résumé IA</span>
+                    <span className="text-xs font-semibold">{t('components.contact_ai_summary')}</span>
                   </div>
                   <Button
                     size="sm"
@@ -427,7 +429,7 @@ export function ContactProfilePanel({
                     ) : (
                       <Sparkles className="h-3 w-3" />
                     )}
-                    <span className="ml-1">{contact.ai_summary ? 'Regénérer' : 'Générer'}</span>
+                    <span className="ml-1">{contact.ai_summary ? t('components.contact_regenerate') : t('components.contact_generate')}</span>
                   </Button>
                 </div>
 
@@ -440,17 +442,18 @@ export function ContactProfilePanel({
                     </div>
                     {contact.ai_summary_updated_at && (
                       <p className="text-[10px] text-muted-foreground">
-                        Généré{' '}
-                        {formatDistanceToNow(
-                          new Date(contact.ai_summary_updated_at),
-                          { addSuffix: true, locale: fr }
-                        )}
+                        {t('components.contact_generated_ago', {
+                          ago: formatDistanceToNow(
+                            new Date(contact.ai_summary_updated_at),
+                            { addSuffix: true, locale: fr }
+                          ),
+                        })}
                       </p>
                     )}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Générez un résumé IA basé sur l&apos;historique des conversations.
+                    {t('components.contact_summary_empty')}
                   </p>
                 )}
               </div>
@@ -468,7 +471,7 @@ export function ContactProfilePanel({
                 ) : (
                   <Save className="mr-1.5 h-3 w-3" />
                 )}
-                Enregistrer les modifications
+                {t('components.contact_save_changes')}
               </Button>
               <Button
                 variant="outline"
@@ -476,7 +479,7 @@ export function ContactProfilePanel({
                 className="w-full h-9 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="mr-1.5 h-3 w-3" />
-                Supprimer ce contact
+                {t('components.contact_delete')}
               </Button>
             </div>
           </div>
@@ -486,8 +489,8 @@ export function ContactProfilePanel({
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
           onConfirm={handleDelete}
-          title="Supprimer le contact"
-          description={`Êtes-vous sûr de vouloir supprimer ce contact et toutes ses conversations ? Cette action est irréversible.`}
+          title={t('components.contact_delete_title')}
+          description={t('components.contact_delete_desc')}
           loading={deleting}
         />
       </SheetContent>

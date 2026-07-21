@@ -419,7 +419,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
             retrouvait affichée deux fois, dans le champ et juste en dessous. */}
         <SelectTrigger>
           <SelectValue>
-            {TRIGGER_EVENTS.find((e) => e.value === node.event)?.label ?? t('automations.builder.choose_trigger')}
+            {(() => { const ev = TRIGGER_EVENTS.find((e) => e.value === node.event); return ev ? t(ev.labelKey) : t('automations.builder.choose_trigger') })()}
           </SelectValue>
         </SelectTrigger>
         {/* max-h borné : sans lui Radix étire le menu sur toute la hauteur
@@ -438,10 +438,10 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
                   <Icon className={cn('h-3.5 w-3.5', g.color)} /> {t(g.nameKey)}
                 </SelectLabel>
                 {items.map((e) => (
-                  <SelectItem key={e.value} value={e.value} textValue={e.label} className="items-start py-1.5">
+                  <SelectItem key={e.value} value={e.value} textValue={t(e.labelKey)} className="items-start py-1.5">
                     <div className="min-w-0">
-                      <p className="text-sm leading-tight">{e.label}</p>
-                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{e.description}</p>
+                      <p className="text-sm leading-tight">{t(e.labelKey)}</p>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{t(e.descKey)}</p>
                     </div>
                   </SelectItem>
                 ))}

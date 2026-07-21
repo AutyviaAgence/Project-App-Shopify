@@ -19,6 +19,7 @@ import { track } from '@/lib/posthog/events'
 import { WhatsAppProfileDialog } from '@/components/whatsapp-profile-dialog'
 import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
 import { useSubscription } from '@/hooks/use-subscription'
+import { useTranslation } from '@/i18n/context'
 
 type Session = {
   id: string
@@ -47,6 +48,7 @@ type AgentOption = {
  * Remplace la page Sessions : affiché sur le Dashboard.
  */
 export function WhatsAppConnect() {
+  const { t } = useTranslation()
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null; used?: number; limit?: number | null; marketingPaused?: boolean; nameDeclined?: boolean } | null>(null)
@@ -92,7 +94,7 @@ export function WhatsAppConnect() {
         fetch('/api/agents'),
       ])
       const linkJson = await linkRes.json()
-      if (!linkRes.ok) throw new Error(linkJson.error || 'Erreur')
+      if (!linkRes.ok) throw new Error(linkJson.error || t('components.whatsapp_toast_err'))
       const l: WALink = linkJson.data
       setLink(l)
       setWelcomeMsg(l.pre_filled_message || '')
@@ -105,7 +107,7 @@ export function WhatsAppConnect() {
         setAgents(agentsJson.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })))
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.whatsapp_toast_err'))
       setLinkOpen(false)
     } finally {
       setLinkLoading(false)
@@ -116,9 +118,9 @@ export function WhatsAppConnect() {
     if (!publicUrl) return
     try {
       await navigator.clipboard.writeText(publicUrl)
-      toast.success('Lien copié')
+      toast.success(t('components.whatsapp_toast_link_copied'))
     } catch {
-      toast.error('Impossible de copier le lien')
+      toast.error(t('components.whatsapp_toast_copy_failed'))
     }
   }
 
@@ -136,12 +138,12 @@ export function WhatsAppConnect() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('components.whatsapp_toast_err'))
       setLink(json.data)
-      toast.success('Lien mis à jour')
+      toast.success(t('components.whatsapp_toast_link_updated'))
       setLinkOpen(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.whatsapp_toast_err'))
     } finally {
       setSavingLink(false)
     }
@@ -173,7 +175,7 @@ export function WhatsAppConnect() {
 
   async function handleConnect() {
     if (!phoneId.trim() || !businessId.trim() || !token.trim()) {
-      toast.error('Tous les champs WhatsApp Business sont requis')
+      toast.error(t('components.whatsapp_toast_fields_required'))
       return
     }
     setSaving(true)
@@ -189,17 +191,17 @@ export function WhatsAppConnect() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('components.whatsapp_toast_err'))
       setPhoneId(''); setBusinessId(''); setToken('')
       setShowForm(false)
       await fetchSession()
       const n = json.imported_templates || 0
       track('whatsapp_connected', { imported_templates: n })
       toast.success(n > 0
-        ? `WhatsApp connecté, ${n} modèle${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} depuis votre compte.`
-        : 'WhatsApp connecté')
+        ? t('components.whatsapp_toast_imported', { count: n, plural: n > 1 ? 's' : '' })
+        : t('components.whatsapp_toast_connected'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.whatsapp_toast_err'))
     } finally {
       setSaving(false)
     }
@@ -210,11 +212,11 @@ export function WhatsAppConnect() {
     setDeleting(true)
     try {
       const res = await fetch(`/api/sessions/${session.id}/disconnect`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Erreur')
+      if (!res.ok) throw new Error(t('components.whatsapp_toast_err'))
       await fetchSession()
-      toast.success('WhatsApp déconnecté')
+      toast.success(t('components.whatsapp_toast_disconnected'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.whatsapp_toast_err'))
     } finally {
       setDeleting(false)
     }
@@ -223,7 +225,7 @@ export function WhatsAppConnect() {
   if (loading) {
     return (
       <div className="rounded-xl border p-5 flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t('components.loading')}
       </div>
     )
   }
@@ -244,10 +246,10 @@ export function WhatsAppConnect() {
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-medium">WhatsApp Business</span>
+                <span className="font-medium">{t('components.whatsapp_business')}</span>
                 {connected ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-600">
-                    <Wifi className="h-3 w-3" /> Connecté
+                    <Wifi className="h-3 w-3" /> {t('components.whatsapp_connected')}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600">
@@ -267,15 +269,9 @@ export function WhatsAppConnect() {
                         : health.quality === 'YELLOW' ? 'bg-amber-500/15 text-amber-600'
                         : 'bg-red-500/15 text-red-600')
                     }
-                      title={
-                        'La note de qualité vient de Meta : elle mesure la satisfaction de vos destinataires (blocages et signalements « spam » sur vos messages).\n\n' +
-                        '🟢 Bonne : peu ou pas de plaintes, vous pouvez envoyer normalement.\n' +
-                        '🟡 Moyenne : plaintes en hausse, réduisez le marketing et vérifiez que vos contacts ont bien consenti, sous peine de restriction.\n' +
-                        '🔴 Critique : trop de plaintes, Meta va restreindre votre numéro. Xeyo suspend automatiquement le marketing pour le protéger.\n\n' +
-                        'Les réponses SAV n’affectent pas cette note.'
-                      }>
+                      title={t('components.whatsapp_quality_title')}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      Qualité : {health.quality === 'GREEN' ? 'bonne' : health.quality === 'YELLOW' ? 'moyenne' : 'critique'}
+                      {t('components.whatsapp_quality_prefix')} {health.quality === 'GREEN' ? t('components.whatsapp_quality_good') : health.quality === 'YELLOW' ? t('components.whatsapp_quality_medium') : t('components.whatsapp_quality_critical')}
                     </span>
                   )}
                   {typeof health.used === 'number' && (
@@ -288,8 +284,8 @@ export function WhatsAppConnect() {
                         ? 'bg-amber-500/15 text-amber-600'
                         : 'bg-muted text-muted-foreground')
                     }
-                      title="Contacts uniques joints par vos automatisations/campagnes sur les dernières 24h. Les réponses SAV (fenêtre de 24h après un message client) ne comptent pas. Votre plafond exact est visible dans WhatsApp Manager.">
-                      Envois initiés (24h) : {health.used}{health.limit ? `/${health.limit}` : ''}
+                      title={t('components.whatsapp_sends_title')}>
+                      {t('components.whatsapp_sends_initiated')} {health.used}{health.limit ? `/${health.limit}` : ''}
                     </span>
                   )}
                 </div>
@@ -298,10 +294,10 @@ export function WhatsAppConnect() {
           </div>
           <div className="flex items-center gap-1 sm:shrink-0">
             <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => setProfileOpen(true)}>
-              <UserCog className="mr-1 h-4 w-4" /> Profil
+              <UserCog className="mr-1 h-4 w-4" /> {t('components.whatsapp_profile')}
             </Button>
             <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={openLinkModal}>
-              <Link2 className="mr-1 h-4 w-4" /> Lien
+              <Link2 className="mr-1 h-4 w-4" /> {t('components.whatsapp_link')}
             </Button>
             <Button variant="ghost" size="icon" className="text-destructive" disabled={deleting} onClick={handleDisconnect}>
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -314,9 +310,7 @@ export function WhatsAppConnect() {
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-600">
             <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              <span className="font-medium">Envois marketing suspendus.</span> Meta a classé votre numéro en qualité critique.
-              Xeyo a mis en pause les campagnes et relances pour protéger votre numéro, le SAV et les messages transactionnels
-              continuent. Réactivation automatique dès le retour au vert.
+              <span className="font-medium">{t('components.whatsapp_marketing_paused_strong')}</span> {t('components.whatsapp_marketing_paused_desc')}
             </span>
           </div>
         )}
@@ -326,21 +320,21 @@ export function WhatsAppConnect() {
         <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Lien WhatsApp</DialogTitle>
+              <DialogTitle>{t('components.whatsapp_link_title')}</DialogTitle>
               <DialogDescription>
-                Partagez ce lien pour que vos clients démarrent une conversation WhatsApp en un clic.
+                {t('components.whatsapp_link_desc')}
               </DialogDescription>
             </DialogHeader>
 
             {linkLoading || !link ? (
               <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+                <Loader2 className="h-4 w-4 animate-spin" /> {t('components.loading')}
               </div>
             ) : (
               <div className="space-y-4">
                 {/* URL + copier */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Votre lien</Label>
+                  <Label className="text-xs">{t('components.whatsapp_your_link')}</Label>
                   <div className="flex gap-2">
                     <Input value={publicUrl} readOnly className="text-xs" />
                     <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={copyLink}>
@@ -351,32 +345,32 @@ export function WhatsAppConnect() {
 
                 {/* Message d'accueil */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Message d&apos;accueil</Label>
+                  <Label className="text-xs">{t('components.whatsapp_welcome_message')}</Label>
                   <textarea
                     value={welcomeMsg}
                     onChange={(e) => setWelcomeMsg(e.target.value)}
                     rows={3}
-                    placeholder="Bonjour, je viens de votre boutique !"
+                    placeholder={t('components.whatsapp_welcome_placeholder')}
                     className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
 
                 {/* Identifiant du lien (fixe, basé sur la boutique) */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Identifiant du lien</Label>
+                  <Label className="text-xs">{t('components.whatsapp_link_id')}</Label>
                   <Input value={slugValue} readOnly disabled className="opacity-70" />
-                  <p className="text-[11px] text-muted-foreground">Défini automatiquement à partir de votre boutique.</p>
+                  <p className="text-[11px] text-muted-foreground">{t('components.whatsapp_link_id_hint')}</p>
                 </div>
 
                 {/* Agent IA */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Agent IA</Label>
+                  <Label className="text-xs">{t('components.whatsapp_ai_agent')}</Label>
                   <select
                     value={agentId}
                     onChange={(e) => setAgentId(e.target.value)}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <option value="">Aucun</option>
+                    <option value="">{t('components.whatsapp_agent_none')}</option>
                     {agents.map((a) => (
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
@@ -386,9 +380,9 @@ export function WhatsAppConnect() {
                 {/* Actif / Inactif */}
                 <div className="flex items-center justify-between rounded-md border p-3">
                   <div>
-                    <p className="text-sm font-medium">{isActive ? 'Actif' : 'Inactif'}</p>
+                    <p className="text-sm font-medium">{isActive ? t('components.whatsapp_active') : t('components.whatsapp_inactive')}</p>
                     <p className="text-xs text-muted-foreground">
-                      {isActive ? 'Le lien redirige vers WhatsApp.' : 'Le lien est désactivé.'}
+                      {isActive ? t('components.whatsapp_link_active_desc') : t('components.whatsapp_link_inactive_desc')}
                     </p>
                   </div>
                   <Button
@@ -397,17 +391,17 @@ export function WhatsAppConnect() {
                     size="sm"
                     onClick={() => setIsActive((v) => !v)}
                   >
-                    {isActive ? 'Désactiver' : 'Activer'}
+                    {isActive ? t('components.whatsapp_deactivate') : t('components.whatsapp_activate')}
                   </Button>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setLinkOpen(false)} disabled={savingLink}>
-                    Annuler
+                    {t('components.whatsapp_cancel')}
                   </Button>
                   <Button onClick={handleSaveLink} disabled={savingLink}>
                     {savingLink ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                    Enregistrer
+                    {t('components.whatsapp_save')}
                   </Button>
                 </div>
               </div>
@@ -431,8 +425,8 @@ export function WhatsAppConnect() {
           <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-10 w-10 scale-125" />
         </div>
         <div>
-          <p className="font-medium">Connectez votre WhatsApp Business</p>
-          <p className="text-sm text-muted-foreground">Reliez votre numéro pour que l&apos;agent IA réponde à vos clients.</p>
+          <p className="font-medium">{t('components.whatsapp_connect_title')}</p>
+          <p className="text-sm text-muted-foreground">{t('components.whatsapp_connect_desc')}</p>
         </div>
       </div>
 
@@ -443,7 +437,7 @@ export function WhatsAppConnect() {
         <div className="mt-auto space-y-2">
           <WhatsAppEmbeddedSignup onConnected={fetchSession} />
           <p className="text-[11px] text-muted-foreground">
-            Vous choisirez votre compte WhatsApp Business dans une fenêtre sécurisée Meta. Aucun identifiant à copier.
+            {t('components.whatsapp_embedded_hint')}
           </p>
         </div>
       )}
@@ -453,11 +447,11 @@ export function WhatsAppConnect() {
         manualAllowed && (
           embeddedSignupAvailable ? (
             <button onClick={() => setShowForm(true)} className="text-xs text-muted-foreground underline hover:text-foreground">
-              Saisir les identifiants manuellement <span className="opacity-60">(admin)</span>
+              {t('components.whatsapp_manual_admin')} <span className="opacity-60">{t('components.whatsapp_manual_admin_tag')}</span>
             </button>
           ) : (
             <Button onClick={() => setShowForm(true)}>
-              <Plus className="mr-1 h-4 w-4" /> Connecter WhatsApp
+              <Plus className="mr-1 h-4 w-4" /> {t('components.whatsapp_connect_btn')}
             </Button>
           )
         )
@@ -472,15 +466,15 @@ export function WhatsAppConnect() {
             <Input value={businessId} onChange={(e) => setBusinessId(e.target.value)} placeholder="838878661876293" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Access Token (Meta)</Label>
+            <Label className="text-xs">{t('components.whatsapp_access_token')}</Label>
             <Input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="EAAh..." />
           </div>
           <div className="flex gap-2">
             <Button onClick={handleConnect} disabled={saving} className={cn(saving && 'opacity-50')}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              Connecter
+              {t('components.whatsapp_connect_action')}
             </Button>
-            <Button variant="outline" onClick={() => setShowForm(false)} disabled={saving}>Annuler</Button>
+            <Button variant="outline" onClick={() => setShowForm(false)} disabled={saving}>{t('components.whatsapp_cancel')}</Button>
           </div>
         </div>
       )}

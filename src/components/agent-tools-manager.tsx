@@ -214,6 +214,15 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     },
   ] as const
 
+  /** Libellé traduit d'un preset de notification (les valeurs `label` du const
+   *  restent en français pour la logique ; l'affichage passe par i18n). */
+  function notifPresetLabel(key: string): string {
+    return key === 'generic' ? t('components.tools_notif_generic')
+      : key === 'commande' ? t('components.tools_notif_order')
+      : key === 'sav' ? t('components.tools_notif_sav')
+      : key
+  }
+
   type NotifRow = { id: string; status: string; body_text: string }
   const [notifTpls, setNotifTpls] = useState<Record<string, NotifRow>>({})
   const [notifBusyKey, setNotifBusyKey] = useState<string | null>(null)
@@ -237,11 +246,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   /** Le corps doit contenir {{1}} exactement une fois, ni au début ni à la fin. */
   function validateNotifBody(body: string): string | null {
     const count = (body.match(/\{\{1\}\}/g) || []).length
-    if (count === 0) return 'Le message doit contenir {{1}} (le contenu de la notification).'
-    if (count > 1) return 'Une seule variable {{1}} est autorisée.'
-    if (/^\s*\{\{1\}\}/.test(body)) return 'Meta refuse un message qui commence par la variable : ajoutez du texte avant {{1}}.'
-    if (/\{\{1\}\}\s*$/.test(body)) return 'Meta refuse un message qui finit par la variable : ajoutez du texte après {{1}}.'
-    if (body.trim().length < 15) return 'Message trop court.'
+    if (count === 0) return t('components.tools_notif_var_none')
+    if (count > 1) return t('components.tools_notif_var_single')
+    if (/^\s*\{\{1\}\}/.test(body)) return t('components.tools_notif_var_start')
+    if (/\{\{1\}\}\s*$/.test(body)) return t('components.tools_notif_var_end')
+    if (body.trim().length < 15) return t('components.tools_notif_too_short')
     return null
   }
 
@@ -268,7 +277,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
           }),
         })
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error || 'Création du modèle impossible')
+        if (!res.ok) throw new Error(json.error || t('components.tools_notif_create_err'))
         id = json.data?.id as string
       } else if (newBody !== undefined && newBody !== notifTpls[preset.name]?.body_text) {
         const res = await fetch(`/api/templates/${id}`, {
@@ -276,20 +285,20 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
           body: JSON.stringify({ body_text: bodyText }),
         })
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error || 'Modification impossible')
+        if (!res.ok) throw new Error(json.error || t('components.tools_notif_update_err'))
       }
       const sub = await fetch(`/api/templates/${id}/submit`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: formConfig.session_id || undefined }),
       })
       const sj = await sub.json().catch(() => ({}))
-      if (!sub.ok) toast.error(sj.error || 'Soumission échouée, modèle enregistré en brouillon')
-      else toast.success(`« ${preset.label} » soumis à Meta`)
+      if (!sub.ok) toast.error(sj.error || t('components.tools_notif_submit_err'))
+      else toast.success(t('components.tools_notif_submitted', { label: notifPresetLabel(preset.key) }))
       setNotifEditKey(null)
       setNotifVarWarn(null)
       fetchNotifTemplate()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.tools_notif_err'))
     } finally {
       setNotifBusyKey(null)
     }
@@ -533,7 +542,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               }),
             })
             const credJson = await credRes.json()
-            if (!credRes.ok) throw new Error(credJson.error || 'Erreur création credential')
+            if (!credRes.ok) throw new Error(credJson.error || t('components.tools_cred_create_err'))
             credentialId = credJson.data.id
             clientIdForOAuth = formConfig.client_id
             clientSecretForOAuth = formConfig.client_secret
@@ -553,7 +562,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               }),
             })
             const credJson = await credRes.json()
-            if (!credRes.ok) throw new Error(credJson.error || 'Erreur création credential')
+            if (!credRes.ok) throw new Error(credJson.error || t('components.tools_cred_create_err'))
             credentialId = credJson.data.id
             // Remove secret fields from tool config
             for (const field of selectedTemplate.auth_fields) {
@@ -718,7 +727,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     try {
       const res = await fetch(`/api/agents/${agentId}/tools/${toolToDelete.id}`, { method: 'DELETE' })
       const body = await res.json()
-      if (!res.ok) throw new Error(body?.error || 'Erreur inconnue')
+      if (!res.ok) throw new Error(body?.error || t('components.tools_unknown_error'))
       setTools(prev => prev.filter(t => t.id !== toolToDelete.id))
       toast.success(t('tools.tool_deleted'))
     } catch (err) {
@@ -918,10 +927,10 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         <div className="space-y-2 mt-6">
           <h3 className="text-sm font-medium flex items-center gap-1.5">
             <KeyRound className="h-4 w-4" />
-            Credentials OAuth
+            {t('components.tools_oauth_credentials')}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Vos credentials Google réutilisables sur tous vos agents.
+            {t('components.tools_oauth_credentials_desc')}
           </p>
           <div className="space-y-2">
             {credentials.map(cred => (
@@ -936,14 +945,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         {cred.is_connected ? (
                           <Badge variant="default" className="text-[10px] shrink-0 gap-1 bg-green-600">
                             <CheckCircle className="h-2.5 w-2.5" />
-                            Connecté
+                            {t('components.tools_cred_connected')}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[10px] shrink-0">Non connecté</Badge>
+                          <Badge variant="secondary" className="text-[10px] shrink-0">{t('components.tools_cred_not_connected')}</Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        Client ID: {cred.client_id?.slice(0, 25)}...
+                        {t('components.tools_cred_client_id', { id: cred.client_id?.slice(0, 25) || '' })}
                       </p>
                     </div>
                     <Button
@@ -951,16 +960,16 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       variant="ghost"
                       className="h-7 w-7 p-0 text-destructive hover:text-destructive shrink-0"
                       onClick={async () => {
-                        if (!confirm(`Supprimer "${cred.name}" ? Les outils associés perdront leur connexion OAuth.`)) return
+                        if (!confirm(t('components.tools_cred_delete_confirm', { name: cred.name }))) return
                         try {
                           const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
                           const body = await res.json()
-                          if (!res.ok) throw new Error(body?.error || 'Erreur inconnue')
-                          toast.success('Credential supprimé')
+                          if (!res.ok) throw new Error(body?.error || t('components.tools_unknown_error'))
+                          toast.success(t('components.tools_cred_deleted'))
                           fetchCredentials()
                           fetchTools() // refresh tools that may have lost their credential
                         } catch (err) {
-                          toast.error(`Erreur : ${err instanceof Error ? err.message : 'suppression échouée'}`)
+                          toast.error(t('components.tools_cred_delete_failed_prefix') + (err instanceof Error ? err.message : t('components.tools_cred_delete_failed')))
                         }
                       }}
                     >
@@ -1146,7 +1155,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                                   if (!confirm(t('tools.delete_credential_confirm'))) return
                                   try {
                                     const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
-                                    if (!res.ok) throw new Error('Erreur suppression')
+                                    if (!res.ok) throw new Error(t('components.tools_cred_delete_err'))
                                     toast.success(t('tools.credential_deleted'))
                                     setSelectedCredentialId(null)
                                     fetchCredentials()
@@ -1230,7 +1239,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                   <div className="space-y-4">
                     {/* Session selector */}
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Session WhatsApp (compte d&apos;envoi)</Label>
+                      <Label className="text-xs text-muted-foreground">{t('components.tools_wa_session')}</Label>
                       <Select
                         value={formConfig.session_id || ''}
                         onValueChange={(v) => {
@@ -1242,7 +1251,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         }}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choisir une session..." />
+                          <SelectValue placeholder={t('components.tools_wa_session_placeholder')} />
                         </SelectTrigger>
                         <SelectContent>
                           {waSessions.map(s => (
@@ -1258,7 +1267,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         </SelectContent>
                       </Select>
                       {waSessions.length === 0 && (
-                        <p className="text-[10px] text-muted-foreground">Aucune session connectée trouvée</p>
+                        <p className="text-[10px] text-muted-foreground">{t('components.tools_wa_no_session')}</p>
                       )}
                     </div>
 
@@ -1266,10 +1275,10 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                     {formConfig.session_id && (
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">
-                          Contacts autorisés ({waSelectedContacts.size} sélectionné{waSelectedContacts.size > 1 ? 's' : ''})
+                          {t('components.tools_wa_allowed_contacts', { count: waSelectedContacts.size, plural: waSelectedContacts.size > 1 ? 's' : '' })}
                         </Label>
                         <Input
-                          placeholder="Rechercher un contact..."
+                          placeholder={t('components.tools_wa_search_contact')}
                           value={waContactSearch}
                           onChange={e => setWaContactSearch(e.target.value)}
                           className="h-8 text-xs"
@@ -1280,7 +1289,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                               <Loader2 className="h-4 w-4 animate-spin" />
                             </div>
                           ) : waContacts.length === 0 ? (
-                            <p className="text-xs text-muted-foreground p-3">Aucun contact pour cette session</p>
+                            <p className="text-xs text-muted-foreground p-3">{t('components.tools_wa_no_contact')}</p>
                           ) : (
                             waContacts
                               .filter(c => {
@@ -1327,11 +1336,9 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         (API officielle : hors fenêtre de 24 h, seuls les
                         templates approuvés partent.) */}
                     <div className="space-y-2 rounded-lg border p-3">
-                      <Label className="text-xs font-medium">Types de notifications</Label>
+                      <Label className="text-xs font-medium">{t('components.tools_notif_types')}</Label>
                       <p className="text-[10px] leading-relaxed text-muted-foreground">
-                        L&apos;API officielle n&apos;autorise les messages libres que si le destinataire a écrit dans les
-                        dernières 24 h. Chaque type ci-dessous est un modèle approuvé par Meta : vos notifications
-                        partent à tout moment, l&apos;agent choisit le bon type. <span className="font-mono">{'{{1}}'}</span> = le contenu.
+                        {t('components.tools_notif_types_desc_1')} <span className="font-mono">{'{{1}}'}</span> {t('components.tools_notif_types_desc_2')}
                       </p>
                       {NOTIF_PRESETS.map((p) => {
                         const row = notifTpls[p.name]
@@ -1341,7 +1348,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         return (
                           <div key={p.key} className="space-y-2 rounded-lg border bg-muted/20 p-2.5">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-medium">{p.emoji} {p.label}</p>
+                              <p className="text-xs font-medium">{p.emoji} {notifPresetLabel(p.key)}</p>
                               <Badge
                                 variant="secondary"
                                 className={
@@ -1352,11 +1359,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                                   : 'bg-muted text-muted-foreground'
                                 }
                               >
-                                {status === 'approved' ? 'Approuvé ✓'
-                                  : status === 'pending' ? 'En attente Meta'
-                                  : status === 'rejected' ? 'Rejeté'
-                                  : row ? 'Brouillon'
-                                  : 'À créer'}
+                                {status === 'approved' ? t('components.tools_notif_status_approved')
+                                  : status === 'pending' ? t('components.tools_notif_status_pending')
+                                  : status === 'rejected' ? t('components.tools_notif_status_rejected')
+                                  : row ? t('components.tools_notif_status_draft')
+                                  : t('components.tools_notif_status_tocreate')}
                               </Badge>
                             </div>
 
@@ -1371,11 +1378,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                                 {notifVarWarn && <p className="text-[10px] font-medium text-red-500">{notifVarWarn}</p>}
                                 <div className="flex justify-end gap-2">
                                   <Button size="sm" variant="ghost" onClick={() => { setNotifEditKey(null); setNotifVarWarn(null) }}>
-                                    Annuler
+                                    {t('components.tools_notif_cancel')}
                                   </Button>
                                   <Button size="sm" disabled={busy} onClick={() => provisionNotif(p, notifEditBody)}>
                                     {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                                    Enregistrer et soumettre
+                                    {t('components.tools_notif_save_submit')}
                                   </Button>
                                 </div>
                               </>
@@ -1396,7 +1403,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                                   {(!row || status === 'draft' || status === 'rejected') && (
                                     <Button size="sm" variant="outline" disabled={busy} onClick={() => provisionNotif(p)}>
                                       {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                                      {row ? 'Soumettre à Meta' : 'Créer et soumettre'}
+                                      {row ? t('components.tools_notif_submit_meta') : t('components.tools_notif_create_submit')}
                                     </Button>
                                   )}
                                   <Button
@@ -1404,7 +1411,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                                     variant="ghost"
                                     onClick={() => { setNotifEditKey(p.key); setNotifEditBody(row?.body_text ?? p.body); setNotifVarWarn(null) }}
                                   >
-                                    ✏️ Modifier
+                                    {t('components.tools_notif_edit')}
                                   </Button>
                                 </div>
                               </>
@@ -1420,7 +1427,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               {selectedTemplate.type === 'distance_calculator' && (
                 <div className="space-y-3 border-t pt-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-medium">Véhicules ({vehiclesList.length}/10)</Label>
+                    <Label className="text-xs font-medium">{t('components.tools_vehicles', { count: vehiclesList.length })}</Label>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1428,17 +1435,17 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       disabled={vehiclesList.length >= 10}
                     >
                       <Plus className="mr-1 h-3 w-3" />
-                      Ajouter un véhicule
+                      {t('components.tools_add_vehicle')}
                     </Button>
                   </div>
                   {vehiclesList.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Aucun véhicule configuré. Ajoutez au moins un véhicule.</p>
+                    <p className="text-xs text-muted-foreground">{t('components.tools_no_vehicle')}</p>
                   )}
                   {vehiclesList.map((v, i) => (
                     <div key={i} className="flex items-center gap-2 rounded-lg border p-2">
                       <div className="flex-1 space-y-1.5">
                         <Input
-                          placeholder="Nom du véhicule (ex: Berline, Van, Moto...)"
+                          placeholder={t('components.tools_vehicle_name_placeholder')}
                           value={v.name}
                           onChange={e => updateVehicle(i, 'name', e.target.value)}
                           className="h-7 text-xs"
@@ -1446,7 +1453,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1 flex-1">
                             <Input
-                              placeholder="Prix/km"
+                              placeholder={t('components.tools_vehicle_price_km')}
                               value={v.price_per_km}
                               onChange={e => updateVehicle(i, 'price_per_km', e.target.value)}
                               className="h-7 text-xs"
@@ -1458,7 +1465,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                           </div>
                           <div className="flex items-center gap-1 flex-1">
                             <Input
-                              placeholder="Min (€)"
+                              placeholder={t('components.tools_vehicle_min')}
                               value={v.minimum_price}
                               onChange={e => updateVehicle(i, 'minimum_price', e.target.value)}
                               className="h-7 text-xs"
@@ -1670,6 +1677,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 }
 
 function OAuthRedirectUri() {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const redirectUri = `${window.location.origin}/api/oauth/google/callback`
 
@@ -1681,9 +1689,9 @@ function OAuthRedirectUri() {
 
   return (
     <div className="space-y-2 border-t pt-3">
-      <Label className="text-xs font-medium">URI de redirection autorisée</Label>
+      <Label className="text-xs font-medium">{t('components.tools_oauth_redirect_uri')}</Label>
       <p className="text-[10px] text-muted-foreground">
-        Copiez cette URL et ajoutez-la dans <strong>Google Cloud Console</strong> → Identifiants → votre Client OAuth → <strong>URI de redirection autorisés</strong>
+        {t('components.tools_oauth_redirect_desc_1')} <strong>{t('components.tools_oauth_redirect_gcc')}</strong> {t('components.tools_oauth_redirect_path')} <strong>{t('components.tools_oauth_redirect_uris')}</strong>
       </p>
       <div className="flex items-center gap-2">
         <code className="flex-1 text-[11px] bg-muted px-3 py-2 rounded-md border break-all select-all">

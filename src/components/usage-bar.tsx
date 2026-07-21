@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Sparkles, Zap, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSubscription } from '@/hooks/use-subscription'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Barre de CRÉDITS IA (topbar globale). Affiche clairement les conversations IA
@@ -41,6 +42,7 @@ const PLAN_LABEL: Record<string, string> = {
 }
 
 export function UsageBar() {
+  const { t } = useTranslation()
   const [usage, setUsage] = useState<Usage | null>(null)
   const [buying, setBuying] = useState(false)
   // Marchand facturé par Shopify → aucun achat Stripe (conformité App Store).
@@ -71,9 +73,9 @@ export function UsageBar() {
       if (url) { window.location.href = url; return }
       // ⚠️ Ne PAS échouer en silence : le bouton se réactivait sans rien dire,
       // le marchand cliquait en boucle sans comprendre. On remonte la raison.
-      throw new Error(json?.error || 'Achat impossible')
+      throw new Error(json?.error || t('components.usage_toast_purchase_err'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Achat impossible')
+      toast.error(e instanceof Error ? e.message : t('components.usage_toast_purchase_err'))
       setBuying(false)
     }
   }
@@ -101,8 +103,8 @@ export function UsageBar() {
         className="flex w-full items-center justify-center gap-2 rounded-full border border-border/60 bg-muted/30 px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
       >
         <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-400" />
-        <span className="hidden sm:inline">IA désactivée</span>
-        <span className="font-medium text-primary">Activer l’IA →</span>
+        <span className="hidden sm:inline">{t('components.usage_ai_disabled')}</span>
+        <span className="font-medium text-primary">{t('components.usage_enable_ai')}</span>
       </Link>
     )
   }
@@ -144,9 +146,9 @@ export function UsageBar() {
     <Link
       href="/subscription"
       title={
-        `${planLeft} conversation(s) IA restantes sur les ${planLimit} incluses dans le plan ${planName}` +
-        (extraLeft > 0 ? ` · +${extraLeft} de recharge (ne périment pas)` : '') +
-        ` · ${used} utilisée(s) ce mois-ci`
+        t('components.usage_title', { planLeft, planLimit, planName }) +
+        (extraLeft > 0 ? t('components.usage_title_recharge', { extraLeft }) : '') +
+        t('components.usage_title_used', { used })
       }
       className="group flex w-full items-center gap-3 rounded-full border border-border/60 bg-muted/30 px-4 py-1.5 transition-colors hover:border-primary/40"
     >
@@ -155,9 +157,9 @@ export function UsageBar() {
       {/* Libellé chiffré. En mobile on masque le mot « Crédits IA » mais on garde
           le compteur : la barre s'affichait sinon vide, sans aucun contexte. */}
       <span className="shrink-0 whitespace-nowrap text-xs">
-        <span className="hidden text-muted-foreground sm:inline">Crédits IA </span>
+        <span className="hidden text-muted-foreground sm:inline">{t('components.usage_ai_credits')}</span>
         <span className={cn('tabular-nums font-semibold', textColor)}>{planLeft.toLocaleString('fr-FR')}</span>
-        <span className="text-muted-foreground"> restants</span>
+        <span className="text-muted-foreground">{t('components.usage_remaining')}</span>
         {/* Recharges affichées à part : elles ne périment pas, contrairement au
             quota du plan qui se remet à zéro chaque mois. */}
         {extraLeft > 0 && (
@@ -178,7 +180,7 @@ export function UsageBar() {
           <div
             className="absolute inset-y-0 w-px bg-amber-500/70"
             style={{ left: `${planShare}%` }}
-            title="Au-delà : crédits de recharge"
+            title={t('components.usage_beyond_recharge')}
           />
         )}
       </div>
@@ -196,7 +198,7 @@ export function UsageBar() {
           disabled={buying}
           className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          <Plus className="h-3 w-3" /> {buying ? '…' : 'Recharger'}
+          <Plus className="h-3 w-3" /> {buying ? '…' : t('components.usage_recharge')}
         </button>
       ) : (
         <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline">{planName}</span>

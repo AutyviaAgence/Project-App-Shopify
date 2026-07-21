@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Plus, Loader2, Pencil, Trash2, Check, X, ArrowUp, ArrowDown, Sparkles, AlertTriangle } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 const STAGE_COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#0EA5E9', '#EC4899',
@@ -42,6 +43,7 @@ export function LifecycleStagesDialog({
   stages,
   onStagesChanged,
 }: LifecycleStagesDialogProps) {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(STAGE_COLORS[0])
   const [newDescription, setNewDescription] = useState('')
@@ -55,7 +57,7 @@ export function LifecycleStagesDialog({
   async function handleCreate() {
     if (!newName.trim()) return
     if (!newDescription.trim()) {
-      toast.error('Ajoutez une description : c’est ce qui permet à l’IA de bien classer.')
+      toast.error(t('components.lifecycle_toast_desc_required'))
       return
     }
     setCreating(true)
@@ -67,15 +69,15 @@ export function LifecycleStagesDialog({
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Erreur')
+        throw new Error(j.error || t('components.lifecycle_toast_err'))
       }
       setNewName('')
       setNewColor(STAGE_COLORS[0])
       setNewDescription('')
       await onStagesChanged()
-      toast.success('Étape créée')
+      toast.success(t('components.lifecycle_toast_created'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.lifecycle_toast_err'))
     } finally {
       setCreating(false)
     }
@@ -91,7 +93,7 @@ export function LifecycleStagesDialog({
   async function handleSaveEdit(id: string) {
     if (!editName.trim()) return
     if (!editDescription.trim()) {
-      toast.error('La description est nécessaire : l’IA s’en sert pour classer.')
+      toast.error(t('components.lifecycle_toast_edit_desc_required'))
       return
     }
     setBusyId(id)
@@ -103,13 +105,13 @@ export function LifecycleStagesDialog({
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Erreur')
+        throw new Error(j.error || t('components.lifecycle_toast_err'))
       }
       setEditingId(null)
       await onStagesChanged()
-      toast.success('Étape modifiée')
+      toast.success(t('components.lifecycle_toast_edited'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.lifecycle_toast_err'))
     } finally {
       setBusyId(null)
     }
@@ -121,12 +123,12 @@ export function LifecycleStagesDialog({
       const res = await fetch(`/api/lifecycle/stages/${id}`, { method: 'DELETE' })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Erreur')
+        throw new Error(j.error || t('components.lifecycle_toast_err'))
       }
       await onStagesChanged()
-      toast.success('Étape supprimée')
+      toast.success(t('components.lifecycle_toast_deleted'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.lifecycle_toast_err'))
     } finally {
       setBusyId(null)
     }
@@ -144,10 +146,10 @@ export function LifecycleStagesDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order }),
       })
-      if (!res.ok) throw new Error('Erreur')
+      if (!res.ok) throw new Error(t('components.lifecycle_toast_err'))
       await onStagesChanged()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.lifecycle_toast_err'))
     } finally {
       setBusyId(null)
     }
@@ -157,9 +159,9 @@ export function LifecycleStagesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Gérer les étapes</DialogTitle>
+          <DialogTitle>{t('components.lifecycle_manage_title')}</DialogTitle>
           <DialogDescription>
-            Les étapes du cycle de vie servent à classer vos conversations (nouveau, en cours, client, perdu…).
+            {t('components.lifecycle_manage_desc')}
           </DialogDescription>
         </DialogHeader>
 
@@ -167,9 +169,7 @@ export function LifecycleStagesDialog({
         <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[13px] text-muted-foreground">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <p>
-            <span className="font-medium text-foreground">L’IA se réfère à la description de chaque étape</span> pour
-            décider où ranger une conversation. Plus la description est précise (ce que dit ou fait le contact),
-            plus le classement est juste.
+            <span className="font-medium text-foreground">{t('components.lifecycle_ai_hint_strong')}</span> {t('components.lifecycle_ai_hint')}
           </p>
         </div>
 
@@ -177,7 +177,7 @@ export function LifecycleStagesDialog({
         <div className="space-y-2 max-h-[42vh] overflow-y-auto">
           {stages.length === 0 && (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              Aucune étape pour l&apos;instant. Créez-en une ci-dessous.
+              {t('components.lifecycle_empty')}
             </p>
           )}
           {stages.map((stage, index) => (
@@ -195,7 +195,7 @@ export function LifecycleStagesDialog({
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       className="h-8 flex-1"
-                      placeholder="Nom de l'étape"
+                      placeholder={t('components.lifecycle_stage_name_placeholder')}
                       autoFocus
                     />
                     <Button size="icon" variant="ghost" className="h-8 w-8" disabled={busyId === stage.id} onClick={() => handleSaveEdit(stage.id)}>
@@ -209,7 +209,7 @@ export function LifecycleStagesDialog({
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     rows={2}
-                    placeholder="Instruction pour l'IA : quand ranger une conversation ici ? (ex : le contact demande un remboursement ou signale un problème)"
+                    placeholder={t('components.lifecycle_edit_desc_placeholder')}
                     className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
@@ -222,7 +222,7 @@ export function LifecycleStagesDialog({
                       <p className="text-[12px] text-muted-foreground leading-snug">{stage.description}</p>
                     ) : (
                       <p className="flex items-center gap-1 text-[12px] text-amber-600">
-                        <AlertTriangle className="h-3 w-3" /> Sans description — l’IA classe mal cette étape
+                        <AlertTriangle className="h-3 w-3" /> {t('components.lifecycle_no_desc_warning')}
                       </p>
                     )}
                   </div>
@@ -254,10 +254,10 @@ export function LifecycleStagesDialog({
               value={newColor}
               onChange={(e) => setNewColor(e.target.value)}
               className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent p-0 shrink-0"
-              title="Couleur"
+              title={t('components.lifecycle_color')}
             />
             <Input
-              placeholder="Nom de l'étape (ex : Nouveau lead)"
+              placeholder={t('components.lifecycle_new_name_placeholder')}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               className="flex-1"
@@ -267,13 +267,13 @@ export function LifecycleStagesDialog({
             value={newDescription}
             onChange={(e) => setNewDescription(e.target.value)}
             rows={2}
-            placeholder="Description pour l'IA (obligatoire) : quand une conversation appartient-elle à cette étape ? (ex : le contact pose des questions sur les prix ou demande un devis)"
+            placeholder={t('components.lifecycle_new_desc_placeholder')}
             className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <div className="flex justify-end">
             <Button onClick={handleCreate} disabled={creating || !newName.trim() || !newDescription.trim()}>
               {creating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
-              Ajouter
+              {t('components.lifecycle_add')}
             </Button>
           </div>
         </div>

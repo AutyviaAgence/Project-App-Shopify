@@ -12,6 +12,7 @@ import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink, AlertTriangle } from 'lucide-react'
 import { track } from '@/lib/posthog/events'
+import { useTranslation } from '@/i18n/context'
 
 type StoreStatus = {
   connected: boolean
@@ -34,6 +35,7 @@ type StoreStatus = {
  * de la synchro (catalogue/pages/politiques) et un bouton « Resynchroniser ».
  */
 export function ShopifyConnect() {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<StoreStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [resyncing, setResyncing] = useState(false)
@@ -48,12 +50,12 @@ export function ShopifyConnect() {
     try {
       const res = await fetch('/api/shopify/disconnect', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('components.error'))
       setConfirmDisconnect(false)
       await fetchStatus()
-      toast.success('Boutique déconnectée.')
+      toast.success(t('components.shopify_toast_disconnected'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.error'))
     } finally {
       setDisconnecting(false)
     }
@@ -75,7 +77,7 @@ export function ShopifyConnect() {
         return 'taken'
       }
       const j = await res.json().catch(() => ({}))
-      toast.error(j.error || 'Impossible de lier la boutique')
+      toast.error(j.error || t('components.shopify_toast_link_err'))
       return 'error'
     } catch {
       return 'error'
@@ -111,11 +113,11 @@ export function ShopifyConnect() {
       const r = await tryDirectConnect(shop)
       if (r === 'linked') {
         await fetchStatus()
-        toast.success('Boutique reliée ✓')
+        toast.success(t('components.shopify_toast_linked'))
       } else if (r === 'taken') {
-        toast.error('Cette boutique est déjà liée à un autre compte.')
+        toast.error(t('components.shopify_toast_taken'))
       } else if (r === 'not_installed') {
-        toast.error('Boutique introuvable — réinstallez l’application.')
+        toast.error(t('components.shopify_toast_not_installed'))
       }
     } finally {
       setLinking(false)
@@ -135,7 +137,7 @@ export function ShopifyConnect() {
       if (r === 'linked') {
         localStorage.removeItem('onb_pending_shop')
         await fetchStatus()
-        toast.success('Boutique connectée ✓')
+        toast.success(t('components.shopify_toast_connected'))
       } else if (r === 'not_installed') {
         localStorage.removeItem('onb_pending_shop') // install jamais aboutie : on ne boucle pas
       }
@@ -159,12 +161,12 @@ export function ShopifyConnect() {
     try {
       const res = await fetch('/api/shopify/resync', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('components.error'))
       await fetchStatus()
       const n = json.data?.processed ?? 0
-      toast.success(n > 0 ? 'Boutique resynchronisée, informations mises à jour.' : 'Déjà à jour, rien à resynchroniser.')
+      toast.success(n > 0 ? t('components.shopify_toast_resynced') : t('components.shopify_toast_already_synced'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('components.error'))
     } finally {
       setResyncing(false)
     }
@@ -173,7 +175,7 @@ export function ShopifyConnect() {
   if (loading) {
     return (
       <div className="rounded-xl border p-5 flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t('components.loading')}
       </div>
     )
   }
@@ -192,20 +194,20 @@ export function ShopifyConnect() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium">Boutique Shopify</span>
-                <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-600">Connectée</span>
+                <span className="font-medium">{t('components.shopify_store')}</span>
+                <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-600">{t('components.shopify_connected')}</span>
               </div>
               <p className="text-sm text-muted-foreground truncate">{status.shop_name || status.shop_domain}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Voir le détail des informations récupérées">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title={t('components.shopify_view_detail_title')}>
               <Info className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" disabled={resyncing} onClick={resync} title="Resynchroniser les informations de la boutique">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" disabled={resyncing} onClick={resync} title={t('components.shopify_resync_title')}>
               {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="icon" className="text-destructive" disabled={disconnecting} onClick={() => setConfirmDisconnect(true)} title="Déconnecter la boutique">
+            <Button variant="ghost" size="icon" className="text-destructive" disabled={disconnecting} onClick={() => setConfirmDisconnect(true)} title={t('components.shopify_disconnect_title')}>
               {disconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </Button>
           </div>
@@ -213,14 +215,14 @@ export function ShopifyConnect() {
 
         {/* Détail synchro */}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
-          <span>{status.products_synced != null ? `${status.products_synced} produit${status.products_synced > 1 ? 's' : ''}` : 'Catalogue'}</span>
-          <span className="flex items-center gap-1">Pages {status.has_pages ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
-          <span className="flex items-center gap-1">Politiques {status.has_policies ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
+          <span>{status.products_synced != null ? t('components.shopify_products', { count: status.products_synced, plural: status.products_synced > 1 ? 's' : '' }) : t('components.shopify_catalog')}</span>
+          <span className="flex items-center gap-1">{t('components.shopify_pages')} {status.has_pages ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
+          <span className="flex items-center gap-1">{t('components.shopify_policies')} {status.has_policies ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
           {/* `ml-auto` seulement à partir de sm : en mobile il poussait la date
               hors de la carte au lieu de la laisser passer à la ligne. */}
-          <span className="sm:ml-auto">Dernière synchro : {last}</span>
+          <span className="sm:ml-auto">{t('components.shopify_last_sync', { date: last })}</span>
           <button onClick={() => setDetailOpen(true)} className="basis-full text-left text-blue-500 hover:text-blue-600 transition-colors">
-            Voir le détail récupéré →
+            {t('components.shopify_view_detail')}
           </button>
         </div>
 
@@ -228,22 +230,22 @@ export function ShopifyConnect() {
         <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
           <DialogContent className="sm:max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Informations récupérées</DialogTitle>
-              <DialogDescription>Ce que l&apos;agent IA connaît de votre boutique.</DialogDescription>
+              <DialogTitle>{t('components.shopify_detail_title')}</DialogTitle>
+              <DialogDescription>{t('components.shopify_detail_desc')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-1 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <Info_Item label="Boutique" value={status.context?.name || status.shop_name || '—'} />
-                <Info_Item label="Domaine" value={status.shop_domain || '—'} />
-                <Info_Item label="Devise" value={status.context?.currency || '—'} />
-                <Info_Item label="Pays" value={status.context?.country || '—'} />
-                <Info_Item label="Produits synchronisés" value={status.products_synced != null ? String(status.products_synced) : '—'} />
-                <Info_Item label="Dernière synchro" value={last} />
+                <Info_Item label={t('components.shopify_field_store')} value={status.context?.name || status.shop_name || '—'} />
+                <Info_Item label={t('components.shopify_field_domain')} value={status.shop_domain || '—'} />
+                <Info_Item label={t('components.shopify_field_currency')} value={status.context?.currency || '—'} />
+                <Info_Item label={t('components.shopify_field_country')} value={status.context?.country || '—'} />
+                <Info_Item label={t('components.shopify_field_products_synced')} value={status.products_synced != null ? String(status.products_synced) : '—'} />
+                <Info_Item label={t('components.shopify_field_last_sync')} value={last} />
               </div>
 
               {/* Liens des pages & politiques injectés à l'agent */}
               <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Pages & politiques</p>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t('components.shopify_pages_policies')}</p>
                 {status.context?.links && status.context.links.length > 0 ? (
                   <div className="space-y-1">
                     {status.context.links.map((lnk, i) => (
@@ -256,14 +258,13 @@ export function ShopifyConnect() {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Aucun lien détecté. Resynchronisez si vous avez ajouté des pages ou politiques.
+                    {t('components.shopify_no_links')}
                   </p>
                 )}
               </div>
 
               <p className="text-[11px] text-muted-foreground border-t pt-3">
-                Le catalogue, les pages et les politiques sont injectés automatiquement dans tous vos agents.
-                Pour vérifier, demandez à un agent (ex : « Quelle est ta politique de retour ? »).
+                {t('components.shopify_injected_note')}
               </p>
             </div>
           </DialogContent>
@@ -273,22 +274,20 @@ export function ShopifyConnect() {
         <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Déconnecter la boutique ?</AlertDialogTitle>
+              <AlertDialogTitle>{t('components.shopify_disconnect_q')}</AlertDialogTitle>
               <AlertDialogDescription>
-                Le lien avec <strong>{status.shop_name || status.shop_domain}</strong> sera retiré, ainsi que les informations
-                synchronisées (catalogue, pages, politiques) de cette boutique. Votre agent IA et vos documents ajoutés à la
-                main sont conservés. Vous pourrez ensuite connecter une autre boutique.
+                {t('components.shopify_disconnect_confirm_desc', { store: status.shop_name || status.shop_domain || '' })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={disconnecting}>Annuler</AlertDialogCancel>
+              <AlertDialogCancel disabled={disconnecting}>{t('components.whatsapp_cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={disconnecting}
                 onClick={(e) => { e.preventDefault(); disconnect() }}
               >
                 {disconnecting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                Déconnecter
+                {t('components.shopify_disconnect_action')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -309,8 +308,8 @@ export function ShopifyConnect() {
           <Image src="/brand/shopify-logo.png" alt="Shopify" width={26} height={26} className="h-[26px] w-[26px]" />
         </div>
         <div>
-          <p className="font-medium">Connectez votre boutique Shopify</p>
-          <p className="text-sm text-muted-foreground">L&apos;agent IA répond avec votre catalogue, vos FAQ et vos politiques.</p>
+          <p className="font-medium">{t('components.shopify_connect_title')}</p>
+          <p className="text-sm text-muted-foreground">{t('components.shopify_connect_desc')}</p>
         </div>
       </div>
       {/* Boutique déjà rattachée à un autre compte Xeyo (sécurité) */}
@@ -318,11 +317,9 @@ export function ShopifyConnect() {
         <div className="flex items-start gap-2.5 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
           <div className="space-y-1">
-            <p className="font-medium text-red-600 dark:text-red-400">Cette boutique est déjà connectée à un autre compte</p>
+            <p className="font-medium text-red-600 dark:text-red-400">{t('components.shopify_shop_taken_title')}</p>
             <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{shopTaken}</span> est rattachée à un autre compte Xeyo.
-              Une boutique ne peut être liée qu&apos;à un seul compte. Connectez-vous avec le compte propriétaire,
-              ou demandez-lui de la déconnecter avant de la relier ici.
+              <span className="font-medium text-foreground">{shopTaken}</span> {t('components.shopify_shop_taken_desc_1')}
             </p>
           </div>
         </div>
@@ -339,12 +336,12 @@ export function ShopifyConnect() {
       */}
       {orphans.length > 0 && (
         <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3">
-          <p className="text-sm font-medium">Boutique installée, en attente de liaison</p>
+          <p className="text-sm font-medium">{t('components.shopify_orphan_title')}</p>
           {orphans.map((o) => (
             <div key={o.shop_domain} className="flex items-center justify-between gap-2">
               <span className="truncate text-sm text-muted-foreground">{o.shop_name || o.shop_domain}</span>
               <Button size="sm" disabled={linking} onClick={() => linkOrphan(o.shop_domain)}>
-                {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Relier à mon compte'}
+                {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : t('components.shopify_link_to_account')}
               </Button>
             </div>
           ))}
@@ -366,10 +363,10 @@ export function ShopifyConnect() {
           className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Store className="h-4 w-4" />
-          Installer depuis le Shopify App Store
+          {t('components.shopify_install_btn')}
         </a>
         <p className="text-[11px] text-muted-foreground">
-          Shopify vous demandera d’autoriser l’accès, puis vous ramènera ici. Cette page se mettra à jour automatiquement.
+          {t('components.shopify_install_hint')}
         </p>
       </div>
     </div>
