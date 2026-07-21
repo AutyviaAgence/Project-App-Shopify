@@ -824,7 +824,12 @@ export async function findOrdersByCustomer(
     const phones = [n.phone, n.customer?.phone].filter(Boolean).map((p) => p!.replace(/\D/g, ''))
     if (wantEmail && emails.includes(wantEmail)) return true
     // Téléphone : comparaison sur les 9 derniers chiffres (tolère indicatif/0).
-    if (wantPhone && phones.some((p) => p.endsWith(wantPhone.slice(-9)) || wantPhone.endsWith(p.slice(-9)))) return true
+    //
+    // ⚠️ Les DEUX numéros doivent être assez longs. `wantPhone.endsWith(p.slice(-9))`
+    // acceptait un numéro de commande court : « 6808 » matchait « 33636006808 »,
+    // et la commande d'un autre client remontait dans le panneau.
+    if (wantPhone && phones.some((p) => p.length >= 9
+      && (p.endsWith(wantPhone.slice(-9)) || wantPhone.endsWith(p.slice(-9))))) return true
     return false
   }
 

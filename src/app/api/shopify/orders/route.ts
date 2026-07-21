@@ -45,12 +45,41 @@ export async function GET(req: NextRequest) {
     .maybeSingle()
   if (!contact) return NextResponse.json({ data: { connected: true, orders: [] } })
 
+  // ⚠️ SOURCE DE VÉRITÉ : notre table `shopify_orders`, qui porte le contact_id
+  // RÉEL établi à la réception du webhook.
+  //
+  // Interroger Shopify par `customer_id` paraissait fiable, mais Shopify
+  // REGROUPE sous un même client des commandes passées avec le même email —
+  // même si, chez nous, elles appartiennent à des contacts WhatsApp distincts.
+  // Le panneau affichait alors TOUTES les commandes dans chaque conversation,
+  // alors que le tableau (qui lit cette table) était juste.
+  //
+  // On récupère donc d'abord les numéros de commande rattachés à CE contact et
+  // on s'en sert pour filtrer la réponse Shopify (qui reste nécessaire pour le
+  // suivi, les remboursements et les statuts à jour).
+  // `shopify_orders` n'est pas dans les types générés → cast (même motif que
+  // api/shopify/sales et api/shopify/backfill-orders).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: localOrders } = await (supabase as any)
+    .from('shopify_orders')
+    .select('order_number')
+    .eq('contact_id', contactId)
+  // `order_number` est stocké avec ou sans « # » selon la source : on compare
+  // sur les chiffres seuls pour ne dépendre d'aucun format.
+  const allowed = new Set(
+    (localOrders || [])
+      .map((o: { order_number?: string | number }) => String(o.order_number ?? '').replace(/\D/g, ''))
+      .filter(Boolean)
+  )
+  const restrict = (orders: { name: string }[]) =>
+    allowed.size === 0 ? orders : orders.filter((o) => allowed.has(String(o.name).replace(/\D/g, '')))
+
   // Si le contact est RELIÉ à un client Shopify → recherche fiable par
   // customer_id (pas de faux positifs). C'est le chemin privilégié.
   if (contact.shopify_customer_id) {
     const byId = await findOrdersByCustomerId(store.shop_domain, token, contact.shopify_customer_id)
     if (byId.ok) {
-      return NextResponse.json({ data: { connected: true, orders: byId.data, shopDomain: store.shop_domain, linked: true } })
+      return NextResponse.json({ data: { connected: true, orders: restrict(byId.data), shopDomain: store.shop_domain, linked: true } })
     }
     // En cas d'échec (client supprimé côté Shopify), on retombe sur email/tel.
   }
@@ -83,5 +112,5 @@ export async function GET(req: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ data: { connected: true, orders: [], error: result.error, shopDomain: store.shop_domain } })
   }
-  return NextResponse.json({ data: { connected: true, orders: result.data, shopDomain: store.shop_domain } })
+  return NextResponse.json({ data: { connected: true, orders: restrict(result.data), shopDomain: store.shop_domain } })
 }
