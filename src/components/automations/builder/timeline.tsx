@@ -138,6 +138,9 @@ export function localizedTemplate(
   const variant = templates.find(
     (t) => t.name === base.name && t.language === want && t.status === 'approved'
   )
+  // TRACE TEMPORAIRE — à retirer une fois le diagnostic posé.
+  // eslint-disable-next-line no-console
+  console.log('[XEYO i18n]', { locale, want, base: `${base.name}/${base.language}`, out: variant ? `${variant.name}/${variant.language}` : `FALLBACK ${base.language}`, nbTemplates: templates.length })
   return variant || base
 }
 
