@@ -3396,5 +3396,8 @@
     "err_missing_token": "Lien de liaison manquant. Rouvrez Xeyo depuis votre admin Shopify.",
     "err_failed": "La liaison a échoué.",
     "err_network": "Erreur réseau. Réessayez."
+  },
+  "onboarding_feedback": {
+    "next_step": "Étape suivante : {next}"
   }
 }

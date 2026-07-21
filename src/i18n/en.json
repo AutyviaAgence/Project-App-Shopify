@@ -3396,5 +3396,8 @@
     "err_missing_token": "Missing link token. Reopen Xeyo from your Shopify admin.",
     "err_failed": "Linking failed.",
     "err_network": "Network error. Please try again."
+  },
+  "onboarding_feedback": {
+    "next_step": "Next step: {next}"
   }
 }

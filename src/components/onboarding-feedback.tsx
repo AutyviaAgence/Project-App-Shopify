@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { ArrowRight, Check } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Validation d'étape de l'onboarding : une CARTE physique (verre épais) qui
@@ -31,6 +32,7 @@ export function OnboardingFeedback({
 }: {
   feedback: { message: string; next?: string } | null
 }) {
+  const { t } = useTranslation()
   if (!feedback) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
@@ -91,7 +93,7 @@ export function OnboardingFeedback({
                 className="mt-1.5 flex items-center gap-1.5 text-sm text-white/50"
               >
                 <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
-                Étape suivante : {feedback.next}
+                {t('onboarding_feedback.next_step', { next: feedback.next })}
               </motion.p>
             )}
           </div>
