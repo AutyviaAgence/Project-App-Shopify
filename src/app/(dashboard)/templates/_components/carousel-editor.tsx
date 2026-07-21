@@ -244,7 +244,7 @@ export function CarouselEditor({
                       <DropdownMenuLabel className="text-[11px] uppercase text-muted-foreground">{group}</DropdownMenuLabel>
                       {TEMPLATE_VARIABLES.filter((v) => v.group === group).map((v) => (
                         <DropdownMenuItem key={v.key} onClick={() => insertCardVariable(i, v.key)} className="text-sm">
-                          {v.label}
+                          {t(v.labelKey)}
                         </DropdownMenuItem>
                       ))}
                     </div>
@@ -260,7 +260,7 @@ export function CarouselEditor({
                   <div key={vi} className="flex items-center gap-1.5 text-[11px]">
                     <code className="rounded bg-background px-1 py-0.5">{`{{${vi + 1}}}`}</code>
                     <span className="text-muted-foreground">=</span>
-                    <span>{VARIABLE_BY_KEY[key]?.label || key}</span>
+                    <span>{(() => { const v = VARIABLE_BY_KEY[key]; return v ? t(v.labelKey) : key })()}</span>
                   </div>
                 ))}
               </div>

@@ -29,6 +29,19 @@ export const TEMPLATE_LANGUAGE_LABELS: Record<string, string> = {
 }
 
 /**
+ * Clés i18n des mêmes langues — l'UI DOIT passer par là.
+ *
+ * `TEMPLATE_LANGUAGE_LABELS` reste en français : il sert côté serveur (prompts
+ * IA, journaux). Affiché tel quel, il donnait un sélecteur « Anglais » dans une
+ * interface anglaise.
+ */
+export const TEMPLATE_LANGUAGE_LABEL_KEYS: Record<string, string> = {
+  fr: 'automations.builder.lang_fr', en: 'automations.builder.lang_en',
+  es: 'automations.builder.lang_es', de: 'automations.builder.lang_de',
+  it: 'automations.builder.lang_it',
+}
+
+/**
  * Normalise une locale (ex: 'fr-FR', 'de_DE', 'EN', 'pt-BR') en code court
  * supporté (ex: 'fr'). Renvoie null si non reconnu/non supporté.
  */

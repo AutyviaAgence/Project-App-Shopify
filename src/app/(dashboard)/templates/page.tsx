@@ -28,7 +28,7 @@ import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Itali
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
-import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact-language'
+import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABEL_KEYS } from '@/lib/i18n/contact-language'
 import { USE_CASES, USE_CASE_BY_KEY, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
 import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone, ChevronDown, Check } from 'lucide-react'
 import Link from 'next/link'
@@ -60,7 +60,9 @@ function effectiveStatus(t: Pick<WhatsAppTemplate, 'status' | 'has_pending_chang
   return t.status
 }
 
-const LANGUAGES = TEMPLATE_LANGUAGES.map((v) => ({ value: v, label: TEMPLATE_LANGUAGE_LABELS[v] || v }))
+// Libellés résolus AU RENDU (la langue de l'interface peut changer sans reload).
+const languageOptions = (t: (k: string) => string) =>
+  TEMPLATE_LANGUAGES.map((v) => ({ value: v, label: TEMPLATE_LANGUAGE_LABEL_KEYS[v] ? t(TEMPLATE_LANGUAGE_LABEL_KEYS[v]) : v }))
 
 /**
  * Rend le formatage WhatsApp (*gras*, _italique_, ~barré~) en vrai style dans
@@ -1162,7 +1164,7 @@ export default function TemplatesPage() {
                           type="button"
                           // Clic sur un badge de langue → ouvre CETTE variante pour l'éditer.
                           onClick={(e) => { e.stopPropagation(); openEdit(row) }}
-                          title={t('templates.lang_badge_title', { lang: TEMPLATE_LANGUAGE_LABELS[l] || l, status: t((STATUS_STYLE[rs] || STATUS_STYLE.draft).labelKey) })}
+                          title={t('templates.lang_badge_title', { lang: TEMPLATE_LANGUAGE_LABEL_KEYS[l] ? t(TEMPLATE_LANGUAGE_LABEL_KEYS[l]) : l, status: t((STATUS_STYLE[rs] || STATUS_STYLE.draft).labelKey) })}
                           className={cn(
                             'rounded px-1 py-0.5 text-[9px] font-semibold uppercase transition-all hover:ring-1 hover:ring-primary/50',
                             isOpen && 'ring-1 ring-primary',
@@ -1265,7 +1267,7 @@ export default function TemplatesPage() {
                 <Label>{t('templates.language')}</Label>
                 <Select value={language} onValueChange={switchLanguage}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{LANGUAGES.map(l => (
+                  <SelectContent>{languageOptions(t).map(l => (
                     <SelectItem key={l.value} value={l.value}>
                       {l.label}{existingLangs.includes(l.value) ? '' : t('templates.language_to_translate')}
                     </SelectItem>
@@ -1447,7 +1449,7 @@ export default function TemplatesPage() {
                 ref={bodyRef}
                 value={bodyText}
                 onChange={(v) => { setBodyText(v); setVariableKeys((prev) => syncVariableKeys(v, prev)) }}
-                labels={variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)}
+                labels={variableKeys.map((k) => { const v = VARIABLE_BY_KEY[k]; return v ? t(v.labelKey) : k })}
                 rows={5}
                 maxLength={1024}
                 placeholder={t('templates.body_placeholder')}
@@ -1472,7 +1474,7 @@ export default function TemplatesPage() {
                           <DropdownMenuLabel className="text-[11px] uppercase text-muted-foreground">{group}</DropdownMenuLabel>
                           {TEMPLATE_VARIABLES.filter((v) => v.group === group).map((v) => (
                             <DropdownMenuItem key={v.key} onClick={() => insertVariable(v.key)} className="text-sm">
-                              {v.label}
+                              {t(v.labelKey)}
                             </DropdownMenuItem>
                           ))}
                         </div>
@@ -1496,7 +1498,7 @@ export default function TemplatesPage() {
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <code className="rounded bg-background px-1.5 py-0.5 text-[11px]">{`{{${i + 1}}}`}</code>
                       <span className="text-muted-foreground">=</span>
-                      <span>{VARIABLE_BY_KEY[key]?.label || key}</span>
+                      <span>{(() => { const v = VARIABLE_BY_KEY[key]; return v ? t(v.labelKey) : key })()}</span>
                     </div>
                   ))}
                 </div>
@@ -1714,7 +1716,7 @@ export default function TemplatesPage() {
                   <div className="mt-4 space-y-3">
                     <p className="text-xs font-medium text-muted-foreground">{t('templates.choose_proposal')}</p>
                     {aiProposals.map((p, i) => {
-                      const labels = p.variable_keys.map((k) => VARIABLE_BY_KEY[k]?.label || k)
+                      const labels = p.variable_keys.map((k) => { const v = VARIABLE_BY_KEY[k]; return v ? t(v.labelKey) : k })
                       const typeLabel = p.template_type === 'limited_time_offer' ? t('templates.proposal_lto')
                         : p.template_type === 'carousel' ? t('templates.proposal_carousel') : t('templates.proposal_standard')
                       return (
