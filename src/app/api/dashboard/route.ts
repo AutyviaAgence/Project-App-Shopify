@@ -122,8 +122,12 @@ export async function GET() {
 
 type ActivityItem = {
   kind: string
+  /** Phrase française assemblée — REPLI seulement (alertes stockées en base). */
   label: string
   at: string
+  /** Clé i18n + paramètres : le client rend dans la langue du marchand. */
+  labelKey?: string
+  labelParams?: Record<string, string | number>
 }
 
 /**
@@ -190,6 +194,16 @@ async function recentActivity(
   for (const o of orders.data || []) {
     items.push({
       kind: 'order',
+      // ⚠️ Phrase NON assemblée ici : le serveur ignore la langue du marchand.
+      // On renvoie la clé + ses paramètres, le client rend via t(). `label`
+      // reste rempli en repli (anciens clients, journaux).
+      labelKey: o.is_whatsapp ? 'activity.order_whatsapp' : 'activity.order',
+      labelParams: {
+        // `order_number` contient déjà son « # » : le préfixer en donnait deux.
+        num: String(o.order_number).startsWith('#') ? String(o.order_number) : `#${o.order_number}`,
+        amount: Number(o.total_price).toFixed(2),
+        currency: o.currency,
+      },
       label: o.is_whatsapp
         ? `Commande #${o.order_number} via WhatsApp — ${Number(o.total_price).toFixed(2)} ${o.currency}`
         : `Commande #${o.order_number} — ${Number(o.total_price).toFixed(2)} ${o.currency}`,
@@ -202,6 +216,8 @@ async function recentActivity(
     // ce flux est visible en permanence sur l'écran d'accueil.
     items.push({
       kind: 'optin',
+      labelKey: c.name ? 'activity.optin' : 'activity.optin_anonymous',
+      labelParams: c.name ? { name: c.name } : {},
       label: `${c.name || 'Un client'} s’est abonné à WhatsApp`,
       at: c.opt_in_at,
     })
@@ -210,6 +226,8 @@ async function recentActivity(
   for (const c of campaigns.data || []) {
     items.push({
       kind: 'campaign',
+      labelKey: 'activity.campaign',
+      labelParams: { name: c.name, count: c.sent_count || 0 },
       label: `Campagne « ${c.name} » envoyée à ${c.sent_count || 0} contacts`,
       at: c.completed_at,
     })

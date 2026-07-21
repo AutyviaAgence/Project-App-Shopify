@@ -1858,7 +1858,9 @@
       "zoom_out": "Dézoomer",
       "zoom_in": "Zoomer",
       "recenter": "Recentrer",
-      "multilang_note": "Aperçu en {lang}. Chaque client reçoit automatiquement la version dans sa langue."
+      "multilang_note": "Aperçu en {lang}. Chaque client reçoit automatiquement la version dans sa langue.",
+      "sim_trigger_prefix": "Déclencheur : {label}",
+      "sim_event": "événement"
     },
     "trigger": {
       "group_order": "Commande",
@@ -3419,5 +3421,38 @@
     "annual": "Annuel",
     "default_title": "Choisissez votre formule",
     "default_description": "Vous pourrez changer de plan à tout moment."
+  },
+  "activity": {
+    "order_whatsapp": "Commande {num} via WhatsApp — {amount} {currency}",
+    "order": "Commande {num} — {amount} {currency}",
+    "optin": "{name} s’est abonné à WhatsApp",
+    "optin_anonymous": "Un client s’est abonné à WhatsApp",
+    "campaign": "Campagne « {name} » envoyée à {count} contacts"
+  },
+  "whatsapp_profile": {
+    "title": "Profil WhatsApp",
+    "description": "Ce que vos clients voient sur votre fiche WhatsApp.",
+    "photo_too_large": "Image trop lourde (max 5 Mo)",
+    "photo_not_image": "Choisissez une image",
+    "generic_error": "Erreur",
+    "save_success": "Profil WhatsApp mis à jour",
+    "change_photo": "Changer la photo",
+    "photo_hint": "JPG/PNG carré, max 5 Mo",
+    "about_label": "À propos",
+    "about_hint": "(sous le nom, ≤ 139 car.)",
+    "about_placeholder": "Ex : Votre boutique, disponible 7j/7 sur WhatsApp",
+    "description_label": "Description",
+    "description_placeholder": "Présentez votre activité en quelques lignes.",
+    "email_label": "Email",
+    "email_placeholder": "contact@maboutique.com",
+    "website_label": "Site web",
+    "website_placeholder": "maboutique.com",
+    "address_label": "Adresse",
+    "address_placeholder": "12 rue du Commerce, 75000 Paris",
+    "display_name_notice_before": "Le ",
+    "display_name_notice_highlight": "nom d’affichage",
+    "display_name_notice_after": " de votre marque ne se modifie pas ici : il passe par une validation Meta dans WhatsApp Manager.",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
   }
 }

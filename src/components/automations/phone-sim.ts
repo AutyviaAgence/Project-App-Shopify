@@ -16,6 +16,7 @@ import {
   type WorkflowGraph, type WorkflowNode,
 } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
+import { TRIGGER_EVENTS } from '@/lib/automations/types'
 
 export type SimTemplate = Pick<WhatsAppTemplate,
   'id' | 'name' | 'header_text' | 'header_type' | 'body_text' | 'footer_text' | 'buttons'
@@ -54,6 +55,9 @@ export type SimState = {
 
 const QUICK = (b: unknown): b is TemplateButton =>
   !!b && typeof b === 'object' && (b as { type?: string }).type === 'QUICK_REPLY'
+
+/** Fonction i18n passée par l'appelant (`t` est déjà pris par SimTemplate). */
+export type TrFn = (key: string, params?: Record<string, string | number>) => string
 
 function quickLabels(t: SimTemplate | undefined): string[] {
   if (!t) return []
@@ -146,6 +150,7 @@ export function advance(
   templates: SimTemplate[],
   fromNodeId: string | null,
   base: SimItem[],
+  tr: TrFn,
 ): SimState {
   const items = [...base]
   let cur: string | undefined
@@ -153,7 +158,7 @@ export function advance(
   else {
     const trig = triggerNode(graph)
     // Bulle système d'ouverture (l'événement déclencheur).
-    if (trig) items.push({ kind: 'system', text: 'Déclencheur : ' + humanTrigger(trig) })
+    if (trig) items.push({ kind: 'system', text: tr('automations.builder.sim_trigger_prefix', { label: humanTrigger(trig, tr) }) })
     cur = trig ? nextNodes(graph, trig.id)[0] : undefined
   }
 
@@ -206,6 +211,7 @@ export function clickButton(
   templates: SimTemplate[],
   state: SimState,
   clickedLabel: string,
+  tr: TrFn,
 ): SimState {
   if (!state.waitingNodeId) return state
   const nodeId = state.waitingNodeId
@@ -218,7 +224,7 @@ export function clickButton(
   if (!target) {
     return { items: [...withReply, { kind: 'end', text: 'Aucune suite pour ce bouton' }], waitingNodeId: null, waitingButtons: [], done: true }
   }
-  return advance(graph, templates, target, withReply)
+  return advance(graph, templates, target, withReply, tr)
 }
 
 /** Le contact tape un message libre : on l'affiche puis on reprend depuis le
@@ -229,19 +235,20 @@ export function typeText(
   templates: SimTemplate[],
   state: SimState,
   text: string,
+  tr: TrFn,
 ): SimState {
   const withReply: SimItem[] = [...state.items, { kind: 'reply', text }]
   if (!state.waitingNodeId) {
     return { ...state, items: withReply }
   }
   const timeout = graph.edges.find((e) => e.from === state.waitingNodeId && e.branch === BUTTON_TIMEOUT_BRANCH)
-  if (timeout) return advance(graph, templates, timeout.to, withReply)
+  if (timeout) return advance(graph, templates, timeout.to, withReply, tr)
   return { items: [...withReply, { kind: 'end', text: 'En attente d’un clic sur un bouton' }], waitingNodeId: state.waitingNodeId, waitingButtons: state.waitingButtons, done: false }
 }
 
 /** Démarre une nouvelle simulation depuis le trigger. */
-export function startSim(graph: WorkflowGraph, templates: SimTemplate[]): SimState {
-  return advance(graph, templates, null, [])
+export function startSim(graph: WorkflowGraph, templates: SimTemplate[], tr: TrFn): SimState {
+  return advance(graph, templates, null, [], tr)
 }
 
 /**
@@ -254,10 +261,10 @@ export function startSim(graph: WorkflowGraph, templates: SimTemplate[]): SimSta
  * Anti-boucle : un nœud action déjà visité n'est pas re-déroulé (évite les
  * cycles) ; garde globale sur le nombre d'items.
  */
-export function buildTour(graph: WorkflowGraph, templates: SimTemplate[]): SimItem[] {
+export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: TrFn): SimItem[] {
   const items: SimItem[] = []
   const trig = triggerNode(graph)
-  if (trig) items.push({ kind: 'system', text: 'Déclencheur : ' + humanTrigger(trig) })
+  if (trig) items.push({ kind: 'system', text: tr('automations.builder.sim_trigger_prefix', { label: humanTrigger(trig, tr) }) })
   const start = trig ? nextNodes(graph, trig.id)[0] : undefined
 
   const visitedActions = new Set<string>()
@@ -330,13 +337,15 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[]): SimIt
 }
 
 // ---- libellés triggers (aperçu) --------------------------------------------
-function humanTrigger(trig: WorkflowNode): string {
-  if (trig.type !== 'trigger') return 'événement'
-  const map: Record<string, string> = {
-    order_created: 'Commande créée', order_paid: 'Commande payée', order_fulfilled: 'Commande expédiée',
-    order_delivered: 'Commande livrée', order_cancelled: 'Commande annulée', checkout_abandoned: 'Panier abandonné',
-    contact_opted_in: 'Nouvel abonné', optin_popup: 'Opt-in via popup', button_clicked: 'Clic sur un bouton',
-    scheduled_date: 'Date précise', customer_birthday: 'Anniversaire client',
-  }
-  return map[trig.event] || trig.event
+/**
+ * Libellé du déclencheur dans la langue du MARCHAND.
+ *
+ * Une table française était dupliquée ici alors que TRIGGER_EVENTS porte déjà
+ * un `labelKey` par événement : le mockup restait donc en français dans une
+ * interface anglaise. On réutilise la source unique.
+ */
+function humanTrigger(trig: WorkflowNode, tr: TrFn): string {
+  if (trig.type !== 'trigger') return tr('automations.builder.sim_event')
+  const ev = TRIGGER_EVENTS.find((e) => e.value === trig.event)
+  return ev ? tr(ev.labelKey) : trig.event
 }

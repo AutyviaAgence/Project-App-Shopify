@@ -104,7 +104,7 @@ export function PhonePreview({
   const [playKey, setPlayKey] = useState(0)
   const tour: SimItem[] = React.useMemo(() => {
     if (!graph || !templates || templates.length === 0) return []
-    try { return buildTour(graph, templates) } catch { return [] }
+    try { return buildTour(graph, templates, t) } catch { return [] }
   }, [graph, templates])
   const hasTour = tour.length > 1
 
@@ -146,20 +146,20 @@ export function PhonePreview({
   const startTest = () => {
     if (!graph || !templates) return
     setMode('test')
-    setSim(startSim(graph, templates))
+    setSim(startSim(graph, templates, t))
   }
   const resetTest = () => {
     setSim(null); setDraft(''); setMode('auto'); setPlayKey((k) => k + 1)
   }
   const onClickSimButton = (label: string) => {
     if (!graph || !templates || !sim) return
-    setSim(clickButton(graph, templates, sim, label))
+    setSim(clickButton(graph, templates, sim, label, t))
   }
   const onSendDraft = () => {
     const text = draft.trim()
     if (!text) return
     setDraft('')
-    if (graph && templates && sim) setSim(typeText(graph, templates, sim, text))
+    if (graph && templates && sim) setSim(typeText(graph, templates, sim, text, t))
   }
   // Scroll auto vers le bas quand la conversation grandit (test OU démo tournée).
   const convRef = useRef<HTMLDivElement>(null)

@@ -1858,7 +1858,9 @@
       "zoom_out": "Zoom out",
       "zoom_in": "Zoom in",
       "recenter": "Recenter",
-      "multilang_note": "Preview in {lang}. Each customer automatically receives the version in their own language."
+      "multilang_note": "Preview in {lang}. Each customer automatically receives the version in their own language.",
+      "sim_trigger_prefix": "Trigger: {label}",
+      "sim_event": "event"
     },
     "trigger": {
       "group_order": "Order",
@@ -3419,5 +3421,38 @@
     "annual": "Annual",
     "default_title": "Choose your plan",
     "default_description": "You can switch plans at any time."
+  },
+  "activity": {
+    "order_whatsapp": "Order {num} via WhatsApp — {amount} {currency}",
+    "order": "Order {num} — {amount} {currency}",
+    "optin": "{name} subscribed to WhatsApp",
+    "optin_anonymous": "A customer subscribed to WhatsApp",
+    "campaign": "Campaign \"{name}\" sent to {count} contacts"
+  },
+  "whatsapp_profile": {
+    "title": "WhatsApp profile",
+    "description": "What your customers see on your WhatsApp business profile.",
+    "photo_too_large": "Image too large (5 MB max)",
+    "photo_not_image": "Please choose an image file",
+    "generic_error": "Something went wrong",
+    "save_success": "WhatsApp profile updated",
+    "change_photo": "Change photo",
+    "photo_hint": "Square JPG/PNG, 5 MB max",
+    "about_label": "About",
+    "about_hint": "(shown under your name, 139 characters max)",
+    "about_placeholder": "e.g. Your store, available on WhatsApp 7 days a week",
+    "description_label": "Description",
+    "description_placeholder": "Describe your business in a few lines.",
+    "email_label": "Email",
+    "email_placeholder": "contact@yourstore.com",
+    "website_label": "Website",
+    "website_placeholder": "yourstore.com",
+    "address_label": "Address",
+    "address_placeholder": "12 Commerce Street, London",
+    "display_name_notice_before": "Your brand’s ",
+    "display_name_notice_highlight": "display name",
+    "display_name_notice_after": " can’t be changed here — it requires Meta approval in WhatsApp Manager.",
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

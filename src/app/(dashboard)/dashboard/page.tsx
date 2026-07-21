@@ -34,7 +34,7 @@ type DashboardData = {
     whatsappRevenueCents: number
     currency: string
   }
-  activity: Array<{ kind: string; label: string; at: string }>
+  activity: Array<{ kind: string; label: string; at: string; labelKey?: string; labelParams?: Record<string, string | number> }>
 }
 
 // Les articles pointeront vers le blog. Pas de lien pour l'instant : l'utilisateur
@@ -152,7 +152,12 @@ function DashboardHome() {
                 return (
                   <li key={i} className="flex items-center gap-2.5">
                     <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
+                    {/* `labelKey` quand le serveur l'a fourni (il ignore la
+                        langue du marchand) ; `label` en repli pour les alertes
+                        dont le titre est stocké tel quel en base. */}
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {item.labelKey ? t(item.labelKey, item.labelParams) : item.label}
+                    </span>
                     <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(item.at, t, locale)}</span>
                   </li>
                 )
