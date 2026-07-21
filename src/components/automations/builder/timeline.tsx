@@ -1110,7 +1110,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
               {templateBlockReason(selected.status) && (
                 <p className="mt-1.5 flex items-start gap-1 rounded-md bg-amber-500/10 p-1.5 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
-                  <span>{templateBlockReason(selected.status)}</span>
+                  <span>{t(templateBlockReason(selected.status)!)}</span>
                 </p>
               )}
 

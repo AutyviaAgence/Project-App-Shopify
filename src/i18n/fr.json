@@ -2932,6 +2932,17 @@
       "support_desc": "Bienvenue, demande d’avis, retours, satisfaction…",
       "billing_label": "Paiement & facturation",
       "billing_desc": "Paiement reçu, remboursement, relance paiement…"
+    },
+    "block_reason": {
+      "pending": "En attente de validation par Meta (24 h en général). Le parcours ne pourra pas être activé avant.",
+      "draft": "Brouillon : ce message n’a pas encore été soumis à Meta. Soumettez-le depuis Modèles pour pouvoir activer ce parcours.",
+      "rejected": "Refusé par Meta. Corrigez ce message dans Modèles puis resoumettez-le.",
+      "default": "Ce message n’est pas approuvé par Meta : le parcours ne peut pas être activé."
+    },
+    "status_label": {
+      "pending": "En revue",
+      "draft": "Brouillon",
+      "rejected": "Refusé"
     }
   },
   "macros": {

@@ -2932,6 +2932,17 @@
       "support_desc": "Welcome, review request, returns, satisfaction…",
       "billing_label": "Payment & billing",
       "billing_desc": "Payment received, refund, payment reminder…"
+    },
+    "block_reason": {
+      "pending": "Awaiting Meta approval (usually within 24 hours). The workflow can't be activated until then.",
+      "draft": "Draft: this message hasn't been submitted to Meta yet. Submit it from Templates to activate this workflow.",
+      "rejected": "Rejected by Meta. Fix this message in Templates, then resubmit it.",
+      "default": "This message isn't approved by Meta: the workflow can't be activated."
+    },
+    "status_label": {
+      "pending": "In review",
+      "draft": "Draft",
+      "rejected": "Rejected"
     }
   },
   "macros": {

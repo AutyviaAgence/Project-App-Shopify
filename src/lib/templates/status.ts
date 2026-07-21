@@ -35,22 +35,22 @@ export function templateBlockReason(status: string): string | null {
     case 'approved':
       return null
     case 'pending':
-      return 'En attente de validation par Meta (24 h en général). Le parcours ne pourra pas être activé avant.'
+      return 'templates.block_reason.pending'
     case 'draft':
-      return 'Brouillon : ce message n’a pas encore été soumis à Meta. Soumettez-le depuis Modèles pour pouvoir activer ce parcours.'
+      return 'templates.block_reason.draft'
     case 'rejected':
-      return 'Refusé par Meta. Corrigez ce message dans Modèles puis resoumettez-le.'
+      return 'templates.block_reason.rejected'
     default:
-      return 'Ce message n’est pas approuvé par Meta : le parcours ne peut pas être activé.'
+      return 'templates.block_reason.default'
   }
 }
 
 /** Libellé court, pour un badge sur le nœud. */
 export function templateStatusLabel(status: string): string | null {
   switch (status) {
-    case 'pending': return 'En revue'
-    case 'draft': return 'Brouillon'
-    case 'rejected': return 'Refusé'
+    case 'pending': return 'templates.status_label.pending'
+    case 'draft': return 'templates.status_label.draft'
+    case 'rejected': return 'templates.status_label.rejected'
     default: return null
   }
 }
