@@ -380,7 +380,10 @@ export function WorkflowWizard({
 }
 
 function defaultName(event: TriggerEvent, t: (key: string) => string): string {
-  return TRIGGER_EVENTS.find((e) => e.value === event)?.label || t('automations.builder.wizard_default_automation_name')
+  // Nom PROPOSÉ de l'automatisation : c'est de l'interface marchand, donc il
+  // suit sa langue (`labelKey`), pas le `label` français brut réservé au serveur.
+  const ev = TRIGGER_EVENTS.find((e) => e.value === event)
+  return ev ? t(ev.labelKey) : t('automations.builder.wizard_default_automation_name')
 }
 
 /** Champ d'aide IA (phrase → suggestion). */

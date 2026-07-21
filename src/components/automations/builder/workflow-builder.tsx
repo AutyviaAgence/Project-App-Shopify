@@ -285,7 +285,13 @@ export function WorkflowBuilder({
         {previewTpl ? (
           <PhonePreview
             storeName={storeName}
-            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || t('automations.builder.trigger')}
+            eventLabel={(() => {
+              // `label` est le texte FRANÇAIS brut (conservé pour les prompts IA
+              // serveur) : l'UI passe par `labelKey`, sinon l'étiquette du
+              // déclencheur reste en français dans une interface anglaise.
+              const ev = TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)
+              return ev ? t(ev.labelKey) : t('automations.builder.trigger')
+            })()}
             conditionsText={ctx.condition}
             delayLabel={delayLabelMin(ctx.delayMin, t)}
             headerText={previewTpl.header_text || undefined}
@@ -303,7 +309,13 @@ export function WorkflowBuilder({
           // message d'invitation à l'intérieur (plus visuel qu'un texte seul).
           <PhonePreview
             storeName={storeName}
-            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || t('automations.builder.trigger')}
+            eventLabel={(() => {
+              // `label` est le texte FRANÇAIS brut (conservé pour les prompts IA
+              // serveur) : l'UI passe par `labelKey`, sinon l'étiquette du
+              // déclencheur reste en français dans une interface anglaise.
+              const ev = TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)
+              return ev ? t(ev.labelKey) : t('automations.builder.trigger')
+            })()}
             conditionsText={ctx.condition}
             delayLabel={delayLabelMin(ctx.delayMin, t)}
             bodyText={t('automations.builder.choose_template_for_preview')}

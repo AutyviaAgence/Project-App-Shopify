@@ -480,7 +480,14 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
           })}
         </SelectContent>
       </Select>
-      <p className="mt-1.5 text-xs text-muted-foreground">{TRIGGER_EVENTS.find((e) => e.value === node.event)?.description}</p>
+      {/* `description` est le texte FRANÇAIS brut (garde pour les prompts IA
+          serveur) : l'UI doit passer par `descKey`, sinon la description du
+          déclencheur reste en français dans une interface anglaise. */}
+      {(() => {
+        const ev = TRIGGER_EVENTS.find((e) => e.value === node.event)
+        if (!ev) return null
+        return <p className="mt-1.5 text-xs text-muted-foreground">{t(ev.descKey)}</p>
+      })()}
 
       {/* Mise en garde : cet événement ne dépend pas de nous et peut ne jamais
           arriver (transporteur muet, commande jamais encaissée). Sans elle, le
