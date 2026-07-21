@@ -191,17 +191,13 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Base réutilisable pour une annonce/campagne datée (nouveautés, offre).',
     buttons: [{ type: 'URL', text: 'Voir les nouveautés', url: '{store_url}' }],
   },
-  {
-    trigger: 'customer_birthday', templateName: 'onb_anniversaire', label: 'Anniversaire client', labelEn: 'Customer birthday',
-    category: 'MARKETING', use_case: 'marketing',
-    variable_keys: ['customer_first_name', 'store_name', 'store_url'],
-    sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
-    default_delay_minutes: 0,
-    fallback_body: 'Joyeux anniversaire {{1}} 🎂 Toute l’équipe {{2}} vous souhaite une superbe journée ! Un petit plaisir ? {{3}}',
-    fallback_body_en: 'Happy birthday {{1}} 🎂 Everyone at {{2}} wishes you a wonderful day! Fancy a little treat? {{3}}',
-    intent: 'Souhaiter l’anniversaire, ton chaleureux, invitation douce.',
-    buttons: [{ type: 'URL', text: 'Me faire plaisir', url: '{store_url}' }],
-  },
+  // ⚠️ ENTRÉE « ANNIVERSAIRE » RETIRÉE.
+  //
+  // Son déclencheur `customer_birthday` lit `contacts.metadata.birthday`, une
+  // colonne qui n'existe pas : il n'a jamais envoyé un seul message. Le pack
+  // créait donc, à CHAQUE nouveau compte, un modèle soumis à Meta et une
+  // automatisation qui ne partiraient jamais — en consommant au passage le
+  // quota de soumissions de la boutique.
 ]
 
 /** Élément de pack généré (modèle personnalisé + config d'automatisation). */
@@ -231,7 +227,7 @@ export type PackItem = {
 /** Version du FORMAT de pack. À incrémenter quand les items gagnent des
  *  champs (boutons, carrousel…) : les caches d'une version antérieure sont
  *  régénérés au lieu d'être resservis sans les nouveautés. */
-export const PACK_VERSION = 3
+export const PACK_VERSION = 4
 
 export type OnboardingPack = {
   version?: number

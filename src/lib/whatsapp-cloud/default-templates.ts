@@ -139,19 +139,9 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     sample_values: ['Marie', 'https://avis.exemple.com'],
     variable_keys: ['customer_first_name', 'review_url'],
   },
-  {
-    key: 'birthday',
-    use_case: 'marketing',
-    name: 'anniversaire_client',
-    language: 'fr',
-    category: 'MARKETING',
-    label: 'Anniversaire client',
-    description: 'Souhaite l\'anniversaire au client avec un code promo cadeau.',
-    body_text: 'Joyeux anniversaire {{1}} ! 🎉 Pour fêter ça, voici un cadeau de la part de {{2}} : utilisez le code {{3}} pour profiter d\'une offre spéciale. À très vite !',
-    footer_text: 'Répondez STOP pour vous désinscrire',
-    sample_values: ['Marie', 'Ma Boutique', 'ANNIV10'],
-    variable_keys: ['customer_first_name', 'store_name', 'promo_code'],
-  },
+  // ⚠️ MODÈLE « ANNIVERSAIRE » RETIRÉ — son déclencheur `customer_birthday`
+  // lit une colonne inexistante et n'envoie jamais rien. Le proposer revenait
+  // à faire soumettre à Meta un modèle qui ne servirait jamais.
   {
     key: 'promotion',
     use_case: 'marketing',
