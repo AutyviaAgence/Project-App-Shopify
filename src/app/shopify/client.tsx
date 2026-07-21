@@ -429,7 +429,12 @@ export default function ShopifyEmbeddedClient() {
   // (`?locale=en`, `?locale=fr-FR`…). Anglais par défaut : c'est la langue de la
   // majorité des marchands ET celle de la review App Store.
   const localeParam = searchParams.get('locale') || ''
-  const lang: 'fr' | 'en' = localeParam.toLowerCase().startsWith('fr') ? 'fr' : 'en'
+  // `?forcelang=en|fr` — vérification manuelle du rendu dans l'autre langue sans
+  // toucher à la langue de son compte Shopify. Shopify n'envoie jamais ce
+  // paramètre : il ne peut donc pas perturber un marchand réel.
+  const forced = (searchParams.get('forcelang') || '').toLowerCase()
+  const lang: 'fr' | 'en' = forced === 'en' ? 'en' : forced === 'fr' ? 'fr'
+    : localeParam.toLowerCase().startsWith('fr') ? 'fr' : 'en'
   const t = STRINGS[lang]
   const [status, setStatus] = useState<Status | null>(null)
   const [overview, setOverview] = useState<Overview | null>(null)
