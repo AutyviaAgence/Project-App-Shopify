@@ -970,7 +970,21 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 const catOfT = (t: WhatsAppTemplate) =>
                   (t as { use_case?: string }).use_case
                   || guessUseCase(t.name, (t as { category?: string }).category)
-                const shown = templates
+                // Un modèle multilingue n'apparaît qu'UNE fois dans la galerie,
+                // dans la langue du marchand quand elle existe et est approuvée.
+                // (La déduplication se faisait avant en amont, sur le tableau
+                // passé à toute la timeline : elle rendait alors introuvables les
+                // nœuds pointant sur la variante écartée.)
+                const dedup = new Map<string, WhatsAppTemplate>()
+                for (const tpl of templates) {
+                  const cur = dedup.get(tpl.name)
+                  if (!cur) { dedup.set(tpl.name, tpl); continue }
+                  const want = locale === 'en' ? 'en' : 'fr'
+                  const wants = tpl.language === want && tpl.status === 'approved'
+                  const curWants = cur.language === want && cur.status === 'approved'
+                  if (wants && !curWants) dedup.set(tpl.name, tpl)
+                }
+                const shown = Array.from(dedup.values())
                   // La galerie propose aussi les BROUILLONS et les modèles EN
                   // REVUE, pas seulement les approuvés.
                   //

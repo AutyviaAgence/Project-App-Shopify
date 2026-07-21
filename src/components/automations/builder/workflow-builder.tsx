@@ -15,43 +15,6 @@ import { useTranslation } from '@/i18n/context'
 
 const Particles = dynamic(() => import('@/components/Particles'), { ssr: false })
 
-/**
- * Regroupe les modèles par NOM : un modèle multilingue ne doit apparaître qu'UNE
- * fois dans le sélecteur « Envoyer le modèle » (la langue est choisie à l'envoi
- * selon le contact, via resolveLanguageVariant).
- *
- * ⚠️ LA LIGNE GARDÉE SUIT LA LANGUE DE L'INTERFACE.
- *
- * Cette fonction préférait le français EN DUR. Comme elle s'applique AVANT
- * `localizedTemplate`, elle jetait la variante anglaise du tableau : le helper
- * cherchait ensuite un EN qui n'existait plus (46 lignes réduites à 25), et
- * l'aperçu restait obstinément en français pour un marchand anglophone — même
- * quand la variante EN était approuvée.
- *
- * On garde donc : variante dans la langue du marchand > langue source > 'fr'.
- * L'ENVOI n'est pas concerné : il repart de la base et résout la langue du
- * CLIENT via resolveLanguageVariant.
- */
-function dedupeByName(templates: WhatsAppTemplate[], locale: string): WhatsAppTemplate[] {
-  const want = locale === 'en' ? 'en' : 'fr'
-  const byName = new Map<string, WhatsAppTemplate>()
-  for (const t of templates) {
-    const cur = byName.get(t.name)
-    if (!cur) { byName.set(t.name, t); continue }
-    // La langue de l'interface l'emporte sur tout le reste (si approuvée).
-    const wants = t.language === want && t.status === 'approved'
-    const curWants = cur.language === want && cur.status === 'approved'
-    if (wants && !curWants) { byName.set(t.name, t); continue }
-    if (curWants) continue
-    // Sinon : langue source > fr > existant.
-    const isSrc = t.source_language && t.language === t.source_language
-    const curIsSrc = cur.source_language && cur.language === cur.source_language
-    if (isSrc && !curIsSrc) byName.set(t.name, t)
-    else if (!curIsSrc && t.language === 'fr' && cur.language !== 'fr') byName.set(t.name, t)
-  }
-  // Templates complets (dédupliqués par nom) — pour afficher un aperçu dans le nœud.
-  return Array.from(byName.values())
-}
 
 /**
  * Zone de timeline déplaçable : on peut faire défiler le workflow en
@@ -300,7 +263,7 @@ export function WorkflowBuilder({
         <div className={orientation === 'horizontal' ? 'w-max min-w-full py-2' : 'mx-auto w-full max-w-2xl'}>
           <Timeline
             graph={graph}
-            templates={dedupeByName(templates, locale)}
+            templates={templates}
             onPatch={onPatch}
             onInsert={onInsert}
             onDelete={onDelete}
