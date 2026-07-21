@@ -32,6 +32,15 @@ COPY . .
 ARG CACHEBUST=auto
 RUN echo "cache bust: $CACHEBUST"
 
+# ⚠️ PURGE DU CACHE DE COMPILATION NEXT.JS.
+#
+# `.next/cache` peut survivre dans le contexte de build et faire réutiliser des
+# chunks compilés lors d'un build précédent — un composant modifié gardait alors
+# son ancien bundle même après un `COPY . .` correct. Symptôme observé : le
+# dictionnaire i18n à jour, mais le chunk du builder d'automatisations figé sur
+# la version d'avant.
+RUN rm -rf .next
+
 # Next.js inlines NEXT_PUBLIC_* vars at build time
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
