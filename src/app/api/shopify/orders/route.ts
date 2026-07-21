@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getValidAccessToken } from '@/lib/shopify/token'
-import { findOrdersByCustomer, findOrdersByCustomerId } from '@/lib/shopify/client'
+import { findOrdersByNames, findOrdersByCustomer, findOrdersByCustomerId } from '@/lib/shopify/client'
 
 /**
  * GET /api/shopify/orders?contact_id=xxx
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     .eq('contact_id', contactId)
   // `order_number` est stocké avec ou sans « # » selon la source : on compare
   // sur les chiffres seuls pour ne dépendre d'aucun format.
-  const allowed = new Set(
+  const allowed = new Set<string>(
     (localOrders || [])
       .map((o: { order_number?: string | number }) => String(o.order_number ?? '').replace(/\D/g, ''))
       .filter(Boolean)
@@ -77,6 +77,20 @@ export async function GET(req: NextRequest) {
   const restrict = (orders: { name: string }[]) =>
     (allowed.size === 0 ? orders : orders.filter((o) => allowed.has(String(o.name).replace(/\D/g, ''))))
       .slice(0, 10)
+
+  // ⚠️ CHEMIN PRIVILÉGIÉ : nos numéros de commande.
+  //
+  // `customer.orders` manque les commandes passées en checkout INVITÉ (Shopify
+  // les rattache à un autre `customer`) : #1058 était en base avec le bon
+  // contact, mais absente de la réponse Shopify. Notre table fait autorité sur
+  // le rattachement — on demande donc à Shopify exactement NOS commandes, et il
+  // ne sert plus qu'à fournir statuts, suivi et remboursements à jour.
+  if (allowed.size > 0) {
+    const byName = await findOrdersByNames(store.shop_domain, token, [...allowed])
+    if (byName.ok && byName.data.length > 0) {
+      return NextResponse.json({ data: { connected: true, orders: byName.data.slice(0, 10), shopDomain: store.shop_domain, linked: true } })
+    }
+  }
 
   // Si le contact est RELIÉ à un client Shopify → recherche fiable par
   // customer_id (pas de faux positifs). C'est le chemin privilégié.

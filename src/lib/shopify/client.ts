@@ -873,6 +873,47 @@ const ORDER_FIELDS = `
   fulfillments(first: 1) { displayStatus trackingInfo { number url } }
 `
 
+/**
+ * Commandes retrouvées par leurs NUMÉROS (#1057, #1058…).
+ *
+ * ⚠️ Pourquoi ne pas passer par le client Shopify : une commande passée en
+ * checkout INVITÉ n'est pas rattachée au même `customer` que les précédentes,
+ * même pour la même personne. `customer.orders` la manquait donc, alors que
+ * notre table `shopify_orders` — alimentée par le webhook — la connaît.
+ *
+ * Notre base fait autorité sur le RATTACHEMENT au contact ; Shopify reste la
+ * source des statuts, du suivi et des remboursements. On interroge donc Shopify
+ * à partir de NOS numéros.
+ */
+export async function findOrdersByNames(
+  shop: string,
+  accessToken: string,
+  names: string[]
+) {
+  const clean = names.map((n) => String(n).replace(/\D/g, '')).filter(Boolean).slice(0, 20)
+  if (clean.length === 0) return { ok: true as const, data: [] }
+  // `name:#1057 OR name:#1058` — Shopify indexe le nom avec son « # ».
+  const q = clean.map((n) => `name:${shopifySearchValue('#' + n)}`).join(' OR ')
+  const res = await shopifyGraphQL<{ orders: { edges: { node: OrderNode }[] } }>(
+    shop,
+    accessToken,
+    `query($q: String!, $n: Int!) {
+       orders(first: $n, query: $q, sortKey: CREATED_AT, reverse: true) {
+         edges { node { ${ORDER_FIELDS} } }
+       }
+     }`,
+    { q, n: clean.length }
+  )
+  if (!res.ok) return res
+  const wanted = new Set(clean)
+  // Garde-fou : on ne retient que les numéros DEMANDÉS (une recherche trop
+  // permissive côté Shopify ne doit pas réintroduire les commandes d'un autre).
+  const nodes = res.data.orders.edges
+    .map((e) => e.node)
+    .filter((n) => wanted.has(String(n.name).replace(/\D/g, '')))
+  return { ok: true as const, data: nodes.map(mapOrder) }
+}
+
 function mapOrder(n: OrderNode) {
   return {
     id: n.id,
