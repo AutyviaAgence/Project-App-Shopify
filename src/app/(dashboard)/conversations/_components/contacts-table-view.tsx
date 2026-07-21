@@ -10,6 +10,9 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu'
 import type { ContactTableRow } from '@/app/api/contacts/table/route'
+import { useTranslation } from '@/i18n/context'
+
+type TFn = (key: string, params?: Record<string, string | number>) => string
 
 // ─── Définition des colonnes (source unique : entête + cellule + CSV) ──────
 type ColKey =
@@ -19,10 +22,20 @@ type ColKey =
 
 type SortKey = Exclude<ColKey, 'stages'>
 
-const OPTIN_FR: Record<string, { label: string; cls: string }> = {
-  subscribed: { label: 'Abonné', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  opted_out: { label: 'Désabonné', cls: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' },
-  none: { label: '—', cls: 'bg-muted text-muted-foreground' },
+const OPTIN_STYLE: Record<string, string> = {
+  subscribed: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  opted_out: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  none: 'bg-muted text-muted-foreground',
+}
+
+// Libellé traduit d'un statut opt-in (— pour les valeurs inconnues).
+function optinLabel(status: string, t: TFn): string {
+  switch (status) {
+    case 'subscribed': return t('conversations.optin_subscribed')
+    case 'opted_out': return t('conversations.optin_opted_out')
+    case 'none': return '—'
+    default: return status
+  }
 }
 
 function fmtDate(iso: string | null): string {
@@ -38,31 +51,32 @@ function fmtMoney(v: number, currency: string | null): string {
 
 type Col = {
   key: ColKey
-  label: string
+  // Clé i18n du libellé (résolue via t() à l'affichage et pour l'entête CSV).
+  labelKey: string
   align: 'left' | 'right'
   sortable: boolean
   // Valeur brute pour le CSV (chaîne simple).
-  csv: (r: ContactTableRow) => string
+  csv: (r: ContactTableRow, t: TFn) => string
 }
 
 const COLUMNS: Col[] = [
-  { key: 'name', label: 'Nom', align: 'left', sortable: true, csv: (r) => r.name },
-  { key: 'phone_number', label: 'Numéro', align: 'left', sortable: true, csv: (r) => r.phone_number },
-  { key: 'stages', label: 'État du lead', align: 'left', sortable: false, csv: (r) => r.stages.map((s) => s.name).join(' / ') },
-  { key: 'opt_in_status', label: 'Opt-in', align: 'left', sortable: true, csv: (r) => OPTIN_FR[r.opt_in_status]?.label || r.opt_in_status },
-  { key: 'messages_total', label: 'Messages', align: 'right', sortable: true, csv: (r) => String(r.messages_total) },
-  { key: 'messages_out', label: 'Envoyés', align: 'right', sortable: true, csv: (r) => String(r.messages_out) },
-  { key: 'messages_ai', label: 'Par IA', align: 'right', sortable: true, csv: (r) => String(r.messages_ai) },
-  { key: 'messages_read', label: 'Vues', align: 'right', sortable: true, csv: (r) => String(r.messages_read) },
-  { key: 'orders_count', label: 'Cmd.', align: 'right', sortable: true, csv: (r) => String(r.orders_count) },
-  { key: 'revenue_total', label: 'CA', align: 'right', sortable: true, csv: (r) => (r.revenue_total ? String(r.revenue_total) : '') },
-  { key: 'last_order_at', label: 'Dern. cmd.', align: 'right', sortable: true, csv: (r) => (r.last_order_at ? r.last_order_at.slice(0, 10) : '') },
-  { key: 'last_activity_at', label: 'Activité', align: 'right', sortable: true, csv: (r) => (r.last_activity_at ? r.last_activity_at.slice(0, 10) : '') },
+  { key: 'name', labelKey: 'conversations.col_name', align: 'left', sortable: true, csv: (r) => r.name },
+  { key: 'phone_number', labelKey: 'conversations.col_phone', align: 'left', sortable: true, csv: (r) => r.phone_number },
+  { key: 'stages', labelKey: 'conversations.col_lead_state', align: 'left', sortable: false, csv: (r) => r.stages.map((s) => s.name).join(' / ') },
+  { key: 'opt_in_status', labelKey: 'conversations.col_optin', align: 'left', sortable: true, csv: (r, t) => optinLabel(r.opt_in_status, t) },
+  { key: 'messages_total', labelKey: 'conversations.col_messages', align: 'right', sortable: true, csv: (r) => String(r.messages_total) },
+  { key: 'messages_out', labelKey: 'conversations.col_sent', align: 'right', sortable: true, csv: (r) => String(r.messages_out) },
+  { key: 'messages_ai', labelKey: 'conversations.col_by_ai', align: 'right', sortable: true, csv: (r) => String(r.messages_ai) },
+  { key: 'messages_read', labelKey: 'conversations.col_read', align: 'right', sortable: true, csv: (r) => String(r.messages_read) },
+  { key: 'orders_count', labelKey: 'conversations.col_orders', align: 'right', sortable: true, csv: (r) => String(r.orders_count) },
+  { key: 'revenue_total', labelKey: 'conversations.col_revenue', align: 'right', sortable: true, csv: (r) => (r.revenue_total ? String(r.revenue_total) : '') },
+  { key: 'last_order_at', labelKey: 'conversations.col_last_order', align: 'right', sortable: true, csv: (r) => (r.last_order_at ? r.last_order_at.slice(0, 10) : '') },
+  { key: 'last_activity_at', labelKey: 'conversations.col_activity', align: 'right', sortable: true, csv: (r) => (r.last_activity_at ? r.last_activity_at.slice(0, 10) : '') },
 ]
 
 // Emails "email" pour le CSV, ajouté en dur après le nom (pas une colonne visible séparée).
-function csvHeaderFor(cols: Col[]): string {
-  return cols.map((c) => `"${c.label}"`).join(',')
+function csvHeaderFor(cols: Col[], t: TFn): string {
+  return cols.map((c) => `"${t(c.labelKey)}"`).join(',')
 }
 function csvCell(v: string): string {
   return `"${(v ?? '').replace(/"/g, '""')}"`
@@ -76,6 +90,7 @@ export function ContactsTableView({
 }: {
   sessions: { id: string; instance_name: string; phone_number: string | null }[]
 }) {
+  const { t } = useTranslation()
   const [rows, setRows] = useState<ContactTableRow[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -97,7 +112,7 @@ export function ContactsTableView({
     fetch(`/api/contacts/table?session_id=${encodeURIComponent(sessionFilter)}`)
       .then((r) => r.json())
       .then((json) => { if (!cancelled) setRows(json.data || []) })
-      .catch(() => { if (!cancelled) toast.error('Impossible de charger le tableau des contacts') })
+      .catch(() => { if (!cancelled) toast.error(t('conversations.table_load_error')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }
@@ -154,9 +169,9 @@ export function ContactsTableView({
 
   // Export CSV côté client : respecte les lignes filtrées ET les colonnes visibles.
   const handleExport = () => {
-    if (sorted.length === 0) { toast.error('Aucune ligne à exporter'); return }
-    const header = csvHeaderFor(visibleCols)
-    const lines = sorted.map((r) => visibleCols.map((c) => csvCell(c.csv(r))).join(','))
+    if (sorted.length === 0) { toast.error(t('conversations.no_rows_to_export')); return }
+    const header = csvHeaderFor(visibleCols, t)
+    const lines = sorted.map((r) => visibleCols.map((c) => csvCell(c.csv(r, t))).join(','))
     const csv = '﻿' + [header, ...lines].join('\r\n') // BOM UTF-8 pour Excel
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -175,11 +190,11 @@ export function ContactsTableView({
     try {
       const res = await fetch('/api/shopify/backfill-orders', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Échec')
-      toast.success(`${json.saved} commande(s) synchronisée(s), ${json.linkedToContact} liée(s) à un contact.`)
+      if (!res.ok) throw new Error(json.error || t('conversations.sync_failed'))
+      toast.success(t('conversations.sync_success', { saved: json.saved, linked: json.linkedToContact }))
       reload()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec de la synchronisation')
+      toast.error(e instanceof Error ? e.message : t('conversations.sync_failed_generic'))
     } finally {
       setSyncing(false)
     }
@@ -210,10 +225,10 @@ export function ContactsTableView({
           </TableCell>
         )
       case 'opt_in_status': {
-        const o = OPTIN_FR[r.opt_in_status] || OPTIN_FR.none
+        const cls = OPTIN_STYLE[r.opt_in_status] || OPTIN_STYLE.none
         return (
           <TableCell key={c.key}>
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${o.cls}`}>{o.label}</span>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{optinLabel(r.opt_in_status, t)}</span>
           </TableCell>
         )
       }
@@ -240,7 +255,7 @@ export function ContactsTableView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher (nom, numéro, email, étape…)"
+            placeholder={t('conversations.search_table_placeholder')}
             className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           />
         </div>
@@ -248,7 +263,7 @@ export function ContactsTableView({
         {sessions.length > 1 && (
           <select value={sessionFilter} onChange={(e) => setSessionFilter(e.target.value)}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-            <option value="all">Toutes les connexions</option>
+            <option value="all">{t('conversations.all_connections')}</option>
             {sessions.map((s) => <option key={s.id} value={s.id}>{s.instance_name}</option>)}
           </select>
         )}
@@ -258,19 +273,19 @@ export function ContactsTableView({
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="outline">
               <Filter className="mr-1.5 h-4 w-4" />
-              Filtres{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              {t('conversations.filters_label')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>Opt-in</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('conversations.optin_label')}</DropdownMenuLabel>
             {(['all', 'subscribed', 'opted_out', 'none'] as OptinFilter[]).map((v) => (
               <DropdownMenuCheckboxItem key={v} checked={optinFilter === v} onCheckedChange={() => setOptinFilter(v)}>
-                {v === 'all' ? 'Tous' : OPTIN_FR[v]?.label || v}
+                {v === 'all' ? t('conversations.all_filter') : optinLabel(v, t)}
               </DropdownMenuCheckboxItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Commandes</DropdownMenuLabel>
-            {([['all', 'Toutes'], ['with', 'Avec commande'], ['without', 'Sans commande']] as [OrdersFilter, string][]).map(([v, label]) => (
+            <DropdownMenuLabel>{t('conversations.orders_label')}</DropdownMenuLabel>
+            {([['all', t('conversations.orders_all')], ['with', t('conversations.orders_with')], ['without', t('conversations.orders_without')]] as [OrdersFilter, string][]).map(([v, label]) => (
               <DropdownMenuCheckboxItem key={v} checked={ordersFilter === v} onCheckedChange={() => setOrdersFilter(v)}>
                 {label}
               </DropdownMenuCheckboxItem>
@@ -278,9 +293,9 @@ export function ContactsTableView({
             {allStages.length > 0 && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Étape du lead</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem checked={stageFilter === 'all'} onCheckedChange={() => setStageFilter('all')}>Toutes</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={stageFilter === 'none'} onCheckedChange={() => setStageFilter('none')}>Sans étape</DropdownMenuCheckboxItem>
+                <DropdownMenuLabel>{t('conversations.lead_stage_label')}</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem checked={stageFilter === 'all'} onCheckedChange={() => setStageFilter('all')}>{t('conversations.orders_all')}</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={stageFilter === 'none'} onCheckedChange={() => setStageFilter('none')}>{t('conversations.no_stage')}</DropdownMenuCheckboxItem>
                 {allStages.map((s) => (
                   <DropdownMenuCheckboxItem key={s.id} checked={stageFilter === s.id} onCheckedChange={() => setStageFilter(s.id)}>{s.name}</DropdownMenuCheckboxItem>
                 ))}
@@ -291,7 +306,7 @@ export function ContactsTableView({
 
         {activeFilterCount > 0 && (
           <Button size="sm" variant="ghost" onClick={resetFilters} className="text-muted-foreground">
-            <X className="mr-1 h-3.5 w-3.5" /> Réinitialiser
+            <X className="mr-1 h-3.5 w-3.5" /> {t('conversations.reset_filter')}
           </Button>
         )}
 
@@ -299,11 +314,11 @@ export function ContactsTableView({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="outline">
-              <Columns3 className="mr-1.5 h-4 w-4" /> Colonnes
+              <Columns3 className="mr-1.5 h-4 w-4" /> {t('conversations.columns_label')}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>Colonnes affichées</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('conversations.displayed_columns')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {COLUMNS.map((c) => (
               <DropdownMenuCheckboxItem
@@ -313,7 +328,7 @@ export function ContactsTableView({
                 // Empêche de tout masquer : garde au moins 1 colonne.
                 disabled={visible[c.key] && visibleCols.length === 1}
               >
-                {c.label}
+                {t(c.labelKey)}
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuContent>
@@ -321,14 +336,17 @@ export function ContactsTableView({
 
         <div className="ml-auto flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            {loading ? '…' : `${sorted.length}${sorted.length !== rows.length ? `/${rows.length}` : ''} contact${rows.length > 1 ? 's' : ''}`}
+            {loading ? '…' : t('conversations.contacts_count', {
+              count: `${sorted.length}${sorted.length !== rows.length ? `/${rows.length}` : ''}`,
+              plural: rows.length > 1 ? 's' : '',
+            })}
           </span>
-          <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} title="Récupère l'historique des commandes Shopify">
+          <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} title={t('conversations.sync_orders_title')}>
             {syncing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
-            Sync. commandes
+            {t('conversations.sync_orders')}
           </Button>
           <Button size="sm" onClick={handleExport} disabled={loading || sorted.length === 0}>
-            <Download className="mr-1.5 h-4 w-4" /> Exporter CSV
+            <Download className="mr-1.5 h-4 w-4" /> {t('conversations.export_csv')}
           </Button>
         </div>
       </div>
@@ -336,9 +354,9 @@ export function ContactsTableView({
       {/* Tableau */}
       <div className="min-h-0 flex-1 overflow-auto">
         {loading ? (
-          <div className="flex h-40 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Chargement…</div>
+          <div className="flex h-40 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {t('conversations.loading')}</div>
         ) : sorted.length === 0 ? (
-          <div className="flex h-40 items-center justify-center text-muted-foreground">Aucun contact à afficher.</div>
+          <div className="flex h-40 items-center justify-center text-muted-foreground">{t('conversations.no_contacts')}</div>
         ) : (
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-background">
@@ -350,12 +368,12 @@ export function ContactsTableView({
                         onClick={() => toggleSort(c.key as SortKey)}
                         className={`inline-flex items-center gap-1 hover:text-foreground transition-colors ${c.align === 'right' ? 'flex-row-reverse' : ''}`}
                       >
-                        {c.label}
+                        {t(c.labelKey)}
                         {sortKey === c.key
                           ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
                           : <ArrowUpDown className="h-3 w-3 opacity-40" />}
                       </button>
-                    ) : c.label}
+                    ) : t(c.labelKey)}
                   </TableHead>
                 ))}
               </TableRow>

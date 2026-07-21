@@ -119,7 +119,7 @@ export function ChatArea({
   }, [messages])
 
   function getContactDisplay(conv: ConversationWithJoins) {
-    if (!conv.contact) return conv.last_message_preview?.slice(0, 20) || 'Inconnu'
+    if (!conv.contact) return conv.last_message_preview?.slice(0, 20) || t('conversations.unknown_contact')
     return getContactDisplayName({
       name: conv.contact.name,
       first_name: conv.contact.first_name,
@@ -182,10 +182,10 @@ export function ChatArea({
                 <p className="truncate text-sm font-semibold flex items-center gap-1.5">
                   <span className="truncate">{getContactDisplay(selectedConv)}</span>
                   {selectedConv.contact?.opt_in_status === 'opted_out' && (
-                    <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500" title="Le contact s'est désinscrit (STOP)">Désinscrit</span>
+                    <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500" title={t('conversations.unsubscribed_title')}>{t('conversations.unsubscribed_badge')}</span>
                   )}
                   {selectedConv.contact?.opt_in_status === 'subscribed' && (
-                    <span className="shrink-0 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-500" title="Consentement WhatsApp obtenu">Opt-in</span>
+                    <span className="shrink-0 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-500" title={t('conversations.optin_title')}>{t('conversations.optin_badge')}</span>
                   )}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -385,7 +385,7 @@ export function ChatArea({
                           <Link
                             href={`/automations?id=${(msg as typeof msg & { automation_id?: string }).automation_id}`}
                             className="mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-medium text-current opacity-80 transition-opacity hover:opacity-100"
-                            title="Voir l’automatisation qui a envoyé ce message"
+                            title={t('conversations.automation_link_title')}
                           >
                             <Workflow className="h-3 w-3 shrink-0" />
                             <span className="truncate">
@@ -523,10 +523,10 @@ export function ChatArea({
             /* Hors fenêtre 24h : texte libre interdit par WhatsApp → modèle */
             <div className="flex flex-col items-center gap-2 border-t bg-amber-500/5 px-4 py-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Ce client n’a pas écrit depuis plus de <b>24h</b>. WhatsApp n’autorise plus le message libre, utilisez un modèle approuvé pour le recontacter.
+                {t('conversations.out_of_window_desc', { hours: t('conversations.out_of_window_hours') })}
               </p>
               <Button onClick={() => onSendTemplate?.()} disabled={sending} className="gap-1.5">
-                <FileText className="h-4 w-4" /> Envoyer un modèle
+                <FileText className="h-4 w-4" /> {t('conversations.send_template_btn')}
               </Button>
             </div>
           )}

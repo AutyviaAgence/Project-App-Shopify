@@ -388,7 +388,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
 
   // Créer une nouvelle conversation (numéro + template approuvé)
   const handleNewConversation = useCallback(async () => {
-    if (!newConvPhone.trim() || !newConvTemplate) { toast.error('Numéro et modèle requis'); return }
+    if (!newConvPhone.trim() || !newConvTemplate) { toast.error(t('conversations.phone_and_template_required')); return }
     setNewConvSending(true)
     try {
       const res = await fetch('/api/conversations/new', {
@@ -397,16 +397,16 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         body: JSON.stringify({ phone: newConvPhone, template_id: newConvTemplate }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
-      toast.success('Conversation démarrée')
+      if (!res.ok) throw new Error(json.error || t('conversations.error_generic'))
+      toast.success(t('conversations.conversation_started'))
       setNewConvOpen(false)
       await fetchConversations()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('conversations.error_generic'))
     } finally {
       setNewConvSending(false)
     }
-  }, [newConvPhone, newConvTemplate, fetchConversations])
+  }, [newConvPhone, newConvTemplate, fetchConversations, t])
 
   // Envoyer un modèle approuvé (recontact hors fenêtre 24h)
   const handleSendTemplate = useCallback(async (templateId: string) => {
@@ -426,7 +426,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
       }
       if (json.data) setMessages((prev) => [...prev, json.data])
       setTemplateDialogOpen(false)
-      toast.success('Modèle envoyé')
+      toast.success(t('conversations.template_sent'))
     } catch {
       toast.error(t('common.network_error'))
     } finally {
@@ -629,7 +629,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
     const current = conversationStages[convId] || []
     const has = current.some((s) => s.id === stageId)
     if (!has && current.length >= 3) {
-      toast.error(t('conversations.max_stages') || 'Maximum 3 étapes par conversation')
+      toast.error(t('conversations.max_stages'))
       return
     }
     const stage = lifecycleStages.find((s) => s.id === stageId)
@@ -802,12 +802,12 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
             prev.map((c) => {
               if (c.id !== newMsg.conversation_id) return c
               const tempPreview = newMsg.message_type === 'text' ? c.last_message_preview
-                : newMsg.message_type === 'image' ? '📷 Image'
-                : newMsg.message_type === 'audio' ? '🎤 Audio'
-                : newMsg.message_type === 'video' ? '🎥 Vidéo'
-                : newMsg.message_type === 'carousel' ? '🎠 Carrousel'
-                : newMsg.message_type === 'interactive' ? '🏷️ Offre'
-                : '📎 Fichier'
+                : newMsg.message_type === 'image' ? `📷 ${t('conversations.preview_image')}`
+                : newMsg.message_type === 'audio' ? `🎤 ${t('conversations.preview_audio')}`
+                : newMsg.message_type === 'video' ? `🎥 ${t('conversations.preview_video')}`
+                : newMsg.message_type === 'carousel' ? `🎠 ${t('conversations.preview_carousel')}`
+                : newMsg.message_type === 'interactive' ? `🏷️ ${t('conversations.preview_offer')}`
+                : `📎 ${t('conversations.preview_file')}`
               return {
                 ...c,
                 last_message_at: newMsg.created_at,
@@ -910,20 +910,20 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
           viewMode === 'chat' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
-        title="Vue messagerie"
+        title={t('conversations.view_messaging_title')}
       >
         <MessageSquare className="h-4 w-4" />
-        <span>Messagerie</span>
+        <span>{t('conversations.view_messaging')}</span>
       </button>
       <button
         onClick={() => setViewMode('table')}
         className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
           viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
-        title="Vue tableau"
+        title={t('conversations.view_table_title')}
       >
         <Table2 className="h-4 w-4" />
-        <span>Tableau</span>
+        <span>{t('conversations.view_table')}</span>
       </button>
     </div>
   )
@@ -1060,15 +1060,14 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
       <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nouvelle conversation</DialogTitle>
+            <DialogTitle>{t('conversations.new_conversation')}</DialogTitle>
             <DialogDescription>
-              Démarrez une conversation WhatsApp avec un nouveau numéro. Un modèle
-              approuvé par Meta est requis (seul moyen autorisé hors fenêtre 24h).
+              {t('conversations.new_conversation_desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Numéro WhatsApp (avec indicatif)</label>
+              <label className="text-sm font-medium">{t('conversations.whatsapp_number_label')}</label>
               <input
                 value={newConvPhone}
                 onChange={(e) => setNewConvPhone(e.target.value)}
@@ -1077,10 +1076,10 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Modèle</label>
+              <label className="text-sm font-medium">{t('conversations.template_label')}</label>
               {approvedTemplates.length === 0 ? (
                 <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                  Aucun modèle approuvé. Créez-en un dans <span className="font-medium">Modèles</span> et faites-le approuver par Meta.
+                  {t('conversations.no_approved_templates', { templates: t('conversations.templates_link') })}
                 </p>
               ) : (
                 <select
@@ -1088,7 +1087,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
                   onChange={(e) => setNewConvTemplate(e.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <option value="">Choisir un modèle…</option>
+                  <option value="">{t('conversations.choose_template')}</option>
                   {approvedTemplates.map((tpl) => (
                     <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language})</option>
                   ))}
@@ -1100,7 +1099,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
               disabled={newConvSending || !newConvPhone.trim() || !newConvTemplate}
               className="w-full"
             >
-              {newConvSending ? 'Envoi…' : 'Démarrer la conversation'}
+              {newConvSending ? t('conversations.sending_ellipsis') : t('conversations.start_conversation_btn')}
             </Button>
           </div>
         </DialogContent>
@@ -1109,16 +1108,15 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Recontacter avec un modèle</DialogTitle>
+            <DialogTitle>{t('conversations.recontact_with_template')}</DialogTitle>
             <DialogDescription>
-              Ce client n&apos;a pas écrit depuis plus de 24h. WhatsApp n&apos;autorise plus le texte libre :
-              choisissez un modèle approuvé par Meta pour le recontacter.
+              {t('conversations.recontact_desc')}
             </DialogDescription>
           </DialogHeader>
 
           {approvedTemplates.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Aucun modèle approuvé. Créez-en un dans Modèles et faites-le approuver par Meta.
+              {t('conversations.no_approved_templates_short')}
             </p>
           ) : (() => {
             // Catégorie de chaque modèle (use_case, ou déduite du nom).
@@ -1143,7 +1141,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
                       tplFilter === 'all' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground',
                     )}
                   >
-                    Tous ({approvedTemplates.length})
+                    {t('conversations.filter_all_count', { count: approvedTemplates.length })}
                   </button>
                   {filters.map((u) => {
                     const n = approvedTemplates.filter((t) => catOf(t) === u.key).length
@@ -1164,7 +1162,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
 
                 {/* Carrousel horizontal : cartes-modèles en bulle WhatsApp. */}
                 {shown.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">Aucun modèle dans cette catégorie.</p>
+                  <p className="py-6 text-center text-sm text-muted-foreground">{t('conversations.no_template_in_category')}</p>
                 ) : (
                   <div
                     className="flex w-full min-w-0 gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
@@ -1207,19 +1205,19 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
                           }} />
                         </div>
                         <div className="border-t py-2 text-center text-xs font-medium text-primary transition-colors group-hover:bg-primary/5">
-                          Envoyer ce modèle
+                          {t('conversations.send_this_template')}
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
-                <p className="text-center text-[11px] text-muted-foreground">Glissez horizontalement pour voir tous les modèles →</p>
+                <p className="text-center text-[11px] text-muted-foreground">{t('conversations.drag_to_see_templates')}</p>
               </div>
             )
           })()}
 
           <div className="flex justify-end">
-            <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>{t('conversations.cancel')}</Button>
           </div>
         </DialogContent>
       </Dialog>

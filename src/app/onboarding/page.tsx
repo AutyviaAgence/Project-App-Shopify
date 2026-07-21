@@ -27,6 +27,7 @@ import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
 import { PLANS, PAID_PLANS, ANNUAL_DISCOUNT } from '@/lib/plans'
 import { track, identifyMerchant } from '@/lib/posthog/events'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Numéro du support (public). Même source que la bulle d'aide du dashboard.
@@ -88,43 +89,47 @@ type AgentCfg = {
 const STEPS = ['shopify', 'sync', 'whatsapp', 'widget', 'agent', 'templates', 'automations', 'plan'] as const
 type Step = typeof STEPS[number]
 
-const STEP_META: Record<Step, { title: string; icon: React.ComponentType<{ className?: string }> }> = {
-  shopify: { title: 'Connectez votre boutique Shopify', icon: Store },
-  sync: { title: 'Analyse de votre boutique…', icon: PackageCheck },
-  widget: { title: 'Activez Xeyo sur votre boutique', icon: ToggleRight },
-  whatsapp: { title: 'Connectez votre WhatsApp Business', icon: MessageSquare },
-  agent: { title: 'Votre agent IA référent', icon: Bot },
-  templates: { title: 'Vos modèles de messages', icon: FileText },
-  automations: { title: 'Vos automatisations', icon: Workflow },
-  plan: { title: 'Choisissez votre formule', icon: CreditCard },
+// `titleKey` renvoie une clé i18n (wizard.onboarding.step_*), traduite au rendu.
+const STEP_META: Record<Step, { titleKey: string; icon: React.ComponentType<{ className?: string }> }> = {
+  shopify: { titleKey: 'wizard.onboarding.step_shopify', icon: Store },
+  sync: { titleKey: 'wizard.onboarding.step_sync', icon: PackageCheck },
+  widget: { titleKey: 'wizard.onboarding.step_widget', icon: ToggleRight },
+  whatsapp: { titleKey: 'wizard.onboarding.step_whatsapp', icon: MessageSquare },
+  agent: { titleKey: 'wizard.onboarding.step_agent', icon: Bot },
+  templates: { titleKey: 'wizard.onboarding.step_templates', icon: FileText },
+  automations: { titleKey: 'wizard.onboarding.step_automations', icon: Workflow },
+  plan: { titleKey: 'wizard.onboarding.step_plan', icon: CreditCard },
 }
 
 // Fiche d'identité de chaque CATÉGORIE d'automatisations : ce que ça fait,
 // dit simplement + un exemple concret — la personne ne lira pas 15 lignes.
-const CATEGORY_META: Record<string, { title: string; icon: React.ComponentType<{ className?: string }>; pitch: string; example: string }> = {
+// ⚠️ Les CLÉS (Commande, Contact…) sont techniques : elles servent de mapping
+// vers `groups` — à NE PAS traduire. Seuls titleKey/pitchKey/exampleKey (clés
+// i18n wizard.onboarding.cat_*) sont traduits au rendu.
+const CATEGORY_META: Record<string, { titleKey: string; icon: React.ComponentType<{ className?: string }>; pitchKey: string; exampleKey: string }> = {
   Commande: {
-    title: 'Commandes',
+    titleKey: 'wizard.onboarding.cat_order_title',
     icon: Package,
-    pitch: 'Informe vos clients à chaque étape : confirmation, paiement, expédition, livraison, remboursement.',
-    example: 'Ex. : commande expédiée → Marie reçoit son lien de suivi, automatiquement.',
+    pitchKey: 'wizard.onboarding.cat_order_pitch',
+    exampleKey: 'wizard.onboarding.cat_order_example',
   },
   Contact: {
-    title: 'Contacts',
+    titleKey: 'wizard.onboarding.cat_contact_title',
     icon: UserPlus,
-    pitch: 'Accueille chaque nouveau contact et transforme les visiteurs en abonnés WhatsApp.',
-    example: 'Ex. : nouvel inscrit → message de bienvenue immédiat.',
+    pitchKey: 'wizard.onboarding.cat_contact_pitch',
+    exampleKey: 'wizard.onboarding.cat_contact_example',
   },
   Conversation: {
-    title: 'Conversation',
+    titleKey: 'wizard.onboarding.cat_conversation_title',
     icon: MessageSquare,
-    pitch: 'Réagit à ce qui se passe dans la discussion : clics sur un bouton, silences, messages lus.',
-    example: 'Ex. : pas de réponse depuis 24 h → relance polie.',
+    pitchKey: 'wizard.onboarding.cat_conversation_pitch',
+    exampleKey: 'wizard.onboarding.cat_conversation_example',
   },
   Planifié: {
-    title: 'Planification (marketing)',
+    titleKey: 'wizard.onboarding.cat_scheduled_title',
     icon: CalendarClock,
-    pitch: 'Envois programmés pour fidéliser : anniversaires, dates clés, campagnes.',
-    example: 'Ex. : anniversaire → vœux + code promo personnalisé.',
+    pitchKey: 'wizard.onboarding.cat_scheduled_pitch',
+    exampleKey: 'wizard.onboarding.cat_scheduled_example',
   },
 }
 
@@ -132,28 +137,32 @@ const CATEGORY_META: Record<string, { title: string; icon: React.ComponentType<{
 // Le composant PricingGlass est sur 3 colonnes : on y met les 3 plans payants,
 // le plan Gratuit restant proposé en lien discret sous les cartes.
 // Tarif annuel = -20 % du mensuel (arrondi), cohérent avec le badge du toggle.
-const PLAN_DESC: Record<string, string> = {
-  starter: 'Pour démarrer avec un agent IA autonome sur WhatsApp.',
-  pro: 'Pour les boutiques qui veulent automatiser leur SAV et leurs ventes.',
-  scale: 'Pour un volume élevé, avec le meilleur modèle et un support prioritaire.',
+// Clés i18n des descriptions de plan (traduites au rendu dans le composant).
+const PLAN_DESC_KEY: Record<string, string> = {
+  starter: 'wizard.onboarding.plan_starter_desc',
+  pro: 'wizard.onboarding.plan_pro_desc',
+  scale: 'wizard.onboarding.plan_scale_desc',
 }
-const PRICING_TIERS: TierType[] = PAID_PLANS.map((id) => {
-  const p = PLANS[id]
-  return {
-    id: p.id,
-    name: p.name,
-    priceMonthly: String(p.priceEur),
-    // Prix annuel affiché « par mois » (facturé annuellement) : mensuel -20 %.
-    priceAnnual: String(Math.round(p.priceEur * (1 - ANNUAL_DISCOUNT))),
-    description: PLAN_DESC[p.id] ?? '',
-    isPopular: p.id === 'pro',
-    features: p.features,
-    cta: 'Choisir ce plan',
-  }
-})
 
 export default function OnboardingPage() {
+  const { t } = useTranslation()
   const router = useRouter()
+  // Cartes de tarifs (dérivées de PLANS) — construites ici pour traduire
+  // description/cta via t(). Recalculées à chaque rendu (peu coûteux, 3 plans).
+  const PRICING_TIERS: TierType[] = PAID_PLANS.map((id) => {
+    const p = PLANS[id]
+    return {
+      id: p.id,
+      name: p.name,
+      priceMonthly: String(p.priceEur),
+      // Prix annuel affiché « par mois » (facturé annuellement) : mensuel -20 %.
+      priceAnnual: String(Math.round(p.priceEur * (1 - ANNUAL_DISCOUNT))),
+      description: t(PLAN_DESC_KEY[p.id] ?? ''),
+      isPopular: p.id === 'pro',
+      features: p.features,
+      cta: t('wizard.onboarding.choose_this_plan'),
+    }
+  })
   const [state, setState] = useState<OnbState | null>(null)
   const [step, setStep] = useState<Step>('shopify')
   // Écran de bienvenue : affiché une seule fois, au tout premier passage.
@@ -264,7 +273,7 @@ export default function OnboardingPage() {
       const s = await fetchState()
       if (!s) return
       if (step === 'shopify' && s.shopifyLinked) setStep(s.storeSynced ? 'whatsapp' : 'sync')
-      if (step === 'sync' && s.storeSynced) { flash('Boutique analysée'); setStep('whatsapp') }
+      if (step === 'sync' && s.storeSynced) { flash(t('wizard.onboarding.flash_shop_analyzed')); setStep('whatsapp') }
     }, 3500)
     return () => clearInterval(iv)
   }, [step, fetchState])
@@ -276,13 +285,13 @@ export default function OnboardingPage() {
       .then((r) => r.json())
       .then((json) => {
         const items: PackItem[] = json.data?.items || []
-        if (items.length === 0) throw new Error(json.error || 'Pack vide')
+        if (items.length === 0) throw new Error(json.error || t('wizard.onboarding.pack_empty'))
         setPack(items)
         setSelTemplates(new Set(items.map((i) => i.trigger)))
         setSelAutomations(new Set(items.map((i) => i.trigger)))
         setDelays(Object.fromEntries(items.map((i) => [i.trigger, i.delay_minutes])))
       })
-      .catch((e) => { setPack(null); toast.error(e instanceof Error ? e.message : 'Génération des modèles indisponible') })
+      .catch((e) => { setPack(null); toast.error(e instanceof Error ? e.message : t('templates.toast_ai_unavailable')) })
       .finally(() => setPackLoading(false))
   }
 
@@ -332,7 +341,7 @@ export default function OnboardingPage() {
       if (r === 'linked') {
         localStorage.removeItem('onb_pending_shop')
         const s = await fetchState()
-        goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée')
+        goTo(s?.storeSynced ? 'whatsapp' : 'sync', t('wizard.onboarding.flash_shop_linked'))
       }
       setBusy(false)
     })()
@@ -353,7 +362,7 @@ export default function OnboardingPage() {
     track('onboarding_step_completed', { from: step, to: next, index: STEPS.indexOf(step) })
     if (msg) {
       // La carte annonce aussi l'étape suivante (« Étape suivante : … »).
-      setFeedback({ message: msg, next: STEP_META[next].title })
+      setFeedback({ message: msg, next: t(STEP_META[next].titleKey) })
       setAdvancing(true)
       setTimeout(() => {
         setStep(next); setFeedback(null); setAdvancing(false)
@@ -383,7 +392,7 @@ export default function OnboardingPage() {
         return 'taken'
       }
       const j = await res.json().catch(() => ({}))
-      toast.error(j.error || 'Impossible de lier la boutique')
+      toast.error(j.error || t('wizard.onboarding.toast_cant_link_shop'))
       return 'error'
     } catch {
       return 'error'
@@ -392,7 +401,7 @@ export default function OnboardingPage() {
 
   async function connectWhatsApp() {
     if (!waPhoneId.trim() || !waBizId.trim() || !waToken.trim()) {
-      toast.error('Les 3 champs WhatsApp Business sont requis')
+      toast.error(t('wizard.onboarding.toast_wa_fields_required'))
       return
     }
     setBusy(true)
@@ -407,11 +416,11 @@ export default function OnboardingPage() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('wizard.onboarding.toast_error'))
       await fetchState()
-      goTo('widget', 'WhatsApp connecté')
+      goTo('widget', t('wizard.onboarding.fb_wa_connected'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
     } finally {
       setBusy(false)
     }
@@ -437,11 +446,11 @@ export default function OnboardingPage() {
       const res = agentId
         ? await fetch(`/api/agents/${agentId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         : await fetch('/api/agents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) throw new Error((await res.json()).error || 'Erreur')
+      if (!res.ok) throw new Error((await res.json()).error || t('wizard.onboarding.toast_error'))
       fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent_onboarding_done: true }) }).catch(() => {})
-      goTo('templates', 'Agent référent activé')
+      goTo('templates', t('wizard.onboarding.fb_agent_activated'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
     } finally {
       setBusy(false)
     }
@@ -457,10 +466,10 @@ export default function OnboardingPage() {
         body: JSON.stringify({ templates: Array.from(selTemplates), edited }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
-      goTo('automations', `${json.data?.templatesCreated ?? selTemplates.size} modèles prêts`)
+      if (!res.ok) throw new Error(json.error || t('wizard.onboarding.toast_error'))
+      goTo('automations', t('wizard.onboarding.fb_templates_ready', { count: json.data?.templatesCreated ?? selTemplates.size }))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
     } finally {
       setBusy(false)
     }
@@ -476,10 +485,10 @@ export default function OnboardingPage() {
         body: JSON.stringify({ automations }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
-      goTo('plan', `${json.data?.automationsCreated ?? automations.length} automatisations prêtes`)
+      if (!res.ok) throw new Error(json.error || t('wizard.onboarding.toast_error'))
+      goTo('plan', t('wizard.onboarding.fb_automations_ready', { count: json.data?.automationsCreated ?? automations.length }))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
     } finally {
       setBusy(false)
     }
@@ -492,7 +501,7 @@ export default function OnboardingPage() {
       // Abonnement OBLIGATOIRE : plus de plan Gratuit. Tout parcours passe par un
       // plan payant (7 jours d'essai). Garde défensive au cas où un 'free' arriverait.
       if (planId === 'free' || !PAID_PLANS.includes(planId as (typeof PAID_PLANS)[number])) {
-        toast.error('Veuillez choisir une formule.')
+        toast.error(t('wizard.onboarding.toast_choose_plan'))
         setBusy(false)
         setPlanLoading(null)
         return
@@ -500,7 +509,7 @@ export default function OnboardingPage() {
       // FACTURATION 100 % SHOPIFY : l'onboarding impose une boutique Shopify, donc
       // toute souscription passe par la Billing API. Plus de fallback Stripe.
       if (!(state?.billingSource === 'shopify' && state.shopDomain)) {
-        throw new Error("Aucune boutique Shopify liée. Rouvrez l'application depuis votre admin Shopify.")
+        throw new Error(t('wizard.onboarding.toast_no_shopify'))
       }
       const res = await fetch('/api/shopify/billing/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -519,7 +528,7 @@ export default function OnboardingPage() {
       // (non imbriqué) → le flux Shopify jetait systématiquement « Erreur de
       // facturation Shopify », même quand l'abonnement était bien créé.
       const confirmationUrl = json?.data?.confirmationUrl
-      if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+      if (!res.ok || !confirmationUrl) throw new Error(json.error || t('wizard.onboarding.toast_billing_error'))
       // Onboarding terminé : le marchand a choisi une formule et part vers la
       // page d'approbation Shopify. Fin du funnel (avec plan + intervalle).
       track('onboarding_completed', { plan: planId, billing })
@@ -527,7 +536,7 @@ export default function OnboardingPage() {
       await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
       window.location.href = confirmationUrl
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
       setBusy(false)
       setPlanLoading(null)
     }
@@ -589,8 +598,8 @@ export default function OnboardingPage() {
   // (relance) est une campagne → dans « Planifié ». Aligne l'onboarding sur la
   // séparation Campagnes/Transactionnel et sur kindForTrigger.
   const FAMILIES: { key: 'transactional' | 'marketing'; title: string; pitch: string; cats: string[] }[] = [
-    { key: 'transactional', title: 'Transactionnel', pitch: 'Messages automatiques liés aux commandes (confirmation, expédition, SAV). Envoyés quoi qu’il arrive.', cats: ['Commande'] },
-    { key: 'marketing', title: 'Campagnes marketing', pitch: 'Bienvenue, relances, anniversaires, planifié… Pour engager et fidéliser (soumis aux règles anti-spam).', cats: ['Contact', 'Conversation', 'Planifié'] },
+    { key: 'transactional', title: t('wizard.onboarding.family_transactional_title'), pitch: t('wizard.onboarding.family_transactional_pitch'), cats: ['Commande'] },
+    { key: 'marketing', title: t('wizard.onboarding.family_marketing_title'), pitch: t('wizard.onboarding.family_marketing_pitch'), cats: ['Contact', 'Conversation', 'Planifié'] },
   ]
 
   // Cartes du swiper de modèles : un GROUPE par carte (+ « Autres » pour les
@@ -600,11 +609,11 @@ export default function OnboardingPage() {
     ? [
         ...Object.entries(groups).map(([key, triggers]) => ({
           key,
-          title: CATEGORY_META[key]?.title ?? key,
-          pitch: CATEGORY_META[key]?.pitch,
+          title: CATEGORY_META[key]?.titleKey ? t(CATEGORY_META[key].titleKey) : key,
+          pitch: CATEGORY_META[key]?.pitchKey ? t(CATEGORY_META[key].pitchKey) : undefined,
           items: pack.filter((i) => triggers.includes(i.trigger)),
         })),
-        { key: 'Autres', title: 'Autres', items: pack.filter((i) => !groupedTriggers.has(i.trigger)) },
+        { key: 'Autres', title: t('wizard.onboarding.others'), items: pack.filter((i) => !groupedTriggers.has(i.trigger)) },
       ].filter((g) => g.items.length > 0)
     : []
 
@@ -642,18 +651,18 @@ export default function OnboardingPage() {
         {/* En-tête + progression */}
         <div>
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Étape {stepIndex + 1} sur {STEPS.length}</span>
+            <span>{t('wizard.onboarding.step_x_of_y', { current: stepIndex + 1, total: STEPS.length })}</span>
             <span className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <Sparkles className="h-3 w-3 text-primary" />
-                {state.shopName ? `Boutique : ${state.shopName}` : 'Configuration de votre espace'}
+                {state.shopName ? t('wizard.onboarding.shop_label', { name: state.shopName }) : t('wizard.onboarding.configuring_space')}
               </span>
               {/* Sortie de secours : changer de compte sans être enfermé par le gate */}
               <button
                 onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login' }}
                 className="flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <LogOut className="h-3 w-3" /> Se déconnecter
+                <LogOut className="h-3 w-3" /> {t('wizard.onboarding.logout')}
               </button>
             </span>
           </div>
@@ -698,7 +707,7 @@ export default function OnboardingPage() {
                   <Icon className="h-5 w-5" />
                 )}
               </motion.span>
-              {STEP_META[step].title}
+              {t(STEP_META[step].titleKey)}
             </h1>
             )}
 
@@ -730,8 +739,8 @@ export default function OnboardingPage() {
               {step === 'shopify' && (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Xeyo se configure à partir de votre boutique (catalogue, politiques, pages).
-                    <span className="font-medium text-foreground"> Cette étape est indispensable.</span>
+                    {t('wizard.onboarding.shopify_intro')}
+                    <span className="font-medium text-foreground">{t('wizard.onboarding.shopify_intro_strong')}</span>
                   </p>
                   {/*
                     ⚠️ Exigence App Store 2.3.1 : PAS de champ où le marchand tape son
@@ -747,14 +756,14 @@ export default function OnboardingPage() {
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
                   >
                     <Store className="h-4 w-4" />
-                    Installer Xeyo depuis Shopify
+                    {t('wizard.onboarding.install_from_shopify')}
                     <ArrowRight className="h-4 w-4" />
                   </a>
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-3.5 w-3.5" /> Shopify vous demandera d’autoriser l’application, puis vous ramènera ici automatiquement.
+                    <ShieldCheck className="h-3.5 w-3.5" /> {t('wizard.onboarding.shopify_authorize_hint')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Cette page se met à jour toute seule dès que la boutique est liée. Laissez-la ouverte.
+                    {t('wizard.onboarding.shopify_autorefresh_hint')}
                   </p>
 
                   {/*
@@ -772,9 +781,8 @@ export default function OnboardingPage() {
                   */}
                   <div className="rounded-lg border bg-muted/40 px-4 py-3">
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Boutique déjà installée ?</span>{' '}
-                      Ouvrez Xeyo depuis votre admin Shopify (Applications → Xeyo) et cliquez sur
-                      « J’ai déjà un compte Xeyo » : la boutique sera rattachée à ce compte.
+                      <span className="font-medium text-foreground">{t('wizard.onboarding.shopify_already_installed')}</span>{' '}
+                      {t('wizard.onboarding.shopify_already_installed_desc')}
                     </p>
                   </div>
                 </div>
@@ -783,13 +791,13 @@ export default function OnboardingPage() {
               {/* ── 2. SYNC (attente animée, progression réelle) ── */}
               {step === 'sync' && (
                 <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Nous récupérons tout ce qu’il faut pour personnaliser votre espace.</p>
+                  <p className="text-sm text-muted-foreground">{t('wizard.onboarding.sync_intro')}</p>
                   <div className="space-y-2.5 rounded-xl border p-5">
                     {[
-                      { label: 'Boutique liée', done: true },
-                      { label: `Catalogue produits${state.syncSummary?.products ? `, ${state.syncSummary.products} produits` : ''}`, done: Boolean(state.syncSummary?.products) },
-                      { label: 'Pages du site', done: Boolean(state.syncSummary?.pages) },
-                      { label: 'Politiques (retours, remboursements…)', done: Boolean(state.syncSummary?.policies) },
+                      { label: t('wizard.onboarding.sync_shop_linked'), done: true },
+                      { label: state.syncSummary?.products ? t('wizard.onboarding.sync_catalog_count', { count: state.syncSummary.products }) : t('wizard.onboarding.sync_catalog'), done: Boolean(state.syncSummary?.products) },
+                      { label: t('wizard.onboarding.sync_pages'), done: Boolean(state.syncSummary?.pages) },
+                      { label: t('wizard.onboarding.sync_policies'), done: Boolean(state.syncSummary?.policies) },
                     ].map((row) => (
                       <div key={row.label} className="flex items-center gap-2.5 text-sm">
                         {row.done
@@ -799,7 +807,7 @@ export default function OnboardingPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">Pendant ce temps, l’IA prépare déjà vos messages et votre agent en coulisses ✨</p>
+                  <p className="text-xs text-muted-foreground">{t('wizard.onboarding.sync_background_hint')}</p>
                 </div>
               )}
 
@@ -810,8 +818,7 @@ export default function OnboardingPage() {
               {step === 'widget' && (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Xeyo est installé sur votre boutique, mais il faut encore <span className="font-medium text-foreground">activer les blocs</span> dans votre thème.
-                    Sans ça, <span className="font-medium text-foreground">aucun visiteur ne pourra vous laisser son numéro</span>.
+                    {t('wizard.onboarding.widget_intro_1')}<span className="font-medium text-foreground">{t('wizard.onboarding.widget_intro_activate')}</span>{t('wizard.onboarding.widget_intro_2')}<span className="font-medium text-foreground">{t('wizard.onboarding.widget_intro_3')}</span>.
                   </p>
 
                   {/* Sans numéro WhatsApp connecté, la bulle et la popup NE
@@ -822,13 +829,13 @@ export default function OnboardingPage() {
                     <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                       <div className="min-w-0 text-xs leading-relaxed">
-                        <p className="font-medium text-amber-200">WhatsApp n’est pas encore connecté</p>
+                        <p className="font-medium text-amber-200">{t('wizard.onboarding.widget_wa_not_connected')}</p>
                         <p className="mt-0.5 text-muted-foreground">
-                          Vous pouvez activer les blocs maintenant, mais <span className="font-medium text-foreground">ils resteront invisibles sur votre boutique</span> tant qu’aucun numéro WhatsApp n’est connecté (il n’y aurait personne à contacter).
+                          {t('wizard.onboarding.widget_wa_warning')}<span className="font-medium text-foreground">{t('wizard.onboarding.widget_wa_warning_strong')}</span>{t('wizard.onboarding.widget_wa_warning_end')}
                         </p>
                         <Button variant="outline" size="sm" className="mt-2" disabled={busy}
                           onClick={() => goTo('whatsapp')}>
-                          Connecter WhatsApp d’abord
+                          {t('wizard.onboarding.widget_connect_wa_first')}
                         </Button>
                       </div>
                     </div>
@@ -859,7 +866,7 @@ export default function OnboardingPage() {
                         window.open(`https://${state.shopDomain}/admin/themes/current/editor?context=apps&activateAppId=e3857e0a-b639-5426-2200-b52aac2028dc82cc2313/whatsapp-bubble`, '_blank', 'noopener')
                       }}
                     >
-                      <ExternalLink className="mr-1.5 h-4 w-4" /> Ouvrir l’éditeur de thème
+                      <ExternalLink className="mr-1.5 h-4 w-4" /> {t('wizard.onboarding.widget_open_theme_editor')}
                     </Button>
 
                     {/* La POPUP d'opt-in avait été oubliée : seule la bulle avait un
@@ -881,15 +888,15 @@ export default function OnboardingPage() {
                         window.open(`https://${state.shopDomain}/admin/themes/current/editor?context=apps&activateAppId=e3857e0a-b639-5426-2200-b52aac2028dc82cc2313/whatsapp-optin-popup`, '_blank', 'noopener')
                       }}
                     >
-                      <ExternalLink className="mr-1.5 h-4 w-4" /> Activer la popup d’opt-in
+                      <ExternalLink className="mr-1.5 h-4 w-4" /> {t('wizard.onboarding.widget_activate_popup')}
                     </Button>
                     <Button variant="outline" className="flex-1" disabled={busy}
-                      onClick={() => goTo('agent', 'Étape suivante')}>
-                      C’est activé, continuer <ArrowRight className="ml-1.5 h-4 w-4" />
+                      onClick={() => goTo('agent', t('wizard.onboarding.step_next'))}>
+                      {t('wizard.onboarding.widget_activated_continue')} <ArrowRight className="ml-1.5 h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-center text-[11px] text-muted-foreground">
-                    Vous pourrez le faire plus tard, mais la collecte de contacts ne démarrera pas avant.
+                    {t('wizard.onboarding.widget_later_hint')}
                   </p>
                 </div>
               )}
@@ -899,12 +906,12 @@ export default function OnboardingPage() {
                 <div className="space-y-4">
                   {state.whatsappConnected ? (
                     <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
-                      <Check className="h-4 w-4 text-emerald-500" /> WhatsApp est déjà connecté.
+                      <Check className="h-4 w-4 text-emerald-500" /> {t('wizard.onboarding.wa_already_connected')}
                     </div>
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Connectez votre compte WhatsApp Business via Meta. Sans WhatsApp, vos messages et automatisations seront prêts mais <span className="font-medium text-foreground">rien ne pourra partir</span>.
+                        {t('wizard.onboarding.wa_intro')}<span className="font-medium text-foreground">{t('wizard.onboarding.wa_intro_strong')}</span>.
                       </p>
 
                       {/* Popup Meta : seul chemin proposé aux marchands. (Les admins
@@ -914,20 +921,20 @@ export default function OnboardingPage() {
                         <div className="space-y-2">
                           <WhatsAppEmbeddedSignup
                             className="h-11 w-full"
-                            onConnected={async () => { await fetchState(); goTo('widget', 'WhatsApp connecté') }}
+                            onConnected={async () => { await fetchState(); goTo('widget', t('wizard.onboarding.fb_wa_connected')) }}
                           />
                           <p className="text-xs text-muted-foreground">
-                            Vous choisirez votre numéro dans une fenêtre sécurisée Meta (propriétaire de WhatsApp). Aucun identifiant à copier.
+                            {t('wizard.onboarding.wa_secure_window_hint')}
                           </p>
                         </div>
                       ) : (
                         // Repli si la config Meta est absente : saisie des 3 identifiants.
                         <div className="space-y-2.5">
-                          <input value={waPhoneId} onChange={(e) => setWaPhoneId(e.target.value)} placeholder="Phone Number ID"
+                          <input value={waPhoneId} onChange={(e) => setWaPhoneId(e.target.value)} placeholder={t('wizard.onboarding.wa_phone_id_placeholder')}
                             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
-                          <input value={waBizId} onChange={(e) => setWaBizId(e.target.value)} placeholder="Business Account ID (WABA)"
+                          <input value={waBizId} onChange={(e) => setWaBizId(e.target.value)} placeholder={t('wizard.onboarding.wa_biz_id_placeholder')}
                             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
-                          <input value={waToken} onChange={(e) => setWaToken(e.target.value)} placeholder="Access Token (Meta)" type="password"
+                          <input value={waToken} onChange={(e) => setWaToken(e.target.value)} placeholder={t('wizard.onboarding.wa_token_placeholder')} type="password"
                             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
                         </div>
                       )}
@@ -935,15 +942,15 @@ export default function OnboardingPage() {
                   )}
                   <div className="flex items-center justify-between pt-1">
                     <Button variant="ghost" size="sm" disabled={busy} onClick={() => goTo('widget')}>
-                      Passer pour l’instant
+                      {t('wizard.onboarding.wa_skip')}
                     </Button>
                     {state.whatsappConnected ? (
-                      <Button onClick={() => goTo('widget', 'WhatsApp prêt')}>Continuer <ArrowRight className="ml-1 h-4 w-4" /></Button>
+                      <Button onClick={() => goTo('widget', t('wizard.onboarding.fb_wa_ready'))}>{t('wizard.onboarding.wa_continue')} <ArrowRight className="ml-1 h-4 w-4" /></Button>
                     ) : !embeddedSignupAvailable ? (
                       // En mode popup Meta, c'est le bouton Facebook qui soumet.
                       <Button disabled={busy} onClick={connectWhatsApp}>
                         {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-1 h-4 w-4" />}
-                        Connecter WhatsApp
+                        {t('wizard.onboarding.wa_connect')}
                       </Button>
                     ) : null}
                   </div>
@@ -967,11 +974,11 @@ export default function OnboardingPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2 rounded-xl border p-4 text-sm text-muted-foreground">
                         {agentLoading ? (
-                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /> L’IA prépare votre agent à partir de la boutique…</span>
+                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /> {t('wizard.onboarding.agent_generating')}</span>
                         ) : (
                           <>
-                            <span>La génération n’a pas abouti.</span>
-                            <Button size="sm" variant="outline" onClick={loadAgentCfg}>Réessayer</Button>
+                            <span>{t('wizard.onboarding.agent_gen_failed')}</span>
+                            <Button size="sm" variant="outline" onClick={loadAgentCfg}>{t('wizard.onboarding.retry')}</Button>
                           </>
                         )}
                       </div>
@@ -988,10 +995,10 @@ export default function OnboardingPage() {
                           rencontre du marchand avec son agent, elle doit respirer. */}
                       <div className="space-y-2 text-center">
                         <p className="text-xl font-semibold leading-snug text-white sm:text-2xl">
-                          Essayez <span className="text-primary">{agentName || agentCfg.name}</span>
+                          {t('wizard.onboarding.agent_try')} <span className="text-primary">{agentName || agentCfg.name}</span>
                         </p>
                         <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-                          Il connaît déjà votre boutique. Posez-lui une question comme le ferait un client.
+                          {t('wizard.onboarding.agent_try_desc')}
                         </p>
                       </div>
 
@@ -1006,11 +1013,11 @@ export default function OnboardingPage() {
                           un filet, elle passe au second plan. */}
                       <div className="flex flex-col gap-4 border-t border-white/[0.06] pt-5 sm:flex-row sm:items-center sm:justify-between">
                         <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-                          Nom, ton, instructions et transferts à un humain : modifiables à tout moment depuis <span className="text-foreground/80">Agents IA</span>.
+                          {t('wizard.onboarding.agent_config_hint_1')}<span className="text-foreground/80">{t('wizard.onboarding.agent_config_hint_link')}</span>.
                         </p>
                         <Button size="lg" disabled={busy} onClick={validateAgent} className="shrink-0">
                           {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
-                          Valider mon agent
+                          {t('wizard.onboarding.validate_agent')}
                         </Button>
                       </div>
 
@@ -1073,11 +1080,11 @@ export default function OnboardingPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2 rounded-xl border p-4 text-sm text-muted-foreground">
                         {packLoading ? (
-                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Rédaction de vos {15} modèles personnalisés…</span>
+                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /> {t('wizard.onboarding.templates_writing', { count: 15 })}</span>
                         ) : (
                           <>
-                            <span>La génération n’a pas abouti.</span>
-                            <Button size="sm" variant="outline" onClick={loadPack}>Réessayer</Button>
+                            <span>{t('wizard.onboarding.agent_gen_failed')}</span>
+                            <Button size="sm" variant="outline" onClick={loadPack}>{t('wizard.onboarding.retry')}</Button>
                           </>
                         )}
                       </div>
@@ -1088,13 +1095,13 @@ export default function OnboardingPage() {
                       {/* En-tête MINIMAL : la carte fait sa propre démo de swipe,
                           inutile d'expliquer. Une ligne de contexte + garantie. */}
                       <p className="text-center text-sm text-muted-foreground">
-                        Rédigés au ton de <span className="font-medium text-foreground">{state.shopName}</span>
+                        {t('wizard.onboarding.templates_tone_prefix')}<span className="font-medium text-foreground">{state.shopName}</span>
                         <span className="mx-1.5 text-white/25">·</span>
-                        🔒 rien n’est créé avant votre validation
+                        {t('wizard.onboarding.templates_no_create')}
                       </p>
                       {!state.whatsappConnected && (
                         <p className="mx-auto w-fit rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-center text-xs text-amber-400">
-                          📝 Enregistrés en brouillon, à soumettre à Meta une fois WhatsApp connecté
+                          {t('wizard.onboarding.templates_draft_note')}
                         </p>
                       )}
                       <TemplateSwiper
@@ -1116,12 +1123,12 @@ export default function OnboardingPage() {
                 <div className="space-y-4">
                   {!pack ? (
                     <div className="flex items-center gap-2 rounded-xl border p-6 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" /> Préparation…
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" /> {t('wizard.onboarding.preparing')}
                     </div>
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Vos automatisations, rangées comme dans l’app : le <span className="font-medium text-foreground">Transactionnel</span> (lié aux commandes) et les <span className="font-medium text-foreground">Campagnes marketing</span>. Activez celles qui vous parlent. Elles sont créées <span className="font-medium text-foreground">désactivées</span>, vous les lancerez quand vous serez prêt.
+                        {t('wizard.onboarding.automations_intro_1')}<span className="font-medium text-foreground">{t('wizard.onboarding.automations_intro_transactional')}</span>{t('wizard.onboarding.automations_intro_2')}<span className="font-medium text-foreground">{t('wizard.onboarding.automations_intro_marketing')}</span>{t('wizard.onboarding.automations_intro_3')}<span className="font-medium text-foreground">{t('wizard.onboarding.automations_intro_disabled')}</span>{t('wizard.onboarding.automations_intro_4')}
                       </p>
                       {/* Regroupées sous les 2 onglets réels (Transactionnel /
                           Campagnes). Une CARTE par catégorie ; l'interrupteur agit
@@ -1162,16 +1169,16 @@ export default function OnboardingPage() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
-                                    <p className="text-sm font-semibold text-white">{meta?.title ?? group}</p>
+                                    <p className="text-sm font-semibold text-white">{meta?.titleKey ? t(meta.titleKey) : group}</p>
                                     <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-white/60">{onCount}/{items.length}</span>
                                   </div>
-                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{meta?.pitch}</p>
+                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{meta?.pitchKey ? t(meta.pitchKey) : ''}</p>
                                 </div>
                                 {/* Interrupteur maître de la famille */}
                                 <button
                                   role="switch"
                                   aria-checked={allOn}
-                                  aria-label={`Activer ${meta?.title ?? group}`}
+                                  aria-label={t('wizard.onboarding.activate_aria', { name: meta?.titleKey ? t(meta.titleKey) : group })}
                                   onClick={() => setSelAutomations((prev) => {
                                     const s = new Set(prev)
                                     items.forEach((i) => { if (allOn) s.delete(i.trigger); else s.add(i.trigger) })
@@ -1183,16 +1190,16 @@ export default function OnboardingPage() {
                                 </button>
                               </div>
                               {/* Exemple concret : la promesse en UNE situation. */}
-                              {meta?.example && (
+                              {meta?.exampleKey && (
                                 <p className="mx-4 mb-3 rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 text-[11px] leading-relaxed text-white/60">
-                                  {meta.example}
+                                  {t(meta.exampleKey)}
                                 </p>
                               )}
                               <button
                                 onClick={() => setExpanded(isOpen ? null : group)}
                                 className="flex items-center justify-center gap-1 border-t border-white/10 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-white"
                               >
-                                Personnaliser <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')} />
+                                {t('wizard.onboarding.customize')} <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')} />
                               </button>
                               {isOpen && (
                                 <div className="space-y-2 border-t border-white/10 p-3">
@@ -1207,11 +1214,11 @@ export default function OnboardingPage() {
                                           <p className="truncate text-xs text-muted-foreground">{item.description}</p>
                                         </div>
                                         <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                                          délai
+                                          {t('wizard.onboarding.delay')}
                                           <input type="number" min={0} value={delays[item.trigger] ?? 0}
                                             onChange={(e) => setDelays((prev) => ({ ...prev, [item.trigger]: Math.max(0, parseInt(e.target.value) || 0) }))}
                                             className="h-8 w-16 rounded-md border border-input bg-background px-1.5 text-center text-xs" />
-                                          min
+                                          {t('wizard.onboarding.min')}
                                         </span>
                                       </div>
                                     )
@@ -1226,10 +1233,10 @@ export default function OnboardingPage() {
                         )
                       })}
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">{selAutomations.size} / {pack.length} sélectionnées</p>
+                        <p className="text-xs text-muted-foreground">{t('wizard.onboarding.n_selected', { selected: selAutomations.size, total: pack.length })}</p>
                         <Button disabled={busy} onClick={validateAutomations}>
                           {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-                          Valider ces automatisations
+                          {t('wizard.onboarding.validate_automations')}
                         </Button>
                       </div>
                     </>
@@ -1244,8 +1251,8 @@ export default function OnboardingPage() {
                       actif (-20 % sur l'annuel). Abonnement OBLIGATOIRE : plus de
                       plan Gratuit — 7 jours d'essai gratuit sur tout abonnement. */}
                   <PricingGlass
-                    title="Choisissez votre formule"
-                    description="7 jours d'essai gratuit. Vous pourrez changer de plan ou d'intervalle à tout moment."
+                    title={t('wizard.onboarding.plan_title')}
+                    description={t('wizard.onboarding.plan_desc')}
                     tiers={PRICING_TIERS}
                     showBillingToggle
                     onSelect={(id, billing) => choosePlan(id, billing)}
@@ -1266,12 +1273,12 @@ export default function OnboardingPage() {
                           type="text"
                           value={promoCode}
                           onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                          placeholder="CODE PROMO"
+                          placeholder={t('wizard.onboarding.promo_placeholder')}
                           autoFocus
                           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-center text-sm uppercase tracking-widest text-foreground outline-none focus:border-primary"
                         />
                         <p className="text-[11px] text-muted-foreground">
-                          La remise s’affichera sur l’écran Shopify avant validation.
+                          {t('wizard.onboarding.promo_hint')}
                         </p>
                       </div>
                     ) : (
@@ -1280,7 +1287,7 @@ export default function OnboardingPage() {
                         onClick={() => setShowPromo(true)}
                         className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
                       >
-                        J’ai un code promo
+                        {t('wizard.onboarding.have_promo')}
                       </button>
                     )}
                   </div>
@@ -1296,7 +1303,7 @@ export default function OnboardingPage() {
           <div className="flex items-center border-t pt-4">
             <Button variant="ghost" size="sm" disabled={busy || advancing || stepIndex <= 2}
               onClick={() => setStep(STEPS[Math.max(2, stepIndex - 1)])}>
-              <ArrowLeft className="mr-1 h-4 w-4" /> Retour
+              <ArrowLeft className="mr-1 h-4 w-4" /> {t('wizard.onboarding.back_nav')}
             </Button>
           </div>
         )}
@@ -1312,11 +1319,11 @@ export default function OnboardingPage() {
           déclenche « Autorisez les pop-ups ». */}
       <a
         href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
-          "Bonjour, j'ai besoin d'aide pour configurer Xeyo."
+          t('wizard.onboarding.support_message')
         )}`}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Contacter le support sur WhatsApp"
+        aria-label={t('wizard.onboarding.support_aria')}
         className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105"
       >
         <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">

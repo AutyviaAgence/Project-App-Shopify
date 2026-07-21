@@ -62,10 +62,10 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
     try {
       const res = await fetch(`/api/conversations/${conversationId}/suggest`, { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('conversations.error_generic'))
       if (json.text) { setNewMessage(json.text); inputRef.current?.focus() }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('conversations.error_generic'))
     } finally {
       setSuggesting(false)
     }
@@ -293,7 +293,7 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
                 onClick={() => setMacrosOpen(o => !o)}
                 disabled={sending}
                 className="h-11 w-11 rounded-full text-muted-foreground hover:text-foreground"
-                title="Macros"
+                title={t('conversations.macros')}
               >
                 <Zap className="h-4 w-4" />
               </Button>
@@ -301,11 +301,11 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMacrosOpen(false)} />
                   <div className="absolute bottom-12 left-0 z-20 w-72 rounded-xl border bg-popover p-2 shadow-lg">
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Réponses pré-enregistrées</div>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{t('conversations.prerecorded_replies')}</div>
                     <div className="max-h-64 overflow-y-auto">
                       {macros.length === 0 ? (
                         <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                          Aucune macro. Créez-en dans Paramètres → Macros.
+                          {t('conversations.no_macros')}
                         </div>
                       ) : (
                         macros.map(m => (
@@ -335,7 +335,7 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
                 onClick={suggestReply}
                 disabled={sending || suggesting}
                 className="h-11 w-11 rounded-full shrink-0 text-muted-foreground hover:text-primary"
-                title="Suggérer une réponse (IA)"
+                title={t('conversations.suggest_reply_ia')}
               >
                 {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               </Button>

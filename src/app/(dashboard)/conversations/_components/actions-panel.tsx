@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Loader2, Check, X, RotateCcw, Ban, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
+
+type TFn = (key: string, params?: Record<string, string | number>) => string
 
 type Action = {
   id: string
@@ -29,13 +32,16 @@ type RefundOptions = {
   notify?: { message: string }
 }
 
-const REFUND_REASONS = [
-  'Produit défectueux',
-  'Erreur de commande',
-  'Article non reçu',
-  'Geste commercial',
-  'Autre',
+// Motifs de remboursement : `value` reste stable (envoyé au serveur / point de
+// bascule « Autre »), `labelKey` traduit l'affichage.
+const REFUND_REASONS: { value: string; labelKey: string }[] = [
+  { value: 'Produit défectueux', labelKey: 'conversations.refund_reason_defective' },
+  { value: 'Erreur de commande', labelKey: 'conversations.refund_reason_order_error' },
+  { value: 'Article non reçu', labelKey: 'conversations.refund_reason_not_received' },
+  { value: 'Geste commercial', labelKey: 'conversations.refund_reason_gesture' },
+  { value: 'Autre', labelKey: 'conversations.refund_reason_other' },
 ]
+const OTHER_REASON = 'Autre'
 
 // Détails de la commande affichés dans le formulaire de remboursement.
 type OrderDetails = {
@@ -52,10 +58,10 @@ function money(v: number, c: string) {
   catch { return `${v.toFixed(2)} ${c}` }
 }
 
-const TYPE_META: Record<Action['action_type'], { label: string; icon: typeof Ban; cls: string }> = {
-  cancel_order: { label: 'Annulation de commande', icon: Ban, cls: 'text-red-500' },
-  refund_order: { label: 'Remboursement', icon: RotateCcw, cls: 'text-amber-500' },
-  create_discount: { label: 'Code de réduction', icon: Tag, cls: 'text-green-600' },
+const TYPE_META: Record<Action['action_type'], { labelKey: string; icon: typeof Ban; cls: string }> = {
+  cancel_order: { labelKey: 'conversations.action_cancel_order', icon: Ban, cls: 'text-red-500' },
+  refund_order: { labelKey: 'conversations.action_refund', icon: RotateCcw, cls: 'text-amber-500' },
+  create_discount: { labelKey: 'conversations.action_discount', icon: Tag, cls: 'text-green-600' },
 }
 
 /**
@@ -64,6 +70,7 @@ const TYPE_META: Record<Action['action_type'], { label: string; icon: typeof Ban
  * onChange est appelé après une décision (pour rafraîchir badges/tri).
  */
 export function ActionsPanel({ conversationId, onChange }: { conversationId: string; onChange?: () => void }) {
+  const { t } = useTranslation()
   const [actions, setActions] = useState<Action[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
   // Action de remboursement en cours de configuration (formulaire).
@@ -87,7 +94,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
         body: JSON.stringify({ decision, refund }),
       })
       const json = await res.json()
-      if (!res.ok && !json.data) throw new Error(json.error || 'Erreur')
+      if (!res.ok && !json.data) throw new Error(json.error || t('conversations.error_generic'))
 
       // Remboursement réussi + case « prévenir le client » → envoyer le message
       // via l'endpoint de conversation existant (gère fenêtre 24h + persistance).
@@ -99,22 +106,22 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
           })
           if (!sendRes.ok) {
             const sj = await sendRes.json().catch(() => ({}))
-            toast.warning(`Remboursement fait, mais message non envoyé : ${sj.error || 'hors fenêtre 24h ?'}`)
+            toast.warning(t('conversations.refund_notified_fail', { reason: sj.error || t('conversations.refund_out_of_window') }))
           } else {
-            toast.success('Client prévenu du remboursement')
+            toast.success(t('conversations.client_notified_refund'))
           }
         } catch {
-          toast.warning('Remboursement fait, mais message non envoyé.')
+          toast.warning(t('conversations.refund_done_msg_fail'))
         }
       }
 
       await fetchActions()
       onChange?.()
-      if (decision === 'reject') toast.success('Action refusée')
-      else if (json.data?.status === 'executed') toast.success('Remboursement effectué sur Shopify')
-      else toast.error(json.error || 'Échec de l\'exécution')
+      if (decision === 'reject') toast.success(t('conversations.action_rejected'))
+      else if (json.data?.status === 'executed') toast.success(t('conversations.refund_done_shopify'))
+      else toast.error(json.error || t('conversations.execution_failed'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('conversations.error_generic'))
     } finally {
       setBusyId(null)
     }
@@ -125,7 +132,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
   return (
     <div className="border-b bg-amber-500/5 px-4 py-3">
       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-600">
-        <Ban className="h-3.5 w-3.5" /> Action{actions.length > 1 ? 's' : ''} à valider
+        <Ban className="h-3.5 w-3.5" /> {t('conversations.actions_to_validate', { plural: actions.length > 1 ? 's' : '' })}
       </p>
       <div className="space-y-2">
         {actions.map((a) => {
@@ -136,7 +143,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <Icon className={cn('h-4 w-4', meta.cls)} />
-                  <span className="text-sm font-medium">{meta.label}</span>
+                  <span className="text-sm font-medium">{t(meta.labelKey)}</span>
                   {a.action_type === 'refund_order' && a.payload.amount_estimated != null && (
                     <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600">
                       {Number(a.payload.amount_estimated).toFixed(2)} {String(a.payload.currency || '')}
@@ -147,7 +154,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button size="sm" variant="outline" disabled={busyId === a.id} onClick={() => decide(a.id, 'reject')}>
-                  <X className="mr-1 h-4 w-4" />Refuser
+                  <X className="mr-1 h-4 w-4" />{t('conversations.reject')}
                 </Button>
                 <Button
                   size="sm"
@@ -159,7 +166,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
                   }}
                 >
                   {busyId === a.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-                  Confirmer
+                  {t('conversations.confirm')}
                 </Button>
               </div>
             </div>
@@ -196,13 +203,14 @@ function RefundDialog({
   onClose: () => void
   onConfirm: (opts: RefundOptions) => void
 }) {
+  const { t } = useTranslation()
   const estimated = action.payload.amount_estimated != null ? Number(action.payload.amount_estimated) : undefined
 
   // Détails de la commande, chargés depuis Shopify à l'ouverture.
   const [details, setDetails] = useState<OrderDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(true)
 
-  const [reasonChoice, setReasonChoice] = useState(REFUND_REASONS[0])
+  const [reasonChoice, setReasonChoice] = useState(REFUND_REASONS[0].value)
   const [reasonCustom, setReasonCustom] = useState('')
   const [amount, setAmount] = useState<string>(estimated != null ? String(estimated) : '')
   // ⚠️ Plus de choix de méthode : le serveur force le remboursement sur le moyen
@@ -233,7 +241,7 @@ function RefundDialog({
 
   const amountNum = Number(amount)
   const amountValid = amount !== '' && !isNaN(amountNum) && amountNum > 0 && (maxRefundable == null || amountNum <= maxRefundable + 0.001)
-  const reason = reasonChoice === 'Autre' ? reasonCustom.trim() : reasonChoice
+  const reason = reasonChoice === OTHER_REASON ? reasonCustom.trim() : reasonChoice
   const canConfirm = amountValid && reason.length > 0 && !busy
 
   // Message de confirmation envoyé au client (aperçu + envoi si case cochée).
@@ -242,9 +250,9 @@ function RefundDialog({
   // la vérité. Il annonçait auparavant « en crédit magasin » alors que le serveur
   // remboursait la carte — une promesse fausse faite à l'acheteur.
   const notifyMessage = [
-    `Bonjour, votre remboursement de ${amountValid ? money(amountNum, currency) : '—'} pour la commande ${orderLabel} a bien été effectué sur votre moyen de paiement.`,
-    notifyLink.trim() ? `\nDétails : ${notifyLink.trim()}` : '',
-    `\nMerci pour votre confiance !`,
+    t('conversations.notify_message_template', { amount: amountValid ? money(amountNum, currency) : '—', order: orderLabel }),
+    notifyLink.trim() ? t('conversations.notify_message_link', { link: notifyLink.trim() }) : '',
+    t('conversations.notify_message_thanks'),
   ].join('')
 
   return (
@@ -252,10 +260,10 @@ function RefundDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <RotateCcw className="h-4 w-4 text-amber-500" /> Rembourser {String(action.payload.order_name || '')}
+            <RotateCcw className="h-4 w-4 text-amber-500" /> {t('conversations.refund_verb')} {String(action.payload.order_name || '')}
           </DialogTitle>
           <DialogDescription>
-            Vérifiez le motif, le montant et la méthode avant de rembourser. Cette action est définitive côté Shopify.
+            {t('conversations.refund_desc')}
           </DialogDescription>
         </DialogHeader>
 
@@ -263,15 +271,15 @@ function RefundDialog({
         <div className="rounded-lg border bg-muted/30 p-3 text-sm">
           {detailsLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Chargement de la commande…
+              <Loader2 className="h-4 w-4 animate-spin" /> {t('conversations.loading_order')}
             </div>
           ) : details ? (
             <div className="space-y-1.5">
-              <div className="flex justify-between"><span className="text-muted-foreground">Total commande</span><span className="font-medium">{money(details.total, details.currency)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t('conversations.order_total')}</span><span className="font-medium">{money(details.total, details.currency)}</span></div>
               {details.totalRefunded > 0 && (
-                <div className="flex justify-between"><span className="text-muted-foreground">Déjà remboursé</span><span className="font-medium text-amber-600">− {money(details.totalRefunded, details.currency)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{t('conversations.already_refunded')}</span><span className="font-medium text-amber-600">− {money(details.totalRefunded, details.currency)}</span></div>
               )}
-              <div className="flex justify-between border-t pt-1.5"><span className="text-muted-foreground">Remboursable</span><span className="font-semibold text-emerald-600">{money(details.refundableAmount, details.currency)}</span></div>
+              <div className="flex justify-between border-t pt-1.5"><span className="text-muted-foreground">{t('conversations.refundable')}</span><span className="font-semibold text-emerald-600">{money(details.refundableAmount, details.currency)}</span></div>
               {details.lineItems.length > 0 && (
                 <div className="mt-2 space-y-0.5 border-t pt-2">
                   {details.lineItems.map((li, i) => (
@@ -284,26 +292,26 @@ function RefundDialog({
               )}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Détails de la commande indisponibles.</p>
+            <p className="text-xs text-muted-foreground">{t('conversations.order_details_unavailable')}</p>
           )}
         </div>
 
         <div className="space-y-4">
           {/* Motif */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Motif</label>
+            <label className="text-sm font-medium">{t('conversations.reason_label')}</label>
             <select
               value={reasonChoice}
               onChange={(e) => setReasonChoice(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              {REFUND_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              {REFUND_REASONS.map((r) => <option key={r.value} value={r.value}>{t(r.labelKey)}</option>)}
             </select>
-            {reasonChoice === 'Autre' && (
+            {reasonChoice === OTHER_REASON && (
               <input
                 value={reasonCustom}
                 onChange={(e) => setReasonCustom(e.target.value)}
-                placeholder="Précisez le motif…"
+                placeholder={t('conversations.other_placeholder')}
                 className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
             )}
@@ -311,7 +319,7 @@ function RefundDialog({
 
           {/* Montant */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Montant à rembourser {currency && <span className="text-muted-foreground">({currency})</span>}</label>
+            <label className="text-sm font-medium">{t('conversations.amount_to_refund')} {currency && <span className="text-muted-foreground">({currency})</span>}</label>
             <input
               type="number" step="0.01" min="0"
               value={amount}
@@ -319,10 +327,10 @@ function RefundDialog({
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
             {maxRefundable != null && (
-              <p className="text-xs text-muted-foreground">Remboursable : {maxRefundable.toFixed(2)} {currency}</p>
+              <p className="text-xs text-muted-foreground">{t('conversations.refundable_hint', { amount: maxRefundable.toFixed(2), currency })}</p>
             )}
             {!amountValid && amount !== '' && (
-              <p className="text-xs text-rose-500">Le montant doit être &gt; 0 et ≤ {maxRefundable?.toFixed(2) ?? '—'} {currency}.</p>
+              <p className="text-xs text-rose-500">{t('conversations.amount_invalid', { max: maxRefundable?.toFixed(2) ?? '—', currency })}</p>
             )}
           </div>
 
@@ -334,7 +342,9 @@ function RefundDialog({
             le choix ici ne ferait que mentir au marchand.
           */}
           <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            Le remboursement est effectué sur le <strong className="text-foreground">moyen de paiement d’origine</strong> du client.
+            {t('conversations.refund_original_method_before')}
+            <strong className="text-foreground">{t('conversations.refund_original_method_strong')}</strong>
+            {t('conversations.refund_original_method_after')}
           </p>
 
           {/* Prévenir le client */}
@@ -346,14 +356,14 @@ function RefundDialog({
                 onChange={(e) => setNotifyClient(e.target.checked)}
                 className="h-4 w-4 rounded border-input accent-primary"
               />
-              Prévenir le client du remboursement
+              {t('conversations.notify_client_refund')}
             </label>
             {notifyClient && (
               <div className="space-y-2">
                 <input
                   value={notifyLink}
                   onChange={(e) => setNotifyLink(e.target.value)}
-                  placeholder="Lien à joindre (optionnel), ex : suivi, politique…"
+                  placeholder={t('conversations.notify_link_placeholder')}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground whitespace-pre-line">
@@ -364,7 +374,7 @@ function RefundDialog({
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose} disabled={busy}>Annuler</Button>
+            <Button variant="outline" onClick={onClose} disabled={busy}>{t('conversations.cancel')}</Button>
             <Button
               disabled={!canConfirm}
               onClick={() => onConfirm({
@@ -376,7 +386,7 @@ function RefundDialog({
               })}
             >
               {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-              Rembourser
+              {t('conversations.refund_verb')}
             </Button>
           </div>
         </div>

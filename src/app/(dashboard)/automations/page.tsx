@@ -6,6 +6,7 @@ import { AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { track } from '@/lib/posthog/events'
+import { useTranslation } from '@/i18n/context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Loader2, Trash2, Workflow, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles, Megaphone, BarChart3 } from 'lucide-react'
@@ -41,11 +42,12 @@ type Folder = { id: string; name: string; color: string | null; position: number
 // fichier). Appeler `useSearchParams()` ICI ferait suspendre — donc remonter — ce
 // composant à chaque navigation, et tout son état serait perdu.
 function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId: string | null }) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<AutomationKind>(urlTab)
   const [automations, setAutomations] = useState<Automation[]>([])
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
-  const [storeName] = useState('Votre boutique')
+  const [storeName] = useState(t('automations.default_store_name'))
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -124,7 +126,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
     })
     const json = await res.json()
     if (res.ok && json.data) { setFolders((prev) => [...prev, json.data]); setNewFolderName(''); setCreatingFolder(false) }
-    else toast.error(json.error || 'Erreur')
+    else toast.error(json.error || t('automations.toast_error'))
   }
 
   /**
@@ -146,17 +148,17 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
     })
     if (!res.ok) {
       setFolders((prev) => prev.map((x) => x.id === f.id ? { ...x, name: f.name } : x))
-      toast.error('Renommage échoué')
+      toast.error(t('automations.toast_rename_failed'))
     }
   }
 
   async function deleteFolder(f: Folder) {
-    if (!window.confirm(`Supprimer le dossier « ${f.name} » ? Les workflows dedans repasseront en « Non classés ».`)) return
+    if (!window.confirm(t('automations.confirm_delete_folder', { name: f.name }))) return
     const res = await fetch(`/api/automation-folders/${f.id}`, { method: 'DELETE' })
     if (res.ok) {
       setFolders((prev) => prev.filter((x) => x.id !== f.id))
       setAutomations((prev) => prev.map((a) => a.folder_id === f.id ? { ...a, folder_id: null } : a))
-    } else toast.error('Erreur')
+    } else toast.error(t('automations.toast_error'))
   }
 
   // Déplacer un workflow vers un dossier (null = non classés). Optimiste.
@@ -166,7 +168,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folder_id: folderId }),
     })
-    if (!res.ok) { toast.error('Déplacement échoué'); load() }
+    if (!res.ok) { toast.error(t('automations.toast_move_failed')); load() }
   }
 
   useEffect(() => { load() }, [load])
@@ -217,8 +219,8 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
   const visibleAutomations = automations.filter((a) => kindOf(a) === tab)
   // Vocabulaire selon l'onglet (campagne vs workflow) — un seul endroit.
   const NOUN = tab === 'marketing'
-    ? { plural: 'Campagnes', newOne: 'Nouvelle campagne' }
-    : { plural: 'Workflows', newOne: 'Nouveau workflow' }
+    ? { plural: t('automations.campaigns'), newOne: t('automations.new_campaign') }
+    : { plural: t('automations.workflows'), newOne: t('automations.new_workflow') }
 
   // Suivre l'onglet piloté par la sidebar (?tab=) : bascule le state, referme
   // le builder, et lâche l'automatisation courante si elle n'est pas du bon kind.
@@ -343,7 +345,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: false, kind: kindForTrigger(data.trigger as TriggerEvent) }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('automations.toast_error'))
       track('automation_created', { trigger: data.trigger, via: 'wizard', kind: kindForTrigger(data.trigger as TriggerEvent) })
       await load()
       // Sortir de TOUS les écrans de création (wizard OU assistant IA) et ouvrir
@@ -355,8 +357,8 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
       // On DIT qu'elle est inactive : un parcours créé et silencieusement
       // endormi serait pire que le problème qu'on corrige — le marchand
       // croirait qu'il tourne, et se demanderait pourquoi rien ne part.
-      toast.success('Créée et mise en pause — relisez-la, puis activez-la avec le bouton en haut.', { duration: 7000 })
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
+      toast.success(t('automations.toast_created_paused'), { duration: 7000 })
+    } catch (e) { toast.error(e instanceof Error ? e.message : t('automations.toast_error')) } finally { setBusyId(null) }
   }
 
   // Modèles NON approuvés (en revue / refusés) utilisés par un graphe : on
@@ -399,11 +401,18 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         const others = bad.filter((b) => b.status !== 'draft').map((b) => b.name)
         if (drafts.length > 0) {
           toast.error(
-            `Impossible d’activer : ${drafts.join(', ')} ${drafts.length > 1 ? 'sont des brouillons' : 'est un brouillon'} non soumis à Meta. Soumettez-le${drafts.length > 1 ? 's' : ''} depuis Modèles.`,
+            t('automations.toast_cannot_activate_drafts', {
+              names: drafts.join(', '),
+              verb: drafts.length > 1 ? t('automations.verb_drafts_plural') : t('automations.verb_draft_singular'),
+              plural: drafts.length > 1 ? 's' : '',
+            }),
             { duration: 7000 }
           )
         } else {
-          toast.error(`Impossible d’activer : ${others.join(', ')} ${others.length > 1 ? 'sont' : 'est'} en attente d’approbation Meta.`)
+          toast.error(t('automations.toast_cannot_activate_review', {
+            names: others.join(', '),
+            verb: others.length > 1 ? t('automations.verb_are') : t('automations.verb_is'),
+          }))
         }
         return
       }
@@ -417,7 +426,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
       if (!res.ok) throw new Error()
       setAutomations((prev) => prev.map((x) => x.id === a.id ? { ...x, is_active: !x.is_active } : x))
       if (current?.id === a.id) setCurrent({ ...a, is_active: !a.is_active })
-    } catch { toast.error('Erreur') } finally { setBusyId(null) }
+    } catch { toast.error(t('automations.toast_error')) } finally { setBusyId(null) }
   }
 
   // Active (ou désactive) TOUS les workflows d'un coup. Si au moins un est
@@ -442,10 +451,10 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         )
       )
       const failed = results.filter((r) => r.status === 'rejected').length
-      if (failed > 0) { toast.error(`${failed} workflow(s) non ${target ? 'activé' : 'désactivé'}(s)`); load() }
+      if (failed > 0) { toast.error(t('automations.toast_bulk_failed', { count: failed, action: target ? t('automations.action_activated') : t('automations.action_deactivated') })); load() }
       else {
         if (target) track('automation_activated', { bulk: true, count: scope.length, kind: tab })
-        toast.success(target ? 'Tous les workflows activés' : 'Tous les workflows désactivés')
+        toast.success(target ? t('automations.toast_all_activated') : t('automations.toast_all_deactivated'))
       }
     } finally { setBusyId(null) }
   }
@@ -459,13 +468,13 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
       const next = automations.filter((x) => x.id !== a.id)
       setAutomations(next)
       if (current?.id === a.id) setCurrent(next[0] || null)
-      toast.success('Automatisation supprimée')
-    } catch { toast.error('Erreur') } finally { setBusyId(null) }
+      toast.success(t('automations.toast_deleted'))
+    } catch { toast.error(t('automations.toast_error')) } finally { setBusyId(null) }
   }
 
   async function save() {
     if (!current || !graph) return
-    if (!nameDraft.trim()) { toast.error('Donnez un nom à l’automatisation'); return }
+    if (!nameDraft.trim()) { toast.error(t('automations.toast_name_required')); return }
     const errors = validateGraph(graph)
     if (errors.length) { toast.error(errors[0]); return }
     // Si le workflow est actif mais qu'un modèle utilisé n'est pas (ou plus)
@@ -476,7 +485,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
       const bad = unapprovedTemplatesOf({ ...current, graph } as Automation)
       if (bad.length > 0) {
         keepActive = false
-        toast.warning(`Workflow désactivé : ${bad.join(', ')} en attente d'approbation Meta. Réactivez-le une fois approuvé.`)
+        toast.warning(t('automations.toast_deactivated_unapproved', { names: bad.map((b) => b.name).join(', ') }))
       }
     }
     setBusyId('save')
@@ -503,14 +512,14 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('automations.toast_error'))
       await load()
       if (json.data?.id) setCurrent(json.data as Automation)
       if (isNew) track('automation_created', { trigger: trig?.event || undefined })
       else track('automation_saved', { id: json.data?.id })
       if (current.is_active) track('automation_activated', { id: json.data?.id })
-      toast.success('Workflow enregistré')
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
+      toast.success(t('automations.toast_saved'))
+    } catch (e) { toast.error(e instanceof Error ? e.message : t('automations.toast_error')) } finally { setBusyId(null) }
   }
 
   if (loading) return <BlobLoaderScreen />
@@ -527,12 +536,12 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
               (sous-menu). Ici on rappelle juste l'onglet courant. */}
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             {tab === 'marketing' ? <Megaphone className="h-5 w-5 shrink-0" /> : <Workflow className="h-5 w-5 shrink-0" />}
-            {tab === 'marketing' ? 'Campagnes' : 'Transactionnel'}
+            {tab === 'marketing' ? t('automations.campaigns') : t('automations.transactional')}
           </h1>
           <p className="hidden text-xs text-muted-foreground sm:block">
             {tab === 'marketing'
-              ? 'Campagnes marketing : parcours à boutons, promotions, A/B test.'
-              : 'Automatisations transactionnelles : événement → délai → condition → message.'}
+              ? t('automations.campaigns_desc')
+              : t('automations.transactional_desc')}
           </p>
         </div>
         {current && (
@@ -540,7 +549,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
             {current.id && (
               <button
                 onClick={() => toggleActive(current)} disabled={busyId === current.id}
-                title={current.is_active ? 'Cliquez pour désactiver' : 'Cliquez pour activer'}
+                title={current.is_active ? t('automations.deactivate_tooltip') : t('automations.activate_tooltip')}
                 className={cn(
                   'flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm transition-all sm:flex-none',
                   current.is_active
@@ -554,22 +563,22 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                   <span className={cn('inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform',
                     current.is_active ? 'translate-x-3.5' : 'translate-x-0.5')} />
                 </span>
-                {current.is_active ? 'Activé' : 'Désactivé'}
+                {current.is_active ? t('automations.active') : t('automations.inactive')}
               </button>
             )}
             {current.id && (
               <button
                 onClick={() => setShowPerf(true)}
-                title="Voir les performances"
+                title={t('automations.view_performance')}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted sm:flex-none"
               >
                 <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Performance</span>
+                <span className="hidden sm:inline">{t('automations.performance')}</span>
               </button>
             )}
             <Button className="flex-1 sm:flex-none" onClick={save} disabled={busyId === 'save'}>
               {busyId === 'save' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              Enregistrer
+              {t('automations.save')}
             </Button>
           </div>
         )}
@@ -589,7 +598,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
           >
             {!current?.id && <option value="">{NOUN.newOne}…</option>}
             {visibleAutomations.map((a) => (
-              <option key={a.id} value={a.id}>{a.is_active ? '● ' : '○ '}{a.name || 'Sans nom'}</option>
+              <option key={a.id} value={a.id}>{a.is_active ? '● ' : '○ '}{a.name || t('automations.no_name')}</option>
             ))}
           </select>
           <button onClick={openNew} title={NOUN.newOne}
@@ -604,7 +613,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         {/* Sidebar repliée : juste + et flèche pour rouvrir */}
         {sidebarCollapsed ? (
           <aside className="hidden flex-col items-center gap-2 border-r bg-muted/20 p-2 md:flex">
-            <button onClick={() => setSidebarCollapsed(false)} title={`Afficher les ${NOUN.plural.toLowerCase()}`}
+            <button onClick={() => setSidebarCollapsed(false)} title={t('automations.show_list', { items: NOUN.plural.toLowerCase() })}
               className="flex h-7 w-7 items-center justify-center rounded-md border bg-card text-muted-foreground hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -619,7 +628,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
           <div className="mb-2 flex items-center justify-between px-2 py-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{NOUN.plural}</span>
             <div className="flex items-center gap-1">
-              <button onClick={() => { setCreatingFolder(true); setNewFolderName('') }} title="Nouveau dossier"
+              <button onClick={() => { setCreatingFolder(true); setNewFolderName('') }} title={t('automations.new_folder')}
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <FolderPlus className="h-4 w-4" />
               </button>
@@ -629,7 +638,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <Plus className="h-4 w-4" />
               </button>
-              <button onClick={() => setSidebarCollapsed(true)} title="Réduire"
+              <button onClick={() => setSidebarCollapsed(true)} title={t('automations.collapse')}
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:text-primary">
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -649,7 +658,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
               <button
                 onClick={toggleAll}
                 disabled={busyId === 'bulk'}
-                title={willActivate ? 'Activer tous les workflows' : 'Désactiver tous les workflows'}
+                title={willActivate ? t('automations.activate_all_tooltip') : t('automations.deactivate_all_tooltip')}
                 className={cn('mb-2 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-60',
                   willActivate
                     ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400'
@@ -660,7 +669,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                   : <span className={cn('relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors', willActivate ? 'bg-foreground/20' : 'bg-green-500/60')}>
                       <span className={cn('inline-block h-2.5 w-2.5 transform rounded-full bg-white shadow transition-transform', willActivate ? 'translate-x-0.5' : 'translate-x-3')} />
                     </span>}
-                {willActivate ? 'Tout activer' : 'Tout désactiver'}
+                {willActivate ? t('automations.activate_all') : t('automations.deactivate_all')}
               </button>
             )
           })()}
@@ -674,7 +683,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') createFolder(); if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName('') } }}
                 onBlur={createFolder}
-                placeholder="Nom du dossier…"
+                placeholder={t('automations.folder_name_placeholder')}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
               />
             </div>
@@ -685,7 +694,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
             <div className="mb-1 flex items-center gap-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 py-2 text-sm text-primary">
               <span className="h-2 w-2 shrink-0 rounded-full bg-primary/40" />
               <span className="flex-1 truncate italic">{nameDraft.trim() || NOUN.newOne}</span>
-              <span className="text-[10px] uppercase tracking-wide text-primary/60">brouillon</span>
+              <span className="text-[10px] uppercase tracking-wide text-primary/60">{t('automations.draft')}</span>
             </div>
           )}
           {/* Ligne de workflow (draggable → glisser dans un dossier). */}
@@ -701,8 +710,8 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
               >
                 <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-muted-foreground/30 group-hover:text-muted-foreground/60" />
                 <span className={cn('h-2 w-2 shrink-0 rounded-full', a.is_active ? 'bg-green-500' : 'bg-muted-foreground/40')} />
-                <span className="flex-1 truncate">{a.name || 'Sans nom'}</span>
-                <button onClick={(e) => { e.stopPropagation(); remove(a) }} title="Supprimer"
+                <span className="flex-1 truncate">{a.name || t('automations.no_name')}</span>
+                <button onClick={(e) => { e.stopPropagation(); remove(a) }} title={t('automations.delete_tooltip')}
                   className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -755,14 +764,14 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                           <button
                             type="button"
                             onClick={() => setRenamingFolder(f.id)}
-                            title="Renommer le dossier"
+                            title={t('automations.rename_folder')}
                             className="flex-1 truncate text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
                           >
                             {f.name}
                           </button>
                         )}
                         <span className="text-[10px] text-muted-foreground/50">{items.length}</span>
-                        <button onClick={() => deleteFolder(f)} title="Supprimer le dossier"
+                        <button onClick={() => deleteFolder(f)} title={t('automations.delete_folder_tooltip')}
                           className="rounded p-0.5 text-muted-foreground/40 opacity-0 transition-colors hover:text-destructive group-hover:opacity-100">
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -770,7 +779,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                       <div className="pl-2">
                         {items.map(renderRow)}
                         {items.length === 0 && (
-                          <p className="px-3 py-2 text-[11px] italic text-muted-foreground/50">Glissez un workflow ici</p>
+                          <p className="px-3 py-2 text-[11px] italic text-muted-foreground/50">{t('automations.drop_workflow_here')}</p>
                         )}
                       </div>
                     </div>
@@ -781,14 +790,14 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                 <div {...dropProps(null)}
                   className={cn('rounded-lg border border-transparent', dragOverFolder === 'none' && 'border-primary/50 bg-primary/5')}>
                   {folders.length > 0 && unfiled.length > 0 && (
-                    <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">Non classés</div>
+                    <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">{t('automations.unfiled')}</div>
                   )}
                   {unfiled.map(renderRow)}
                 </div>
 
                 {visibleAutomations.length === 0 && !(current && !current.id) && (
                   <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                    {tab === 'marketing' ? 'Aucune campagne. Créez la première.' : 'Aucun workflow. Créez le premier.'}
+                    {tab === 'marketing' ? t('automations.no_campaigns') : t('automations.no_workflows')}
                   </p>
                 )}
               </>
@@ -801,12 +810,12 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         {showChoose ? (
           <div className="flex min-h-0 flex-col p-6">
             <div className="mb-6 flex items-center gap-2">
-              <button onClick={() => { setShowChoose(false); setCurrent(visibleAutomations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
-              <span className="text-sm font-semibold">{tab === 'marketing' ? 'Nouvelle campagne' : 'Nouvelle automatisation'}</span>
+              <button onClick={() => { setShowChoose(false); setCurrent(visibleAutomations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">{t('automations.back')}</button>
+              <span className="text-sm font-semibold">{tab === 'marketing' ? t('automations.new_campaign') : t('automations.new_automation')}</span>
             </div>
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center">
-              <h2 className="mb-1 text-xl font-semibold">Comment voulez-vous la créer ?</h2>
-              <p className="mb-6 text-sm text-muted-foreground">Choisissez votre méthode de création.</p>
+              <h2 className="mb-1 text-xl font-semibold">{t('automations.how_create')}</h2>
+              <p className="mb-6 text-sm text-muted-foreground">{t('automations.choose_method')}</p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* ASSISTANT IA : construit un vrai funnel (plusieurs messages,
                     délais, conditions, A/B) en discutant, façon assistant des
@@ -816,16 +825,16 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
                 <button onClick={startChat}
                   className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Sparkles className="h-6 w-6 text-primary" /></div>
-                  <p className="text-base font-semibold">Assistant IA</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Discutez avec l’IA : elle construit un parcours complet (plusieurs messages, délais, conditions, test A/B).</p>
-                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Recommandé</span>
+                  <p className="text-base font-semibold">{t('automations.ai_assistant')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t('automations.ai_assistant_desc')}</p>
+                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{t('automations.recommended')}</span>
                 </button>
                 <button onClick={startManual}
                   className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted"><GitBranch className="h-6 w-6 text-violet-600" /></div>
-                  <p className="text-base font-semibold">Création manuelle</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Construisez le parcours vous-même, bloc par bloc, dans l’éditeur visuel.</p>
-                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Avancé</span>
+                  <p className="text-base font-semibold">{t('automations.manual_creation')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t('automations.manual_creation_desc')}</p>
+                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{t('automations.advanced')}</span>
                 </button>
               </div>
             </div>
@@ -851,7 +860,7 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
           <div className="flex min-h-0 flex-col">
             <div className="flex items-center gap-2 border-b px-4 py-2.5">
               <GitBranch className="h-4 w-4 text-violet-600" />
-              <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
+              <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder={t('automations.workflow_name_placeholder')} className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
             <div className="min-h-0 flex-1 p-4">
               <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} automationId={current?.id ?? null} kind={current ? kindOf(current) : tab} onTemplatesChanged={load} />
@@ -860,8 +869,8 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
             <Workflow className="h-10 w-10 opacity-40" />
-            <p className="text-sm">Sélectionnez un workflow ou créez-en un.</p>
-            <Button onClick={openNew}><Plus className="mr-1 h-4 w-4" />Nouveau workflow</Button>
+            <p className="text-sm">{t('automations.empty_hint')}</p>
+            <Button onClick={openNew}><Plus className="mr-1 h-4 w-4" />{t('automations.new_workflow')}</Button>
           </div>
         )}
       </div>

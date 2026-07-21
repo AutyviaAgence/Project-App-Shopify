@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { ShoppingBag, Package, ExternalLink, Loader2, RotateCcw, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
+
+type TFn = (key: string, params?: Record<string, string | number>) => string
 
 type Order = {
   id: string
@@ -17,15 +20,15 @@ type Order = {
 }
 
 /** Statut de remboursement calculé depuis Shopify (montant remboursé vs total). */
-function refundInfo(o: Order): { label: string; badge: string } | null {
+function refundInfo(o: Order, t: TFn): { label: string; badge: string } | null {
   const total = Number(o.total) || 0
   const refunded = Number(o.totalRefunded) || 0
   if (refunded <= 0) return null
   const full = refunded >= total - 0.001
   return {
     label: full
-      ? `Remboursée (${refunded.toFixed(2)} ${o.currency})`
-      : `Remboursé ${refunded.toFixed(2)} / ${total.toFixed(2)} ${o.currency}`,
+      ? t('conversations.refunded_full', { amount: refunded.toFixed(2), currency: o.currency })
+      : t('conversations.refunded_partial', { refunded: refunded.toFixed(2), total: total.toFixed(2), currency: o.currency }),
     badge: full
       ? 'text-rose-500 bg-rose-500/15 ring-rose-500/30'
       : 'text-amber-500 bg-amber-500/15 ring-amber-500/30',
@@ -42,24 +45,24 @@ function orderAdminUrl(shopDomain: string | undefined, orderId: string): string 
   return `https://${shopDomain}/admin/orders/${numeric}`
 }
 
-/** Traduit le statut de livraison Shopify en libellé FR + style du badge. */
-function fulfillmentLabel(s: string | null): { label: string; badge: string } {
+/** Traduit le statut de livraison Shopify en libellé + style du badge. */
+function fulfillmentLabel(s: string | null, t: TFn): { label: string; badge: string } {
   switch (s) {
-    case 'FULFILLED': return { label: 'Expédiée', badge: 'text-emerald-500 bg-emerald-500/15 ring-emerald-500/30' }
-    case 'PARTIALLY_FULFILLED': return { label: 'Partielle', badge: 'text-amber-500 bg-amber-500/15 ring-amber-500/30' }
-    case 'UNFULFILLED': return { label: 'En préparation', badge: 'text-blue-500 bg-blue-500/15 ring-blue-500/30' }
+    case 'FULFILLED': return { label: t('conversations.fulfillment_fulfilled'), badge: 'text-emerald-500 bg-emerald-500/15 ring-emerald-500/30' }
+    case 'PARTIALLY_FULFILLED': return { label: t('conversations.fulfillment_partial'), badge: 'text-amber-500 bg-amber-500/15 ring-amber-500/30' }
+    case 'UNFULFILLED': return { label: t('conversations.fulfillment_unfulfilled'), badge: 'text-blue-500 bg-blue-500/15 ring-blue-500/30' }
     default: return { label: s || '—', badge: 'text-muted-foreground bg-muted ring-border' }
   }
 }
 
-/** Statut de paiement Shopify → libellé FR. */
-function financialLabel(s: string | null): string {
+/** Statut de paiement Shopify → libellé. */
+function financialLabel(s: string | null, t: TFn): string {
   switch (s) {
-    case 'PAID': return 'Payée'
-    case 'PENDING': return 'En attente'
-    case 'REFUNDED': return 'Remboursée'
-    case 'PARTIALLY_REFUNDED': return 'Part. remboursée'
-    case 'VOIDED': return 'Annulée'
+    case 'PAID': return t('conversations.financial_paid')
+    case 'PENDING': return t('conversations.financial_pending')
+    case 'REFUNDED': return t('conversations.financial_refunded')
+    case 'PARTIALLY_REFUNDED': return t('conversations.financial_partially_refunded')
+    case 'VOIDED': return t('conversations.financial_voided')
     default: return s || '—'
   }
 }
@@ -71,6 +74,7 @@ function financialLabel(s: string | null): string {
 // `conversationId` reste accepté (le parent le passe) mais n'est plus utilisé
 // depuis le retrait de l'onglet Historique — on ne le destructure donc pas.
 export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { contactId: string | null; conversationId?: string; contactName?: string | null; refreshKey?: number }) {
+  const { t } = useTranslation()
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -163,7 +167,7 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
       <div className="hidden w-12 shrink-0 flex-col items-center gap-3 border-l bg-background py-3 lg:flex">
         <button
           onClick={() => setCollapsed(false)}
-          title="Afficher les commandes"
+          title={t('conversations.show_orders')}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -199,11 +203,11 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
-          {contactName || 'Conversation'}
+          {contactName || t('conversations.conversation')}
         </span>
         <button
           onClick={() => setCollapsed(true)}
-          title="Réduire"
+          title={t('conversations.reduce')}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <ChevronRight className="h-4 w-4" />
@@ -213,7 +217,7 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
           conversation) a été retiré : vide dans l'usage actuel, il n'apportait
           rien. Le panneau ne montre plus que les commandes du client. */}
       <div className="flex shrink-0 items-center gap-1.5 border-b px-3 py-3 text-sm font-medium text-primary">
-        <ShoppingBag className="h-4 w-4" /> Commandes
+        <ShoppingBag className="h-4 w-4" /> {t('conversations.orders')}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 [scrollbar-width:thin]">
@@ -230,12 +234,12 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40">
               <ShoppingBag className="h-5 w-5 text-muted-foreground" />
             </span>
-            <p className="text-sm text-muted-foreground">Aucune commande trouvée pour ce client.</p>
+            <p className="text-sm text-muted-foreground">{t('conversations.no_orders_found')}</p>
           </div>
         ) : (
           shownData.orders.map((o) => {
-            const fl = fulfillmentLabel(o.fulfillmentStatus)
-            const refund = refundInfo(o)
+            const fl = fulfillmentLabel(o.fulfillmentStatus, t)
+            const refund = refundInfo(o, t)
             const adminUrl = orderAdminUrl(shownData.shopDomain, o.id)
             return (
               <div
@@ -258,7 +262,7 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
                   </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                  <span>{financialLabel(o.financialStatus)}</span>
+                  <span>{financialLabel(o.financialStatus, t)}</span>
                   {o.tracking?.url && (
                     <a
                       href={o.tracking.url}
@@ -266,7 +270,7 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
                     >
-                      <Package className="h-3 w-3" /> Suivi <ExternalLink className="h-2.5 w-2.5" />
+                      <Package className="h-3 w-3" /> {t('conversations.tracking')} <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   )}
                 </div>
@@ -288,7 +292,7 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
                     rel="noopener noreferrer"
                     className="mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                   >
-                    <ShoppingBag className="h-3 w-3" /> Voir dans Shopify <ExternalLink className="h-2.5 w-2.5" />
+                    <ShoppingBag className="h-3 w-3" /> {t('conversations.view_in_shopify')} <ExternalLink className="h-2.5 w-2.5" />
                   </a>
                 )}
               </div>

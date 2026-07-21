@@ -173,7 +173,7 @@ export default function StatsPage() {
               <SelectItem value="7">{t('stats.7_days')}</SelectItem>
               <SelectItem value="30">{t('stats.30_days')}</SelectItem>
               <SelectItem value="90">{t('stats.90_days')}</SelectItem>
-              <SelectItem value="365">12 mois</SelectItem>
+              <SelectItem value="365">{t('stats.12_months')}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -206,7 +206,7 @@ export default function StatsPage() {
           <div className="-mx-4 shrink-0 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="w-max gap-1">
               <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
-              <TabsTrigger value="automations">Automatisations</TabsTrigger>
+              <TabsTrigger value="automations">{t('stats.automations_tab')}</TabsTrigger>
               <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
               <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
               <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
@@ -535,7 +535,7 @@ export default function StatsPage() {
                   Ce n'est PAS le total des ventes de la boutique. */}
               <KPICard
                 className="lg:flex-1"
-                title="Ventes attribuées"
+                title={t('stats.attributed_sales')}
                 value={funnel?.ordered ?? 0}
                 trend={null}
                 icon={ShoppingBag}
@@ -548,7 +548,7 @@ export default function StatsPage() {
               <CardHeader>
                 <CardTitle className="text-base">{t('stats.engagement_funnel')}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Ce que deviennent vos messages initiés (les réponses SAV ne comptent pas).
+                  {t('stats.engagement_funnel_sub')}
                 </p>
               </CardHeader>
               <CardContent>
@@ -562,30 +562,30 @@ export default function StatsPage() {
                     <>
                       <div className="mx-auto h-72 max-w-2xl">
                         <EngagementFunnel steps={[
-                          { label: 'Messages envoyés', value: f.sent },
-                          { label: 'Ouverts', value: f.opened },
-                          { label: 'Réponses', value: f.responded },
-                          { label: 'Ventes', value: f.ordered },
+                          { label: t('stats.funnel_messages_sent'), value: f.sent },
+                          { label: t('stats.funnel_opened'), value: f.opened },
+                          { label: t('stats.funnel_responses'), value: f.responded },
+                          { label: t('stats.funnel_sales'), value: f.ordered },
                         ]} />
                       </div>
                       {/* Taux clés, rapportés aux messages envoyés */}
                       <div className="mx-auto mt-2 grid max-w-md grid-cols-3 gap-2 text-center">
                         <div className="rounded-lg border p-2">
-                          <p className="text-xs text-muted-foreground">Ouverture</p>
+                          <p className="text-xs text-muted-foreground">{t('stats.funnel_rate_open')}</p>
                           <p className="text-lg font-semibold">{pct(f.opened)} %</p>
                         </div>
                         <div className="rounded-lg border p-2">
-                          <p className="text-xs text-muted-foreground">Réponse</p>
+                          <p className="text-xs text-muted-foreground">{t('stats.funnel_rate_response')}</p>
                           <p className="text-lg font-semibold">{pct(f.responded)} %</p>
                         </div>
                         <div className="rounded-lg border p-2">
-                          <p className="text-xs text-muted-foreground">Vente</p>
+                          <p className="text-xs text-muted-foreground">{t('stats.funnel_rate_sale')}</p>
                           <p className="text-lg font-semibold text-primary">{pct(f.ordered)} %</p>
                         </div>
                       </div>
                       {f.sent === 0 && (
                         <p className="mt-3 text-center text-xs text-muted-foreground">
-                          Aucun message initié sur la période. Les chiffres apparaîtront dès votre première automatisation envoyée.
+                          {t('stats.funnel_empty')}
                         </p>
                       )}
                     </>

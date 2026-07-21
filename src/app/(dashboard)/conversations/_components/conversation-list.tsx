@@ -107,7 +107,7 @@ export function ConversationList({
   const [showFilters, setShowFilters] = useState(false)
 
   function getContactDisplay(conv: ConversationWithJoins) {
-    if (!conv.contact) return conv.last_message_preview?.slice(0, 30) || 'Inconnu'
+    if (!conv.contact) return conv.last_message_preview?.slice(0, 30) || t('conversations.unknown_contact')
     return getContactDisplayName({
       name: conv.contact.name,
       first_name: conv.contact.first_name,
@@ -186,7 +186,7 @@ export function ConversationList({
             <button
               onClick={onNewConversation}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
-              title="Nouvelle conversation"
+              title={t('conversations.new_conversation_title')}
             >
               <Plus className="h-5 w-5" />
             </button>
@@ -285,7 +285,7 @@ export function ConversationList({
                 size="sm"
                 className="h-8 gap-1.5 text-xs"
                 onClick={onManageStages}
-                title="Gérer les étapes du cycle de vie"
+                title={t('conversations.manage_stages_title')}
               >
                 <Workflow className="h-3 w-3" />
                 {t('conversations.manage_stages')}
@@ -416,7 +416,7 @@ export function ConversationList({
                     {/* Badge : action Shopify à valider sur cette conversation */}
                     {hasPendingAction && (
                       <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Action à valider
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> {t('conversations.action_to_validate')}
                       </span>
                     )}
 
@@ -529,7 +529,7 @@ export function ConversationList({
                                       onClick={() => onToggleStage(conv.id, stage.id)}
                                       className="group/tag inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                                       style={{ backgroundColor: `${stage.color}20`, color: stage.color }}
-                                      title="Retirer cette étape"
+                                      title={t('conversations.remove_stage')}
                                     >
                                       {stage.name}
                                       <X className="h-2.5 w-2.5 opacity-50 group-hover/tag:opacity-100" />

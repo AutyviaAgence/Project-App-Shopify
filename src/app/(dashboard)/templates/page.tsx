@@ -32,19 +32,21 @@ import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact
 import { USE_CASES, USE_CASE_BY_KEY, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
 import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone, ChevronDown, Check } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslation } from '@/i18n/context'
 
 /** Résout l'icône lucide d'un use_case (les noms viennent de use-cases.ts). */
 const USE_CASE_ICONS: Record<string, typeof Package> = {
   Package, ShoppingCart, Megaphone, MessageCircle, CreditCard,
 }
 
-const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
-  draft: { label: 'Brouillon', cls: 'bg-muted text-muted-foreground' },
-  pending: { label: 'En attente Meta', cls: 'bg-amber-500/15 text-amber-500' },
-  approved: { label: 'Approuvé', cls: 'bg-green-500/15 text-green-500' },
-  rejected: { label: 'Refusé', cls: 'bg-red-500/15 text-red-500' },
+// `labelKey` renvoie une clé i18n (templates.status_*), traduite au rendu par t().
+const STATUS_STYLE: Record<string, { labelKey: string; cls: string }> = {
+  draft: { labelKey: 'templates.status_draft', cls: 'bg-muted text-muted-foreground' },
+  pending: { labelKey: 'templates.status_pending', cls: 'bg-amber-500/15 text-amber-500' },
+  approved: { labelKey: 'templates.status_approved', cls: 'bg-green-500/15 text-green-500' },
+  rejected: { labelKey: 'templates.status_rejected', cls: 'bg-red-500/15 text-red-500' },
   // Template approuvé chez Meta, mais avec des modifications locales non soumises.
-  modified: { label: 'Modifié, à resoumettre', cls: 'bg-orange-500/15 text-orange-600' },
+  modified: { labelKey: 'templates.status_modified', cls: 'bg-orange-500/15 text-orange-600' },
 }
 
 /**
@@ -107,6 +109,7 @@ function findGluedVariable(text: string): string | null {
 }
 
 export default function TemplatesPage() {
+  const { t } = useTranslation()
   const { subscription } = useSubscription()
   // La création de modèles (manuelle ou IA) est réservée aux plans payants.
   const aiEnabled = subscription?.aiEnabled !== false
@@ -202,13 +205,13 @@ export default function TemplatesPage() {
       fd.append('kind', headerType)
       const res = await fetch('/api/templates/media', { method: 'POST', body: fd })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Upload échoué')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_upload_failed'))
       setHeaderMediaUrl(json.data.storage_path)
       setMediaPreviewUrl(json.data.signed_url || '')
       setMediaFilename(json.data.filename || file.name)
-      toast.success('Média importé')
+      toast.success(t('templates.toast_media_imported'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setUploadingMedia(false)
     }
@@ -216,8 +219,8 @@ export default function TemplatesPage() {
 
   // Gestion des boutons
   function addButton(type: TemplateButton['type']) {
-    if (buttons.length >= 3) { toast.error('Maximum 3 boutons'); return }
-    const base = { URL: { type, text: 'Voir le site', url: 'https://' }, PHONE_NUMBER: { type, text: 'Appeler', phone: '+33' }, COPY_CODE: { type, text: 'Copier le code', code: 'PROMO10' }, QUICK_REPLY: { type, text: 'Oui' } }[type]
+    if (buttons.length >= 3) { toast.error(t('templates.toast_max_buttons')); return }
+    const base = { URL: { type, text: t('templates.btn_default_url'), url: 'https://' }, PHONE_NUMBER: { type, text: t('templates.btn_default_call'), phone: '+33' }, COPY_CODE: { type, text: t('templates.btn_default_copy'), code: 'PROMO10' }, QUICK_REPLY: { type, text: t('templates.btn_default_reply') } }[type]
     setButtons([...buttons, base as TemplateButton])
   }
   function updateButton(i: number, patch: Partial<TemplateButton>) {
@@ -304,12 +307,12 @@ export default function TemplatesPage() {
         body: JSON.stringify({ key }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
       await Promise.all([fetchTemplates(), fetchLibrary()])
       track('template_created', { source: 'library', key })
-      toast.success('Modèle ajouté à vos brouillons')
+      toast.success(t('templates.toast_template_added'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setAddingKey(null)
     }
@@ -357,12 +360,12 @@ export default function TemplatesPage() {
     try {
       const res = await fetch('/api/templates/seed', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
       await fetchTemplates()
       const n = json.data?.created ?? 0
-      toast.success(n > 0 ? `${n} modèle(s) ajouté(s)` : 'Vous avez déjà tous les modèles par défaut')
+      toast.success(n > 0 ? t('templates.toast_n_templates_added', { count: n }) : t('templates.toast_all_defaults'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setSeeding(false)
     }
@@ -398,7 +401,7 @@ export default function TemplatesPage() {
         body: JSON.stringify({ messages: nextChat }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
       if (json.mode === 'ready') {
         // L'IA a assez d'infos → propositions générées (variables auto).
         if (json.meta?.use_case) setAiUseCase(json.meta.use_case)
@@ -406,15 +409,15 @@ export default function TemplatesPage() {
         if (json.meta?.objective) setAiObjective(json.meta.objective)
         track('template_ai_generated', { use_case: json.meta?.use_case, count: json.proposals?.length || 0 })
         setAiProposals(json.proposals || [])
-        setAiChat((c) => [...c, { role: 'assistant', content: 'Voici 3 propositions basées sur votre demande 👇' }])
-        if (!json.proposals?.length) toast.error('Aucune proposition, précisez votre demande.')
+        setAiChat((c) => [...c, { role: 'assistant', content: t('templates.ai_proposals_intro') }])
+        if (!json.proposals?.length) toast.error(t('templates.toast_ai_no_proposal'))
       } else {
         // Question suivante.
         setAiChat((c) => [...c, { role: 'assistant', content: json.question }])
         setAiOptions(Array.isArray(json.options) ? json.options : [])
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setAiThinking(false)
     }
@@ -469,7 +472,7 @@ export default function TemplatesPage() {
         header_type: 'image',
         header_media_url: c.image_url || '',
         body_text: c.body || c.title,
-        buttons: c.url ? [{ type: 'URL', text: 'Voir', url: c.url }] : [],
+        buttons: c.url ? [{ type: 'URL', text: t('templates.card_btn_default'), url: c.url }] : [],
         body_variable_keys: [],
       }))
       setCarouselCards(cards)
@@ -478,35 +481,35 @@ export default function TemplatesPage() {
       setLtoTitle(''); setLtoHours(24); setCarouselCards([])
     }
     setMode('edit')
-    toast.success('Modèle pré-rempli, personnalisez puis enregistrez')
+    toast.success(t('templates.toast_prefilled'))
   }
 
-  function openEdit(t: WhatsAppTemplate) {
-    setEditing(t)
-    setSelectedId(t.id)
-    setName(t.name); setLanguage(t.language); setCategory(t.category)
-    setUseCase((t.use_case as UseCaseKey) || guessUseCase(t.name, t.category))
-    setBodyText(t.body_text)
+  function openEdit(tpl: WhatsAppTemplate) {
+    setEditing(tpl)
+    setSelectedId(tpl.id)
+    setName(tpl.name); setLanguage(tpl.language); setCategory(tpl.category)
+    setUseCase((tpl.use_case as UseCaseKey) || guessUseCase(tpl.name, tpl.category))
+    setBodyText(tpl.body_text)
     // Mapping des variables : on aligne sur le nombre de {{n}} présents.
-    setVariableKeys(syncVariableKeys(t.body_text, (t.variable_keys as string[]) || []))
-    setHeaderText(t.header_text || ''); setFooterText(t.footer_text || '')
-    setHeaderType(t.header_type || (t.header_text ? 'text' : 'none'))
-    setHeaderMediaUrl(t.header_media_url || '')
-    setButtons(Array.isArray(t.buttons) ? t.buttons : [])
+    setVariableKeys(syncVariableKeys(tpl.body_text, (tpl.variable_keys as string[]) || []))
+    setHeaderText(tpl.header_text || ''); setFooterText(tpl.footer_text || '')
+    setHeaderType(tpl.header_type || (tpl.header_text ? 'text' : 'none'))
+    setHeaderMediaUrl(tpl.header_media_url || '')
+    setButtons(Array.isArray(tpl.buttons) ? tpl.buttons : [])
     // Aperçu du média existant : génère une URL signée si c'est un chemin privé.
     setMediaFilename(''); setMediaPreviewUrl('')
-    if (t.header_media_url && !/^https?:\/\//i.test(t.header_media_url)) {
-      fetch(`/api/templates/media/preview?path=${encodeURIComponent(t.header_media_url)}`)
+    if (tpl.header_media_url && !/^https?:\/\//i.test(tpl.header_media_url)) {
+      fetch(`/api/templates/media/preview?path=${encodeURIComponent(tpl.header_media_url)}`)
         .then((r) => r.ok ? r.json() : null)
         .then((j) => { if (j?.data?.signed_url) setMediaPreviewUrl(j.data.signed_url) })
         .catch(() => {})
-    } else if (t.header_media_url) {
-      setMediaPreviewUrl(t.header_media_url)
+    } else if (tpl.header_media_url) {
+      setMediaPreviewUrl(tpl.header_media_url)
     }
     // Type de modèle + champs spécifiques.
-    const tt = (t.template_type === 'carousel' ? 'carousel' : t.template_type === 'limited_time_offer' ? 'limited_time_offer' : 'standard') as 'standard' | 'carousel' | 'limited_time_offer'
+    const tt = (tpl.template_type === 'carousel' ? 'carousel' : tpl.template_type === 'limited_time_offer' ? 'limited_time_offer' : 'standard') as 'standard' | 'carousel' | 'limited_time_offer'
     setTemplateType(tt)
-    setLtoTitle(t.lto_title || ''); setLtoHours(t.lto_default_hours || 24)
+    setLtoTitle(tpl.lto_title || ''); setLtoHours(tpl.lto_default_hours || 24)
     // ⚠️ CARTES À L'ANCIENNE FORME → L'ÉDITEUR PLANTAIT À L'OUVERTURE.
     //
     // L'assistant IA a créé des carrousels avec la forme du générateur
@@ -520,7 +523,7 @@ export default function TemplatesPage() {
     // marchand récupère un carrousel réparé (image + texte + lien produit)
     // qu'il peut relire et soumettre. La correction à la source est faite
     // (from-suggestion), mais les lignes déjà créées, elles, restent.
-    const rawCards = Array.isArray(t.carousel_cards) ? t.carousel_cards : []
+    const rawCards = Array.isArray(tpl.carousel_cards) ? tpl.carousel_cards : []
     const cards = rawCards.map((c) => {
       const legacy = c as Partial<TemplateCard> & { title?: string; body?: string; image_url?: string; url?: string }
       return {
@@ -530,7 +533,7 @@ export default function TemplatesPage() {
         buttons: Array.isArray(legacy.buttons) && legacy.buttons.length > 0
           ? legacy.buttons
           : legacy.url
-            ? [{ type: 'URL' as const, text: 'Voir le produit', url: legacy.url }]
+            ? [{ type: 'URL' as const, text: t('templates.view_product'), url: legacy.url }]
             : [],
         body_variable_keys: Array.isArray(legacy.body_variable_keys) ? legacy.body_variable_keys : [],
       } as TemplateCard
@@ -597,9 +600,12 @@ export default function TemplatesPage() {
   // la refuse à l'envoi (132012). On bloque dès l'édition.
   const gluedVar = findGluedVariable(bodyText)
   const bodyEdgeError = (bodyStartsWithVar || bodyEndsWithVar)
-    ? `Le message ne peut pas ${bodyStartsWithVar && bodyEndsWithVar ? 'commencer ni finir' : bodyStartsWithVar ? 'commencer' : 'finir'} par une variable. Ajoutez du texte ${bodyStartsWithVar && bodyEndsWithVar ? 'avant et après' : bodyStartsWithVar ? 'avant' : 'après'}.`
+    ? t('templates.edge_error', {
+        where: bodyStartsWithVar && bodyEndsWithVar ? t('templates.edge_where_both') : bodyStartsWithVar ? t('templates.edge_where_start') : t('templates.edge_where_end'),
+        side: bodyStartsWithVar && bodyEndsWithVar ? t('templates.edge_side_both') : bodyStartsWithVar ? t('templates.edge_side_start') : t('templates.edge_side_end'),
+      })
     : gluedVar
-      ? `Une variable est collée à du texte (« ${gluedVar} »). Meta refuse l'envoi : ajoutez un espace avant et après la variable.`
+      ? t('templates.glued_error', { glued: gluedVar })
       : null
 
   // Recharge les valeurs d'origine du template (annule les modifications en cours)
@@ -608,12 +614,12 @@ export default function TemplatesPage() {
   }
 
   // Revenir à la dernière version VALIDÉE par Meta (restaure le snapshot approuvé).
-  async function restoreApproved(t: WhatsAppTemplate) {
-    setBusyId(t.id)
+  async function restoreApproved(tpl: WhatsAppTemplate) {
+    setBusyId(tpl.id)
     try {
-      const res = await fetch(`/api/templates/${t.id}`, { method: 'PUT' })
+      const res = await fetch(`/api/templates/${tpl.id}`, { method: 'PUT' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
       const updated = json.data as WhatsAppTemplate
       // Met à jour la liste EN MÉMOIRE immédiatement (le badge/statut affiché en
       // dépend) puis recharge le formulaire — pas besoin de refresh manuel.
@@ -622,16 +628,16 @@ export default function TemplatesPage() {
         openEdit(updated)
       }
       fetchTemplates() // resync en arrière-plan
-      toast.success('Version approuvée restaurée')
+      toast.success(t('templates.toast_restored'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setBusyId(null)
     }
   }
 
   async function handleSave() {
-    if (!name.trim() || !bodyText.trim()) { toast.error('Nom et message requis'); return }
+    if (!name.trim() || !bodyText.trim()) { toast.error(t('templates.toast_name_body_required')); return }
     setSaving(true)
     try {
       // Renumérote les variables pour qu'elles soient contiguës à partir de 1
@@ -669,7 +675,7 @@ export default function TemplatesPage() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
       const saved = json.data as WhatsAppTemplate | undefined
       // Création manuelle (l'éditeur) — distincte de la création depuis la
       // bibliothèque (source: 'library') déjà trackée. Édition = template_saved.
@@ -691,7 +697,7 @@ export default function TemplatesPage() {
       ) && !saved.is_auto_translated
       let translateMsg = ''
       if (isSourceSave && saved?.id) {
-        const tId = toast.loading('Traduction dans les autres langues…')
+        const tId = toast.loading(t('templates.toast_translating'))
         try {
           const tr = await fetch('/api/templates/translate', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -699,7 +705,7 @@ export default function TemplatesPage() {
           })
           const tj = await tr.json().catch(() => ({}))
           if (tr.ok && Array.isArray(tj.created) && tj.created.length > 0) {
-            translateMsg = ` Traduit en ${tj.created.join(', ').toUpperCase()}.`
+            translateMsg = t('templates.toast_translated_in', { langs: tj.created.join(', ').toUpperCase() })
           }
         } catch { /* non bloquant : la langue source est sauvée */ }
         finally { toast.dismiss(tId) }
@@ -709,30 +715,30 @@ export default function TemplatesPage() {
       // Reste en mode édition sur le modèle (re)sauvegardé pour un flux maître-détail fluide.
       if (saved?.id) { setEditing(saved); setSelectedId(saved.id) }
       if (wasSubmitted && nowModified) {
-        toast.success('Modèle modifié, « à resoumettre ». La version approuvée reste active ; resoumettez à Meta pour activer vos changements.', { duration: 6000 })
+        toast.success(t('templates.toast_modified_resubmit'), { duration: 6000 })
       } else if (wasSubmitted && nowDraft) {
-        toast.success('Modèle modifié, repassé en brouillon. Resoumettez-le à Meta pour activer les changements.', { duration: 6000 })
+        toast.success(t('templates.toast_modified_draft'), { duration: 6000 })
       } else {
-        toast.success((editing ? 'Modèle modifié' : 'Modèle créé') + translateMsg, translateMsg ? { duration: 5000 } : undefined)
+        toast.success((editing ? t('templates.toast_modified') : t('templates.toast_created')) + translateMsg, translateMsg ? { duration: 5000 } : undefined)
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleSubmit(t: WhatsAppTemplate) {
-    setBusyId(t.id)
+  async function handleSubmit(tpl: WhatsAppTemplate) {
+    setBusyId(tpl.id)
     try {
-      const res = await fetch(`/api/templates/${t.id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      const res = await fetch(`/api/templates/${tpl.id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
-      track('template_submitted', { template_id: t.id, template_type: t.template_type || 'standard' })
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      track('template_submitted', { template_id: tpl.id, template_type: tpl.template_type || 'standard' })
       await fetchTemplates()
-      toast.success('Soumis à Meta pour approbation')
+      toast.success(t('templates.toast_submitted'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setBusyId(null)
     }
@@ -755,10 +761,10 @@ export default function TemplatesPage() {
     const names = Array.from(new Set(
       templates.filter((t) => t.status === 'draft').map((t) => t.name)
     ))
-    if (names.length === 0) { toast.info('Aucun brouillon à soumettre.'); return }
+    if (names.length === 0) { toast.info(t('templates.toast_no_drafts')); return }
 
     setSubmittingAll(true)
-    const tId = toast.loading(`Soumission de ${names.length} modèle(s) à Meta…`)
+    const tId = toast.loading(t('templates.toast_submitting_n', { count: names.length }))
     let ok = 0
     const failures: string[] = []
     try {
@@ -772,18 +778,18 @@ export default function TemplatesPage() {
           })
           const json = await res.json()
           if (res.ok && json.ok) ok++
-          else failures.push(`${name} (${json.error || 'refusé'})`)
+          else failures.push(`${name} (${json.error || t('templates.toast_rejected')})`)
         } catch {
-          failures.push(`${name} (réseau)`)
+          failures.push(`${name} (${t('templates.toast_network')})`)
         }
       }
       await fetchTemplates()
       if (ok > 0) track('template_submitted', { source: 'submit_all', count: ok })
       if (failures.length === 0) {
-        toast.success(`${ok} modèle(s) envoyé(s) en revue chez Meta.`, { duration: 6000 })
+        toast.success(t('templates.toast_n_submitted_meta', { count: ok }), { duration: 6000 })
       } else {
         toast.warning(
-          `${ok} soumis. Échecs : ${failures.slice(0, 3).join(' · ')}${failures.length > 3 ? ` (+${failures.length - 3})` : ''}`,
+          t('templates.toast_n_submitted_failures', { ok, failures: `${failures.slice(0, 3).join(' · ')}${failures.length > 3 ? ` (+${failures.length - 3})` : ''}` }),
           { duration: 9000 }
         )
       }
@@ -794,48 +800,48 @@ export default function TemplatesPage() {
   }
 
   // Soumet à Meta TOUTES les langues du modèle en un clic (résultat par langue).
-  async function handleSubmitGroup(t: WhatsAppTemplate) {
-    setBusyId(t.id)
-    const tId = toast.loading('Soumission de toutes les langues à Meta…')
+  async function handleSubmitGroup(tpl: WhatsAppTemplate) {
+    setBusyId(tpl.id)
+    const tId = toast.loading(t('templates.toast_submitting_all_langs'))
     try {
       const res = await fetch('/api/templates/submit-group', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: t.name }),
+        body: JSON.stringify({ name: tpl.name }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
       await fetchTemplates()
       const results = (json.results || []) as { language: string; ok: boolean; error?: string }[]
       const ok = results.filter((r) => r.ok).map((r) => r.language.toUpperCase())
       const ko = results.filter((r) => !r.ok)
-      if (ok.length > 0) track('template_submitted', { source: 'submit_group', template_id: t.id, languages: ok.length })
+      if (ok.length > 0) track('template_submitted', { source: 'submit_group', template_id: tpl.id, languages: ok.length })
       if (ko.length === 0) {
-        toast.success(`Toutes les langues soumises (${ok.join(', ')}).`, { duration: 5000 })
+        toast.success(t('templates.toast_all_langs_submitted', { langs: ok.join(', ') }), { duration: 5000 })
       } else {
         toast.warning(
-          `Soumises : ${ok.join(', ') || '—'}. Échecs : ${ko.map((r) => `${r.language.toUpperCase()} (${r.error})`).join(' · ')}`,
+          t('templates.toast_langs_submitted_failures', { ok: ok.join(', ') || '—', failures: ko.map((r) => `${r.language.toUpperCase()} (${r.error})`).join(' · ') }),
           { duration: 9000 }
         )
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       toast.dismiss(tId)
       setBusyId(null)
     }
   }
 
-  async function handleDelete(t: WhatsAppTemplate) {
-    setBusyId(t.id)
+  async function handleDelete(tpl: WhatsAppTemplate) {
+    setBusyId(tpl.id)
     try {
-      const res = await fetch(`/api/templates/${t.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Erreur')
+      const res = await fetch(`/api/templates/${tpl.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(t('templates.toast_error'))
       // Quitte l'édition si on supprimait le modèle ouvert.
-      if (selectedId === t.id) { setSelectedId(null); setEditing(null); setMode('idle') }
+      if (selectedId === tpl.id) { setSelectedId(null); setEditing(null); setMode('idle') }
       await fetchTemplates()
-      toast.success('Modèle supprimé')
+      toast.success(t('templates.toast_deleted'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setBusyId(null)
       setConfirmDelete(null)
@@ -849,10 +855,10 @@ export default function TemplatesPage() {
       const json = await res.json()
       if (res.ok) {
         await fetchTemplates()
-        toast.success(`${json.data?.synced ?? 0} statut(s) mis à jour`)
-      } else throw new Error(json.error || 'Erreur')
+        toast.success(t('templates.toast_n_statuses_updated', { count: json.data?.synced ?? 0 }))
+      } else throw new Error(json.error || t('templates.toast_error'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {
       setSyncing(false)
     }
@@ -910,20 +916,20 @@ export default function TemplatesPage() {
     <div className="flex h-full flex-col p-4 md:p-6 gap-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 data-tour="templates-header" className="text-xl font-semibold">Modèles de messages</h1>
+          <h1 data-tour="templates-header" className="text-xl font-semibold">{t('templates.page_title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Messages pré-approuvés par Meta, requis pour relancer un client hors fenêtre de 24h.
+            {t('templates.page_subtitle')}
           </p>
         </div>
         {/* Actions masquées tant qu'aucun WhatsApp n'est connecté (rien à faire). */}
         <div className={cn('flex items-center gap-2 flex-wrap', hasWhatsApp === false && 'hidden')}>
           <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding || !aiEnabled}>
             {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
-            Modèles par défaut
+            {t('templates.default_templates')}
           </Button>
           <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={cn('mr-1 h-4 w-4', syncing && 'animate-spin')} />
-            Synchroniser
+            {t('templates.sync')}
           </Button>
           {/* N'apparaît QUE s'il y a des brouillons : un bouton « tout soumettre »
               affiché en permanence alors qu'il n'y a rien à soumettre est un
@@ -933,17 +939,17 @@ export default function TemplatesPage() {
               {submittingAll
                 ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 : <Send className="mr-1 h-4 w-4" />}
-              Soumettre les {draftCount} brouillon{draftCount > 1 ? 's' : ''}
+              {t('templates.submit_drafts', { count: draftCount, plural: draftCount > 1 ? 's' : '' })}
             </Button>
           )}
           {aiEnabled ? (
             <Button data-tour="template-new-btn" size="sm" onClick={openChoose}>
-              <Plus className="mr-1 h-4 w-4" />Nouveau modèle
+              <Plus className="mr-1 h-4 w-4" />{t('templates.new_template')}
             </Button>
           ) : (
             <div className="flex items-center gap-1.5">
               <Button data-tour="template-new-btn" size="sm" disabled className="cursor-not-allowed opacity-60">
-                <Plus className="mr-1 h-4 w-4" />Nouveau modèle
+                <Plus className="mr-1 h-4 w-4" />{t('templates.new_template')}
               </Button>
               <UpgradeBadge />
             </div>
@@ -963,7 +969,7 @@ export default function TemplatesPage() {
                 useCaseFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
             >
-              Tous ({groups.length})
+              {t('templates.all_count', { count: groups.length })}
             </button>
             {USE_CASES.map((u) => {
               const Icon = USE_CASE_ICONS[u.icon] || FileText
@@ -988,7 +994,7 @@ export default function TemplatesPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un modèle…"
+              placeholder={t('templates.search_placeholder')}
               className="w-full rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm outline-none focus:border-primary"
             />
           </div>
@@ -1010,7 +1016,7 @@ export default function TemplatesPage() {
               className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium"
             >
               <Sparkles className="h-4 w-4 text-primary" />
-              Modèles suggérés
+              {t('templates.suggested_templates')}
               <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] text-primary">{suggestions.length}</span>
               <ChevronDown className={cn('ml-auto h-4 w-4 text-muted-foreground transition-transform', !libraryOpen && '-rotate-90')} />
             </button>
@@ -1034,7 +1040,7 @@ export default function TemplatesPage() {
                         onClick={() => addFromLibrary(l.key)}
                       >
                         {addingKey === l.key ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
-                        Ajouter
+                        {t('templates.add')}
                       </Button>
                     </div>
                   )
@@ -1051,14 +1057,13 @@ export default function TemplatesPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
             <Smartphone className="h-7 w-7 text-emerald-600" />
           </div>
-          <h2 className="text-lg font-semibold">Connectez d&apos;abord votre WhatsApp</h2>
+          <h2 className="text-lg font-semibold">{t('templates.connect_whatsapp_first')}</h2>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            Les modèles de messages sont liés à votre compte WhatsApp Business : ils y sont soumis pour approbation par Meta.
-            Connectez votre WhatsApp depuis le tableau de bord pour commencer à créer vos modèles.
+            {t('templates.whatsapp_prereq_desc')}
           </p>
           <Link href="/dashboard" className="mt-6">
             <Button>
-              <Smartphone className="mr-1 h-4 w-4" /> Connecter mon WhatsApp
+              <Smartphone className="mr-1 h-4 w-4" /> {t('templates.connect_my_whatsapp')}
             </Button>
           </Link>
         </div>
@@ -1067,10 +1072,9 @@ export default function TemplatesPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
             <Sparkles className="h-7 w-7 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold">Créez vos premiers modèles</h2>
+          <h2 className="text-lg font-semibold">{t('templates.create_first_templates')}</h2>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            Les modèles sont des messages pré-approuvés par Meta (confirmation de commande, panier abandonné, promo…),
-            indispensables pour recontacter un client hors de la fenêtre de 24h.
+            {t('templates.empty_desc')}
           </p>
           {/* Aperçu des catégories e-commerce disponibles */}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -1086,10 +1090,10 @@ export default function TemplatesPage() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
             <Button onClick={handleSeedDefaults} disabled={seeding}>
               {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
-              Ajouter les modèles prêts à l&apos;emploi
+              {t('templates.add_ready_templates')}
             </Button>
             <Button variant="outline" onClick={openChoose}>
-              <Plus className="mr-1 h-4 w-4" /> Créer un modèle
+              <Plus className="mr-1 h-4 w-4" /> {t('templates.create_template')}
             </Button>
           </div>
         </div>
@@ -1098,7 +1102,7 @@ export default function TemplatesPage() {
           {/* Sidebar gauche : un modèle = une entrée (toutes langues regroupées) */}
           <div className="space-y-1.5 overflow-y-auto rounded-xl border p-2">
             {filteredGroups.length === 0 && (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun modèle dans cette catégorie.</p>
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">{t('templates.no_template_in_category')}</p>
             )}
             {filteredGroups.map((g) => {
               const st = STATUS_STYLE[effectiveStatus(g.worst)] || STATUS_STYLE.draft
@@ -1123,7 +1127,7 @@ export default function TemplatesPage() {
                   <div className="flex items-center gap-2">
                     <UcIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <code className="truncate text-sm font-medium">{g.name}</code>
-                    <span className={cn('ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px]', st.cls)}>{st.label}</span>
+                    <span className={cn('ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px]', st.cls)}>{t(st.labelKey)}</span>
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted-foreground">{g.main.body_text}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -1137,7 +1141,7 @@ export default function TemplatesPage() {
                           type="button"
                           // Clic sur un badge de langue → ouvre CETTE variante pour l'éditer.
                           onClick={(e) => { e.stopPropagation(); openEdit(row) }}
-                          title={`Modifier ${TEMPLATE_LANGUAGE_LABELS[l] || l} · ${(STATUS_STYLE[rs] || STATUS_STYLE.draft).label}`}
+                          title={t('templates.lang_badge_title', { lang: TEMPLATE_LANGUAGE_LABELS[l] || l, status: t((STATUS_STYLE[rs] || STATUS_STYLE.draft).labelKey) })}
                           className={cn(
                             'rounded px-1 py-0.5 text-[9px] font-semibold uppercase transition-all hover:ring-1 hover:ring-primary/50',
                             isOpen && 'ring-1 ring-primary',
@@ -1164,10 +1168,10 @@ export default function TemplatesPage() {
                 {/* Barre d'actions */}
                 <div className="flex items-center justify-between gap-2 border-b bg-background px-4 py-2.5">
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-medium">{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</span>
+                    <span className="text-sm font-medium">{editing ? t('templates.edit_template') : t('templates.new_template')}</span>
                     {selectedTemplate && (
                       <span className={cn('mt-0.5 w-fit rounded-full px-2 py-0.5 text-[11px]', (STATUS_STYLE[effectiveStatus(selectedTemplate)] || STATUS_STYLE.draft).cls)}>
-                        {(STATUS_STYLE[effectiveStatus(selectedTemplate)] || STATUS_STYLE.draft).label}
+                        {t((STATUS_STYLE[effectiveStatus(selectedTemplate)] || STATUS_STYLE.draft).labelKey)}
                       </span>
                     )}
                   </div>
@@ -1180,26 +1184,26 @@ export default function TemplatesPage() {
                       (selectedTemplate.status !== 'approved' || selectedTemplate.has_pending_changes) && (
                       <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => restoreApproved(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
-                        Version approuvée
+                        {t('templates.restore_approved_version')}
                       </Button>
                     )}
                     {(selectedTemplate?.status === 'draft' || selectedTemplate?.status === 'rejected' ||
                       (selectedTemplate?.status === 'approved' && selectedTemplate?.has_pending_changes)) && (
                       <Button data-tour="template-submit-btn" size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
-                        {selectedTemplate.status === 'draft' ? 'Soumettre' : 'Resoumettre'}
+                        {selectedTemplate.status === 'draft' ? t('templates.submit') : t('templates.resubmit')}
                       </Button>
                     )}
                     {/* Soumettre toutes les langues en un clic (si le modèle est multilingue). */}
                     {selectedTemplate && templates.filter((t) => t.name === selectedTemplate.name).length > 1 && (
                       <Button size="sm" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmitGroup(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
-                        Toutes les langues
+                        {t('templates.all_languages')}
                       </Button>
                     )}
                     <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim() || !!bodyEdgeError} onClick={handleSave} title={bodyEdgeError || undefined}>
                       {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                      {editing ? 'Enregistrer' : 'Créer'}
+                      {editing ? t('templates.save') : t('templates.create')}
                     </Button>
                     {selectedTemplate && (
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" disabled={busyId === selectedTemplate.id} onClick={() => setConfirmDelete(selectedTemplate)}>
@@ -1216,15 +1220,13 @@ export default function TemplatesPage() {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                     <div className="flex-1 text-xs text-amber-600 dark:text-amber-400">
                       {editing.meta_id ? (
-                        <>La version <strong>approuvée</strong> reste active chez Meta et continue d&apos;être envoyée.
-                        Vos changements passeront en <strong>« Modifié, à resoumettre »</strong> : <strong>resoumettez à Meta</strong> pour les activer.</>
+                        <>{t('templates.dirty_meta_1')}<strong>{t('templates.dirty_meta_approved')}</strong>{t('templates.dirty_meta_2')}<strong>{t('templates.dirty_meta_modified_label')}</strong>{t('templates.dirty_meta_3')}<strong>{t('templates.dirty_meta_resubmit')}</strong>{t('templates.dirty_meta_4')}</>
                       ) : (
-                        <>Ce modèle est <strong>{(STATUS_STYLE[editing.status] || STATUS_STYLE.draft).label.toLowerCase()}</strong> chez Meta.
-                        Si vous enregistrez, il repassera en <strong>brouillon</strong> et devra être <strong>resoumis à Meta</strong>.</>
+                        <>{t('templates.dirty_nometa_1')}<strong>{t((STATUS_STYLE[editing.status] || STATUS_STYLE.draft).labelKey).toLowerCase()}</strong>{t('templates.dirty_nometa_2')}<strong>{t('templates.dirty_nometa_draft')}</strong>{t('templates.dirty_nometa_3')}<strong>{t('templates.dirty_nometa_resubmit')}</strong>{t('templates.dirty_nometa_4')}</>
                       )}
                     </div>
                     <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-500/40 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400" onClick={revertChanges}>
-                      Annuler mes modifications
+                      {t('templates.cancel_my_changes')}
                     </Button>
                   </div>
                 )}
@@ -1233,30 +1235,30 @@ export default function TemplatesPage() {
                   <div className="grid gap-6 p-4 lg:grid-cols-[minmax(340px,420px)_1fr]">
                   <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Nom technique</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="confirmation_commande" />
-              <p className="text-xs text-muted-foreground">Minuscules, chiffres et _ uniquement.</p>
+              <Label>{t('templates.technical_name')}</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('templates.technical_name_placeholder')} />
+              <p className="text-xs text-muted-foreground">{t('templates.technical_name_help')}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Langue</Label>
+                <Label>{t('templates.language')}</Label>
                 <Select value={language} onValueChange={switchLanguage}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LANGUAGES.map(l => (
                     <SelectItem key={l.value} value={l.value}>
-                      {l.label}{existingLangs.includes(l.value) ? '' : ', à traduire'}
+                      {l.label}{existingLangs.includes(l.value) ? '' : t('templates.language_to_translate')}
                     </SelectItem>
                   ))}</SelectContent>
                 </Select>
                 {editing?.source_language && editing.language === editing.source_language && (
-                  <p className="text-[11px] text-muted-foreground">Langue source (les autres en sont traduites).</p>
+                  <p className="text-[11px] text-muted-foreground">{t('templates.source_language_hint')}</p>
                 )}
                 {editing?.is_auto_translated && (
-                  <p className="text-[11px] text-amber-600">Traduit automatiquement, modifiez librement.</p>
+                  <p className="text-[11px] text-amber-600">{t('templates.auto_translated_hint')}</p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label>Catégorie</Label>
+                <Label>{t('templates.category')}</Label>
                 <Select
                   value={useCase}
                   onValueChange={(v) => {
@@ -1280,18 +1282,18 @@ export default function TemplatesPage() {
                   </SelectContent>
                 </Select>
                 {editing?.meta_id && (
-                  <p className="text-[11px] text-muted-foreground">La catégorie d’un modèle déjà soumis ne peut pas être modifiée (règle Meta).</p>
+                  <p className="text-[11px] text-muted-foreground">{t('templates.category_locked_hint')}</p>
                 )}
               </div>
             </div>
             {/* Type de modèle : standard / carrousel / offre limitée */}
             <div className="space-y-1.5">
-              <Label>Type de modèle</Label>
+              <Label>{t('templates.template_type')}</Label>
               <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-xs">
                 {([
-                  { v: 'standard', l: 'Standard' },
-                  { v: 'carousel', l: 'Carrousel' },
-                  { v: 'limited_time_offer', l: 'Offre limitée' },
+                  { v: 'standard', l: t('templates.type_standard') },
+                  { v: 'carousel', l: t('templates.type_carousel') },
+                  { v: 'limited_time_offer', l: t('templates.type_lto') },
                 ] as const).map(({ v, l }) => (
                   <button
                     key={v}
@@ -1308,11 +1310,11 @@ export default function TemplatesPage() {
                 ))}
               </div>
               {editing?.meta_id ? (
-                <p className="text-[11px] text-muted-foreground">Le type d&apos;un modèle déjà soumis ne peut pas être changé.</p>
+                <p className="text-[11px] text-muted-foreground">{t('templates.type_locked_hint')}</p>
               ) : templateType === 'carousel' ? (
-                <p className="text-[11px] text-muted-foreground">Message d&apos;introduction + cartes produit défilables (1 à 10).</p>
+                <p className="text-[11px] text-muted-foreground">{t('templates.type_carousel_hint')}</p>
               ) : templateType === 'limited_time_offer' ? (
-                <p className="text-[11px] text-muted-foreground">Compte à rebours + code promo. Catégorie Marketing obligatoire.</p>
+                <p className="text-[11px] text-muted-foreground">{t('templates.type_lto_hint')}</p>
               ) : null}
             </div>
 
@@ -1320,29 +1322,28 @@ export default function TemplatesPage() {
             {templateType === 'limited_time_offer' && (
               <div className="space-y-3 rounded-xl border p-3">
                 <div className="space-y-1.5">
-                  <Label>Titre de l&apos;offre</Label>
-                  <Input value={ltoTitle} onChange={(e) => setLtoTitle(e.target.value)} placeholder="-10% pendant 2h" maxLength={16} />
-                  <p className="text-[11px] text-muted-foreground">{ltoTitle.length}/16, affiché au-dessus du compte à rebours.</p>
+                  <Label>{t('templates.lto_title_label')}</Label>
+                  <Input value={ltoTitle} onChange={(e) => setLtoTitle(e.target.value)} placeholder={t('templates.lto_title_placeholder')} maxLength={16} />
+                  <p className="text-[11px] text-muted-foreground">{t('templates.lto_title_help', { count: ltoTitle.length })}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Durée du compte à rebours</Label>
+                  <Label>{t('templates.lto_duration')}</Label>
                   <Select value={String(ltoHours)} onValueChange={(v) => setLtoHours(parseInt(v, 10))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 heure</SelectItem>
-                      <SelectItem value="2">2 heures</SelectItem>
-                      <SelectItem value="6">6 heures</SelectItem>
-                      <SelectItem value="12">12 heures</SelectItem>
-                      <SelectItem value="24">24 heures</SelectItem>
-                      <SelectItem value="48">48 heures</SelectItem>
-                      <SelectItem value="72">72 heures</SelectItem>
+                      <SelectItem value="1">{t('templates.lto_hours_1')}</SelectItem>
+                      <SelectItem value="2">{t('templates.lto_hours_2')}</SelectItem>
+                      <SelectItem value="6">{t('templates.lto_hours_6')}</SelectItem>
+                      <SelectItem value="12">{t('templates.lto_hours_12')}</SelectItem>
+                      <SelectItem value="24">{t('templates.lto_hours_24')}</SelectItem>
+                      <SelectItem value="48">{t('templates.lto_hours_48')}</SelectItem>
+                      <SelectItem value="72">{t('templates.lto_hours_72')}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">L&apos;expiration est calculée à l&apos;envoi (maintenant + durée).</p>
+                  <p className="text-[11px] text-muted-foreground">{t('templates.lto_expiry_help')}</p>
                 </div>
                 <p className="rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
-                  Ajoutez OBLIGATOIREMENT les deux boutons ci-dessous (exigés par Meta) :
-                  <strong>« Copier le code »</strong> (code promo) <strong>ET</strong> un bouton <strong>lien « Visiter le site »</strong>.
+                  {t('templates.lto_buttons_note')}
                 </p>
               </div>
             )}
@@ -1351,15 +1352,15 @@ export default function TemplatesPage() {
                 médias sur les cartes). */}
             {templateType !== 'carousel' && (
             <div className="space-y-2">
-              <Label>En-tête (optionnel)</Label>
+              <Label>{t('templates.header_optional')}</Label>
               {/* Sélecteur de type d'en-tête */}
               <div className="grid grid-cols-5 gap-1 rounded-lg bg-muted p-1 text-xs">
                 {([
-                  { v: 'none', l: 'Aucun' },
-                  { v: 'text', l: 'Texte' },
-                  { v: 'image', l: 'Image' },
-                  { v: 'video', l: 'Vidéo' },
-                  { v: 'document', l: 'Doc' },
+                  { v: 'none', l: t('templates.header_none') },
+                  { v: 'text', l: t('templates.header_text') },
+                  { v: 'image', l: t('templates.header_image') },
+                  { v: 'video', l: t('templates.header_video') },
+                  { v: 'document', l: t('templates.header_document') },
                 ] as const).map(({ v, l }) => (
                   <button
                     key={v}
@@ -1370,7 +1371,7 @@ export default function TemplatesPage() {
                 ))}
               </div>
               {headerType === 'text' && (
-                <Input value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Votre commande est confirmée" maxLength={60} />
+                <Input value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder={t('templates.header_text_placeholder')} maxLength={60} />
               )}
               {(headerType === 'image' || headerType === 'video' || headerType === 'document') && (
                 <div className="space-y-2">
@@ -1391,9 +1392,9 @@ export default function TemplatesPage() {
                       {uploadingMedia ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                         headerType === 'image' ? <ImageIcon className="h-5 w-5" /> : headerType === 'video' ? <Video className="h-5 w-5" /> : <FileText className="h-5 w-5" />
                       )}
-                      <span>{uploadingMedia ? 'Import en cours…' : 'Importer un fichier'}</span>
+                      <span>{uploadingMedia ? t('templates.importing') : t('templates.import_file')}</span>
                       <span className="text-[11px] text-muted-foreground/70">
-                        {headerType === 'image' ? 'JPG ou PNG · max 5 Mo' : headerType === 'video' ? 'MP4 · max 16 Mo' : 'PDF · max 100 Mo'}
+                        {headerType === 'image' ? t('templates.media_hint_image') : headerType === 'video' ? t('templates.media_hint_video') : t('templates.media_hint_document')}
                       </span>
                     </button>
                   ) : (
@@ -1406,9 +1407,9 @@ export default function TemplatesPage() {
                           {headerType === 'video' ? <Video className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                         </span>
                       )}
-                      <span className="flex-1 truncate text-xs">{mediaFilename || 'Fichier importé'}</span>
+                      <span className="flex-1 truncate text-xs">{mediaFilename || t('templates.file_imported')}</span>
                       <Button type="button" size="sm" variant="ghost" onClick={() => mediaInputRef.current?.click()} disabled={uploadingMedia}>
-                        {uploadingMedia ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remplacer'}
+                        {uploadingMedia ? <Loader2 className="h-4 w-4 animate-spin" /> : t('templates.replace')}
                       </Button>
                       <button type="button" onClick={() => { setHeaderMediaUrl(''); setMediaPreviewUrl(''); setMediaFilename('') }} className="text-destructive hover:opacity-70">
                         <Trash2 className="h-4 w-4" />
@@ -1420,7 +1421,7 @@ export default function TemplatesPage() {
             </div>
             )}
             <div className="space-y-1.5">
-              <Label>{templateType === 'carousel' ? 'Message d’introduction' : 'Message'} <span className="text-destructive">*</span></Label>
+              <Label>{templateType === 'carousel' ? t('templates.intro_message') : t('templates.message')} <span className="text-destructive">*</span></Label>
               <VariableTextarea
                 ref={bodyRef}
                 value={bodyText}
@@ -1428,20 +1429,20 @@ export default function TemplatesPage() {
                 labels={variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)}
                 rows={5}
                 maxLength={1024}
-                placeholder={'Bonjour {{1}}, votre commande #{{2}} est confirmée ! Livraison prévue le {{3}}.'}
+                placeholder={t('templates.body_placeholder')}
               />
               {/* Barre d'outils : formatage WhatsApp + variable */}
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">{bodyText.length}/1024</span>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => wrapSelection('*')} title="Gras" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Bold className="h-3.5 w-3.5" /></button>
-                  <button type="button" onClick={() => wrapSelection('_')} title="Italique" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Italic className="h-3.5 w-3.5" /></button>
-                  <button type="button" onClick={() => wrapSelection('~')} title="Barré" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Strikethrough className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => wrapSelection('*')} title={t('templates.bold')} className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Bold className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => wrapSelection('_')} title={t('templates.italic')} className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Italic className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => wrapSelection('~')} title={t('templates.strikethrough')} className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Strikethrough className="h-3.5 w-3.5" /></button>
                   <span className="mx-1 h-4 w-px bg-border" />
                   {/* Menu déroulant de variables nommées (groupées) */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button data-tour="template-variables" type="button" className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> Variable</button>
+                      <button data-tour="template-variables" type="button" className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> {t('templates.variable')}</button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
                       {VARIABLE_GROUPS.map((group, gi) => (
@@ -1469,7 +1470,7 @@ export default function TemplatesPage() {
               {/* Légende : quelle variable correspond à quel {{n}} */}
               {variableKeys.length > 0 && (
                 <div className="space-y-1 rounded-lg border bg-muted/30 p-2">
-                  <p className="text-[11px] font-medium text-muted-foreground">Variables utilisées</p>
+                  <p className="text-[11px] font-medium text-muted-foreground">{t('templates.variables_used')}</p>
                   {variableKeys.map((key, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <code className="rounded bg-background px-1.5 py-0.5 text-[11px]">{`{{${i + 1}}}`}</code>
@@ -1483,8 +1484,8 @@ export default function TemplatesPage() {
             {/* Pied de page : interdit par Meta sur carrousel ET offre limitée. */}
             {templateType !== 'carousel' && templateType !== 'limited_time_offer' && (
               <div className="space-y-1.5">
-                <Label>Pied de page (optionnel)</Label>
-                <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Powered by Xeyo.io" maxLength={60} />
+                <Label>{t('templates.footer_optional')}</Label>
+                <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder={t('templates.footer_placeholder')} maxLength={60} />
               </div>
             )}
 
@@ -1507,13 +1508,13 @@ export default function TemplatesPage() {
                 boutons par carte) */}
             {templateType !== 'carousel' && (
             <div className="space-y-2" data-tour="template-buttons">
-              <Label>Boutons (optionnel)</Label>
+              <Label>{t('templates.buttons_optional')}</Label>
               {buttons.map((b, i) => (
                 <div key={i} className="flex items-center gap-2 rounded-lg border p-2">
                   <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-                    {b.type === 'URL' ? 'Site' : b.type === 'PHONE_NUMBER' ? 'Appel' : b.type === 'COPY_CODE' ? 'Code' : 'Réponse'}
+                    {b.type === 'URL' ? t('templates.btn_label_site') : b.type === 'PHONE_NUMBER' ? t('templates.btn_label_call') : b.type === 'COPY_CODE' ? t('templates.btn_label_code') : t('templates.btn_label_reply')}
                   </span>
-                  <Input value={b.text} onChange={(e) => updateButton(i, { text: e.target.value })} placeholder="Libellé" className="h-8 flex-1" maxLength={25} />
+                  <Input value={b.text} onChange={(e) => updateButton(i, { text: e.target.value })} placeholder={t('templates.btn_label_placeholder')} className="h-8 flex-1" maxLength={25} />
                   {b.type === 'URL' && <Input value={b.url} onChange={(e) => updateButton(i, { url: e.target.value } as Partial<TemplateButton>)} placeholder="https://…" className="h-8 flex-1" />}
                   {b.type === 'PHONE_NUMBER' && <Input value={b.phone} onChange={(e) => updateButton(i, { phone: e.target.value } as Partial<TemplateButton>)} placeholder="+33…" className="h-8 flex-1" />}
                   {b.type === 'COPY_CODE' && <Input value={b.code} onChange={(e) => updateButton(i, { code: e.target.value } as Partial<TemplateButton>)} placeholder="PROMO10" className="h-8 flex-1" />}
@@ -1522,10 +1523,10 @@ export default function TemplatesPage() {
               ))}
               {buttons.length < 3 && (
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button type="button" onClick={() => addButton('URL')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Visiter le site</button>
-                  <button type="button" onClick={() => addButton('PHONE_NUMBER')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Appeler</button>
-                  <button type="button" onClick={() => addButton('COPY_CODE')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Copier un code</button>
-                  <button type="button" onClick={() => addButton('QUICK_REPLY')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Réponse rapide</button>
+                  <button type="button" onClick={() => addButton('URL')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">{t('templates.visit_site')}</button>
+                  <button type="button" onClick={() => addButton('PHONE_NUMBER')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">{t('templates.call')}</button>
+                  <button type="button" onClick={() => addButton('COPY_CODE')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">{t('templates.copy_code')}</button>
+                  <button type="button" onClick={() => addButton('QUICK_REPLY')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">{t('templates.quick_reply')}</button>
                 </div>
               )}
             </div>
@@ -1534,7 +1535,7 @@ export default function TemplatesPage() {
 
           {/* Aperçu WhatsApp en direct */}
           <div className="space-y-2 lg:sticky lg:top-4 lg:self-start">
-            <Label className="text-xs text-muted-foreground">Aperçu</Label>
+            <Label className="text-xs text-muted-foreground">{t('templates.preview')}</Label>
             <div className="flex min-h-[320px] items-center justify-center rounded-xl border bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-8 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
               <div className="w-full max-w-md overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
                 {/* Header média */}
@@ -1555,7 +1556,7 @@ export default function TemplatesPage() {
                     <p className="mb-0.5 text-[15px] font-semibold text-gray-900">{headerText}</p>
                   )}
                   <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">
-                    {renderWhatsAppFormat(bodyText, variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
+                    {renderWhatsAppFormat(bodyText, variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)) || <span className="text-gray-400">{t('templates.preview_placeholder')}</span>}
                   </p>
                   {footerText && templateType !== 'carousel' && (
                     <p className="mt-1.5 text-[12px] text-gray-400">{footerText}</p>
@@ -1565,7 +1566,7 @@ export default function TemplatesPage() {
                 {/* Badge offre limitée (compte à rebours) */}
                 {templateType === 'limited_time_offer' && (
                   <div className="mx-3 mb-2 flex items-center gap-1.5 rounded-lg bg-red-50 px-2 py-1.5 text-[13px] font-medium text-red-600">
-                    ⏱ {ltoTitle || 'Offre limitée'} · expire dans {ltoHours}h
+                    ⏱ {ltoTitle || t('templates.lto_default_title')} · {t('templates.lto_expires_in', { hours: ltoHours })}
                   </div>
                 )}
                 {/* Boutons globaux (standard + offre limitée) */}
@@ -1576,7 +1577,7 @@ export default function TemplatesPage() {
                         {b.type === 'URL' && <ExternalLink className="h-4 w-4" />}
                         {b.type === 'PHONE_NUMBER' && <Phone className="h-4 w-4" />}
                         {b.type === 'COPY_CODE' && <Copy className="h-4 w-4" />}
-                        {b.text || 'Bouton'}
+                        {b.text || t('templates.button_fallback')}
                       </div>
                     ))}
                   </div>
@@ -1590,7 +1591,7 @@ export default function TemplatesPage() {
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Les variables {'{{1}}'}, {'{{2}}'}… seront remplacées à l&apos;envoi.
+              {t('templates.variables_replaced_hint')}
             </p>
           </div>
                   </div>
@@ -1599,7 +1600,7 @@ export default function TemplatesPage() {
             ) : mode === 'choose' ? (
               /* Écran de choix : manuel vs IA */
               <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-                <p className="text-sm text-muted-foreground">Comment voulez-vous créer votre modèle ?</p>
+                <p className="text-sm text-muted-foreground">{t('templates.how_create')}</p>
                 <div className="grid w-full max-w-md gap-3 sm:grid-cols-2">
                   <button
                     type="button"
@@ -1607,8 +1608,8 @@ export default function TemplatesPage() {
                     className="flex flex-col items-center gap-2 rounded-2xl border p-6 text-center transition-colors hover:border-primary/50 hover:bg-muted/30"
                   >
                     <FileText className="h-7 w-7 text-muted-foreground" />
-                    <span className="text-sm font-semibold">Manuellement</span>
-                    <span className="text-xs text-muted-foreground">J&apos;écris moi-même le message.</span>
+                    <span className="text-sm font-semibold">{t('templates.manually')}</span>
+                    <span className="text-xs text-muted-foreground">{t('templates.manually_desc')}</span>
                   </button>
                   <button
                     type="button"
@@ -1616,8 +1617,8 @@ export default function TemplatesPage() {
                     className="flex flex-col items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/10"
                   >
                     <Sparkles className="h-7 w-7 text-primary" />
-                    <span className="text-sm font-semibold">Générer avec l&apos;IA</span>
-                    <span className="text-xs text-muted-foreground">Je réponds à 3 questions, l&apos;IA propose.</span>
+                    <span className="text-sm font-semibold">{t('templates.generate_ai')}</span>
+                    <span className="text-xs text-muted-foreground">{t('templates.generate_ai_desc')}</span>
                   </button>
                 </div>
               </div>
@@ -1625,8 +1626,8 @@ export default function TemplatesPage() {
               /* Questionnaire IA + 3 propositions */
               <div className="flex flex-1 flex-col overflow-y-auto p-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <button type="button" onClick={openChoose} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
-                  <span className="text-sm font-medium">Générer un modèle avec l&apos;IA</span>
+                  <button type="button" onClick={openChoose} className="text-xs text-muted-foreground hover:text-foreground">{t('templates.back')}</button>
+                  <span className="text-sm font-medium">{t('templates.generate_with_ai')}</span>
                 </div>
 
                 {/* Assistant conversationnel : l'IA pose des questions, variables auto */}
@@ -1637,14 +1638,14 @@ export default function TemplatesPage() {
                       <div className="flex items-start gap-2">
                         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10"><Sparkles className="h-3.5 w-3.5 text-primary" /></span>
                         <div className="rounded-2xl rounded-tl-sm bg-muted px-3 py-2 text-sm">
-                          Bonjour ! Décrivez-moi le message que vous voulez créer, par exemple « relancer un panier abandonné » ou « prévenir que la commande est expédiée ».
+                          {t('templates.ai_greeting')}
                         </div>
                       </div>
                     )}
                     {aiChat.map((m, i) => (
                       <div key={i} className={cn('flex items-start gap-2', m.role === 'user' && 'flex-row-reverse')}>
                         <span className={cn('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', m.role === 'user' ? 'bg-primary/20' : 'bg-primary/10')}>
-                          {m.role === 'user' ? <span className="text-[10px] font-semibold">Vous</span> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                          {m.role === 'user' ? <span className="text-[10px] font-semibold">{t('templates.you')}</span> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
                         </span>
                         <div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm',
                           m.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-muted')}>
@@ -1654,7 +1655,7 @@ export default function TemplatesPage() {
                     ))}
                     {aiThinking && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> L&apos;assistant réfléchit…
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('templates.assistant_thinking')}
                       </div>
                     )}
                   </div>
@@ -1677,12 +1678,12 @@ export default function TemplatesPage() {
                       value={aiInput}
                       onChange={(e) => setAiInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') sendAiAnswer(aiInput) }}
-                      placeholder="Votre réponse…"
+                      placeholder={t('templates.your_answer_placeholder')}
                       disabled={aiThinking}
                       className="flex-1 rounded-lg border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
                     />
                     <Button size="sm" disabled={aiThinking || !aiInput.trim()} onClick={() => sendAiAnswer(aiInput)}>
-                      {aiThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Envoyer'}
+                      {aiThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : t('templates.send')}
                     </Button>
                   </div>
                 </div>
@@ -1690,11 +1691,11 @@ export default function TemplatesPage() {
                 {/* 3 propositions en aperçu WhatsApp */}
                 {aiProposals.length > 0 && (
                   <div className="mt-4 space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground">Choisissez une proposition :</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t('templates.choose_proposal')}</p>
                     {aiProposals.map((p, i) => {
                       const labels = p.variable_keys.map((k) => VARIABLE_BY_KEY[k]?.label || k)
-                      const typeLabel = p.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
-                        : p.template_type === 'carousel' ? '🎠 Carrousel produits' : '💬 Message + boutons'
+                      const typeLabel = p.template_type === 'limited_time_offer' ? t('templates.proposal_lto')
+                        : p.template_type === 'carousel' ? t('templates.proposal_carousel') : t('templates.proposal_standard')
                       return (
                         <div key={i} className="rounded-xl border p-3">
                           <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">{typeLabel}</div>
@@ -1707,7 +1708,7 @@ export default function TemplatesPage() {
                               {/* Bandeau offre limitée */}
                               {p.template_type === 'limited_time_offer' && p.lto_title && (
                                 <div className="mt-1.5 flex items-center gap-1.5 rounded bg-rose-50 px-2 py-1 text-[12px] font-medium text-rose-600">
-                                  ⏱ {p.lto_title} · expire dans {p.lto_hours ?? 24}h
+                                  ⏱ {p.lto_title} · {t('templates.lto_expires_in', { hours: p.lto_hours ?? 24 })}
                                 </div>
                               )}
                               <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
@@ -1739,7 +1740,7 @@ export default function TemplatesPage() {
                             )}
                           </div>
                           <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => chooseProposal(p)}>
-                            <Check className="mr-1 h-3.5 w-3.5" /> Choisir cette version
+                            <Check className="mr-1 h-3.5 w-3.5" /> {t('templates.choose_this_version')}
                           </Button>
                         </div>
                       )
@@ -1750,9 +1751,9 @@ export default function TemplatesPage() {
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
                 <FileText className="h-8 w-8 opacity-50" />
-                <p>Sélectionnez un modèle ou créez-en un.</p>
+                <p>{t('templates.select_or_create')}</p>
                 <Button size="sm" onClick={openChoose}>
-                  <Plus className="mr-1 h-4 w-4" />Nouveau modèle
+                  <Plus className="mr-1 h-4 w-4" />{t('templates.new_template')}
                 </Button>
               </div>
             )}
@@ -1764,30 +1765,30 @@ export default function TemplatesPage() {
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce modèle ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('templates.delete_template_q')}</AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDelete && (() => {
-                const langs = templates.filter((t) => t.name === confirmDelete.name).map((t) => t.language)
+                const langs = templates.filter((row) => row.name === confirmDelete.name).map((row) => row.language)
                 return (
                   <>
-                    Le modèle <strong>{confirmDelete.name}</strong> sera définitivement supprimé
-                    {langs.length > 1 ? <> dans <strong>toutes ses langues</strong> ({langs.map((l) => l.toUpperCase()).join(', ')})</> : null}
-                    {confirmDelete.meta_id ? <>, y compris chez <strong>Meta</strong></> : null}.
-                    {' '}Cette action est <strong>irréversible</strong>.
+                    {t('templates.delete_desc_1')}<strong>{confirmDelete.name}</strong>{t('templates.delete_desc_2')}
+                    {langs.length > 1 ? <>{t('templates.delete_desc_in')}<strong>{t('templates.delete_desc_all_langs')}</strong>{t('templates.delete_desc_langs', { langs: langs.map((l) => l.toUpperCase()).join(', ') })}</> : null}
+                    {confirmDelete.meta_id ? <>{t('templates.delete_desc_meta')}<strong>{t('templates.delete_desc_meta_word')}</strong></> : null}
+                    {t('templates.delete_desc_3')}<strong>{t('templates.delete_desc_irreversible')}</strong>{t('templates.delete_desc_4')}
                   </>
                 )
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!busyId}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={!!busyId}>{t('templates.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={!!busyId}
               onClick={(e) => { e.preventDefault(); if (confirmDelete) handleDelete(confirmDelete) }}
             >
               {busyId ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-              Supprimer
+              {t('templates.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

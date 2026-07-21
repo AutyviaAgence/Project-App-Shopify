@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
+import { useTranslation } from '@/i18n/context'
 
 type KnowledgeImage = { id: string; ref: string; filename: string; agent_id: string | null; media_kind?: 'image' | 'video' | 'document' | null }
 type AgentWithExtras = AIAgent & { team_ids?: string[] }
@@ -32,6 +33,7 @@ type AgentWithExtras = AIAgent & { team_ids?: string[] }
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { t } = useTranslation()
 
   const [agent, setAgent]           = useState<AgentWithExtras | null>(null)
   const [loading, setLoading]       = useState(true)
@@ -190,8 +192,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       })
       const json = await res.json()
       if (res.ok) { setAgent(json.data); setSaved(true); track('agent_saved'); setTimeout(() => setSaved(false), 2000) }
-      else toast.error(json.error || 'Erreur')
-    } catch { toast.error('Erreur réseau') }
+      else toast.error(json.error || t('agents.onboard_error'))
+    } catch { toast.error(t('agents.network_error')) }
     finally { setSaving(false) }
   }
 
@@ -203,7 +205,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     })
     if (res.ok) {
       setAgent(prev => prev ? { ...prev, is_active: !prev.is_active } : prev)
-      toast.success(agent.is_active ? 'Agent désactivé' : 'Agent activé')
+      toast.success(agent.is_active ? t('agents.agent_disabled') : t('agents.agent_enabled'))
     }
   }
 
@@ -214,11 +216,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     })
     if (!res.ok) {
       const j = await res.json().catch(() => ({}))
-      toast.error(j.error || 'Impossible d\'ajouter ce document')
+      toast.error(j.error || t('agents.doc_cannot_add'))
       return
     }
     const json = await (await fetch(`/api/agents/${id}/knowledge`)).json()
-    setDocs(json.data || []); setAddDocOpen(false); toast.success('Document ajouté')
+    setDocs(json.data || []); setAddDocOpen(false); toast.success(t('agents.doc_added'))
   }
 
   async function handleDetachDoc(docId: string) {
@@ -242,7 +244,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   async function handleViewMedia(img: KnowledgeImage) {
     const url = await loadMediaUrl(img.id)
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
-    else toast.error('Média illisible')
+    else toast.error(t('agents.media_unreadable'))
   }
 
   /** Rattache un média à CET agent, ou le partage avec tous (agent_id null).
@@ -255,16 +257,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: img.id, agent_id: shareWithAll ? null : id }),
       })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || t('agents.onboard_error'))
       const nextAgentId = shareWithAll ? null : (id as string)
       setAllImages(prev => prev.map(i => i.id === img.id ? { ...i, agent_id: nextAgentId } : i))
       setImages(prev => {
         const without = prev.filter(i => i.id !== img.id)
         return [{ ...img, agent_id: nextAgentId }, ...without]
       })
-      toast.success(shareWithAll ? 'Média partagé avec tous les agents' : 'Média rattaché à cet agent')
+      toast.success(shareWithAll ? t('agents.media_shared_all') : t('agents.media_attached_agent'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('agents.onboard_error'))
     }
   }
 
@@ -273,11 +275,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     try {
       const res = await fetch(`/api/knowledge/${doc.id}/download`)
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Document illisible')
+      if (!res.ok) throw new Error(json.error || t('agents.doc_unreadable'))
       if (json.type === 'pdf' && json.url) window.open(json.url, '_blank', 'noopener,noreferrer')
       else setViewingDoc({ name: json.name || doc.name, content: json.content || '' })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('agents.onboard_error'))
     }
   }
 
@@ -287,13 +289,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     setDeletingDoc(doc.id)
     try {
       const res = await fetch(`/api/knowledge/${doc.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Suppression impossible')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || t('agents.doc_delete_impossible'))
       setAllDocs(prev => prev.filter(d => d.id !== doc.id))
       setDocs(prev => prev.filter(d => d.id !== doc.id))
       setConfirmDeleteDoc(null)
-      toast.success('Document supprimé')
+      toast.success(t('agents.doc_deleted'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('agents.onboard_error'))
     } finally {
       setDeletingDoc(null)
     }
@@ -308,12 +310,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       form.append('name', file.name)
       const res = await fetch('/api/knowledge', { method: 'POST', body: form })
       const json = await res.json()
-      if (!res.ok || !json.data?.id) throw new Error(json.error || 'Erreur upload')
+      if (!res.ok || !json.data?.id) throw new Error(json.error || t('agents.upload_error'))
       await handleAttachDoc(json.data.id)
       setAllDocs(prev => [json.data, ...prev])
-      toast.success('Document uploadé et ajouté')
+      toast.success(t('agents.doc_uploaded_added'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('agents.onboard_error'))
     } finally {
       setUploadingDoc(false)
     }
@@ -321,7 +323,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
   // Uploader un média (image/vidéo/document) attaché à cet agent
   async function handleUploadMedia() {
-    if (!mediaFile || !mediaRef.trim()) { toast.error('Ref et fichier requis'); return }
+    if (!mediaFile || !mediaRef.trim()) { toast.error(t('agents.ref_file_required')); return }
     setUploadingMedia(true)
     try {
       const form = new FormData()
@@ -331,12 +333,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       form.append('media_kind', mediaKind)
       const res = await fetch('/api/knowledge-images', { method: 'POST', body: form })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur upload')
+      if (!res.ok) throw new Error(json.error || t('agents.upload_error'))
       setImages(prev => [json.data, ...prev.filter(i => i.id !== json.data.id)])
       setAddMediaOpen(false); setMediaRef(''); setMediaFile(null); setMediaKind('image')
-      toast.success('Média ajouté')
+      toast.success(t('agents.media_added'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('agents.onboard_error'))
     } finally {
       setUploadingMedia(false)
     }
@@ -360,13 +362,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         setLinks(prev => [...prev, json.data]); setAddLinkOpen(false)
         setLinkName(''); setLinkSession(''); setLinkMessage('')
         track('link_created')
-        toast.success('Lien créé')
-      } else toast.error(json.error || 'Erreur')
+        toast.success(t('agents.link_created'))
+      } else toast.error(json.error || t('agents.onboard_error'))
     } finally { setLinkSaving(false) }
   }
 
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-  const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
+  const toneLabel = tone === 'professional' ? t('agents.tone_professional_full') : tone === 'friendly' ? t('agents.tone_friendly') : t('agents.tone_casual_full')
   const channelCount = sessions.length
 
   if (loading) return <BlobLoaderScreen />
@@ -379,7 +381,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <header className="shrink-0 flex items-center px-5 py-3.5 z-30">
         <Link href="/agents" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
-          <span>Retour</span>
+          <span>{t('agents.detail_back')}</span>
         </Link>
 
         <div className="ml-auto flex items-center gap-2">
@@ -387,7 +389,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             onClick={() => setTestOpen(true)}
             className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
           >
-            <Play className="h-3.5 w-3.5" /> Tester
+            <Play className="h-3.5 w-3.5" /> {t('agents.detail_test')}
           </button>
           <button
             onClick={handleSave}
@@ -398,7 +400,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             )}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
-            {saved ? 'Enregistré' : 'Enregistrer'}
+            {saved ? t('agents.detail_saved') : t('agents.detail_save')}
           </button>
         </div>
       </header>
@@ -413,9 +415,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           {/* En-tête : fil d'ariane + titre + badges */}
           <div className="pt-8 pb-5">
             <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Link href="/agents" className="hover:text-foreground transition-colors">Agents</Link>
+              <Link href="/agents" className="hover:text-foreground transition-colors">{t('common.agents')}</Link>
               <span className="text-muted-foreground/40">/</span>
-              <span className="text-foreground/70 truncate">{name || 'Agent'}</span>
+              <span className="text-foreground/70 truncate">{name || t('agents.detail_agent_fallback')}</span>
             </div>
             <input
               value={name}
@@ -427,12 +429,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               <button onClick={handleToggleActive}>
                 <HeaderBadge>
                   <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
-                  {agent.is_active ? 'Actif' : 'Inactif'}
+                  {agent.is_active ? t('agents.badge_active') : t('agents.badge_inactive')}
                 </HeaderBadge>
               </button>
               <HeaderBadge icon={Sparkles}>{toneLabel}</HeaderBadge>
-              <HeaderBadge icon={FileText}>{docs.length} document{docs.length > 1 ? 's' : ''}</HeaderBadge>
-              <HeaderBadge icon={Globe}>{autoDetectLanguage ? 'Auto' : 'Français'}</HeaderBadge>
+              <HeaderBadge icon={FileText}>{docs.length} {docs.length > 1 ? t('agents.doc_plural') : t('agents.doc_singular')}</HeaderBadge>
+              <HeaderBadge icon={Globe}>{autoDetectLanguage ? t('agents.badge_auto_lang') : t('agents.badge_french')}</HeaderBadge>
             </div>
           </div>
 
@@ -440,16 +442,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           <div className="sticky top-0 z-10 -mx-1 mb-6 px-1 py-2">
             <div className="flex gap-1 overflow-x-auto rounded-2xl border border-border/50 bg-card/60 p-1.5 backdrop-blur">
               {([
-                { key: 'personality', label: 'Personnalité', icon: Sparkles },
-                { key: 'knowledge', label: 'Savoir & médias', icon: BookOpen },
-                { key: 'behavior', label: 'Comportement', icon: SlidersHorizontal },
-                { key: 'advanced', label: 'Avancé', icon: Settings2 },
-              ] as const).map(t => {
-                const on = activeTab === t.key
+                { key: 'personality', label: t('agents.tab_personality'), icon: Sparkles },
+                { key: 'knowledge', label: t('agents.tab_knowledge'), icon: BookOpen },
+                { key: 'behavior', label: t('agents.tab_behavior'), icon: SlidersHorizontal },
+                { key: 'advanced', label: t('agents.tab_advanced'), icon: Settings2 },
+              ] as const).map(tab => {
+                const on = activeTab === tab.key
                 return (
                   <button
-                    key={t.key}
-                    onClick={() => setActiveTab(t.key)}
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
                     className={cn(
                       'flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-all',
                       on
@@ -457,8 +459,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                     )}
                   >
-                    <t.icon className="h-4 w-4" />
-                    {t.label}
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
                   </button>
                 )
               })}
@@ -470,36 +472,36 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ PERSONNALITÉ ═══ */}
           {activeTab === 'personality' && (
-          <Group title="Personnalité" subtitle="Identité, objectif et ton de l'agent" icon={Sparkles} color="violet">
-            <RowField label="Description" hint="Affiché sous le nom de l'agent" stacked>
-              <CleanInput value={description} onChange={setDescription} placeholder="Assistant commercial WhatsApp" />
+          <Group title={t('agents.personality_title')} subtitle={t('agents.personality_subtitle')} icon={Sparkles} color="violet">
+            <RowField label={t('agents.field_description')} hint={t('agents.field_description_hint')} stacked>
+              <CleanInput value={description} onChange={setDescription} placeholder={t('agents.description_placeholder_detail')} />
             </RowField>
             <Divider />
-            <RowField label="Objectif" hint="Ce que l'agent doit accomplir" stacked
+            <RowField label={t('agents.field_objective')} hint={t('agents.field_objective_hint')} stacked
               trailing={<span className="text-[11px] tabular-nums text-muted-foreground/60">{objective.length}/2000</span>}>
-              <CleanTextarea value={objective} onChange={setObjective} placeholder="Qualifier les prospects et proposer un rendez-vous" rows={4} maxLength={2000} />
+              <CleanTextarea value={objective} onChange={setObjective} placeholder={t('agents.objective_placeholder_detail')} rows={4} maxLength={2000} />
             </RowField>
             <Divider />
-            <RowField label="Ton" trailing={<span className="text-sm text-muted-foreground">{toneLabel}</span>} stacked>
+            <RowField label={t('agents.field_tone')} trailing={<span className="text-sm text-muted-foreground">{toneLabel}</span>} stacked>
               <div className="grid grid-cols-3 gap-2 mt-1" data-tour="agent-tone">
                 {([
-                  { id: 'professional', label: 'Pro', emoji: '👔' },
-                  { id: 'friendly',     label: 'Chaleureux', emoji: '😊' },
-                  { id: 'casual',       label: 'Détendu', emoji: '😎' },
-                ] as const).map(t => {
-                  const on = tone === t.id
+                  { id: 'professional', label: t('agents.tone_pro'), emoji: '👔' },
+                  { id: 'friendly',     label: t('agents.tone_friendly'), emoji: '😊' },
+                  { id: 'casual',       label: t('agents.tone_casual'), emoji: '😎' },
+                ] as const).map(opt => {
+                  const on = tone === opt.id
                   return (
-                    <button key={t.id} onClick={() => setTone(t.id)}
+                    <button key={opt.id} onClick={() => setTone(opt.id)}
                       className={cn('rounded-2xl py-3.5 transition-all', on ? 'bg-violet-500/15 ring-1 ring-violet-500/40' : 'bg-muted/40 hover:bg-muted/70')}>
-                      <span className="block text-xl">{t.emoji}</span>
-                      <span className={cn('mt-1 block text-[11px] font-medium', on ? 'text-violet-400' : 'text-muted-foreground')}>{t.label}</span>
+                      <span className="block text-xl">{opt.emoji}</span>
+                      <span className={cn('mt-1 block text-[11px] font-medium', on ? 'text-violet-400' : 'text-muted-foreground')}>{opt.label}</span>
                     </button>
                   )
                 })}
               </div>
             </RowField>
             <Divider />
-            <RowField label="Détection de langue" hint="Répond dans la langue du client">
+            <RowField label={t('agents.field_lang_detection')} hint={t('agents.field_lang_detection_hint')}>
               <Switch checked={autoDetectLanguage} onCheckedChange={setAutoDetectLanguage} />
             </RowField>
           </Group>
@@ -508,12 +510,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           {/* ═══ SAVOIR & MÉDIAS ═══ */}
           {activeTab === 'knowledge' && (<>
           <div data-tour="agent-knowledge">
-          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" icon={BookOpen} color="blue"
-            trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
+          <Group title={t('agents.knowledge_title')} subtitle={t('agents.knowledge_subtitle')} icon={BookOpen} color="blue"
+            trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> {t('agents.add')}</button>}
           >
             {docs.length === 0 ? (
               <button onClick={() => setAddDocOpen(true)} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Aucun document personnel · Ajouter un PDF ou texte →
+                {t('agents.no_personal_doc')}
               </button>
             ) : (
               <>
@@ -529,19 +531,19 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                             doc.status === 'ready' ? 'bg-emerald-500'
                               : doc.status === 'error' ? 'bg-red-500'
                               : 'bg-amber-500 animate-pulse')} />
-                          {doc.status === 'ready' ? `${doc.chunk_count} extrait${doc.chunk_count > 1 ? 's' : ''}`
-                            : doc.status === 'error' ? 'Erreur'
-                            : 'Traitement…'}
+                          {doc.status === 'ready' ? `${doc.chunk_count} ${doc.chunk_count > 1 ? t('agents.extract_plural') : t('agents.extract_singular')}`
+                            : doc.status === 'error' ? t('agents.doc_status_error')
+                            : t('agents.doc_status_processing')}
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button onClick={() => handleViewDoc(doc)} title="Visualiser"
+                        <button onClick={() => handleViewDoc(doc)} title={t('agents.view')}
                           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         {/* Détache le document de CET agent, le fichier reste dans la
                             bibliothèque (la suppression définitive est dans « Ajouter »). */}
-                        <button onClick={() => handleDetachDoc(doc.id)} title="Retirer de cet agent"
+                        <button onClick={() => handleDetachDoc(doc.id)} title={t('agents.remove_from_agent')}
                           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -555,21 +557,21 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* ═══ MÉDIAS ═══ (médias que l'agent peut envoyer en SAV : image/vidéo/document) */}
-          <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)" icon={ImageIcon} color="orange"
-            trailing={<button onClick={() => setAddMediaOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
+          <Group title={t('agents.media_title')} subtitle={t('agents.media_subtitle')} icon={ImageIcon} color="orange"
+            trailing={<button onClick={() => setAddMediaOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> {t('agents.add')}</button>}
           >
             {images.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-sm text-muted-foreground">Aucun média pour cet agent.</p>
+                <p className="text-sm text-muted-foreground">{t('agents.no_media_for_agent')}</p>
                 <div className="mt-2 flex items-center justify-center gap-3 text-sm">
                   <button onClick={() => setAddMediaOpen(true)} className="text-blue-500 hover:text-blue-600 transition-colors">
-                    Ajouter un média
+                    {t('agents.add_media')}
                   </button>
                   {allImages.length > 0 && (
                     <>
                       <span className="text-muted-foreground/50">·</span>
                       <button onClick={() => setMediaLibraryOpen(true)} className="text-blue-500 hover:text-blue-600 transition-colors">
-                        Réutiliser depuis la bibliothèque ({allImages.length})
+                        {t('agents.reuse_from_library', { count: allImages.length })}
                       </button>
                     </>
                   )}
@@ -592,7 +594,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 {allImages.length > images.length && (
                   <button onClick={() => setMediaLibraryOpen(true)}
                     className="mt-2 w-full rounded-xl border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground">
-                    Réutiliser un média d’un autre agent ({allImages.length - images.length})
+                    {t('agents.reuse_from_other_agent', { count: allImages.length - images.length })}
                   </button>
                 )}
               </>
@@ -602,8 +604,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ COMPORTEMENT ═══ */}
           {activeTab === 'behavior' && (<>
-          <Group title="Comportement" subtitle="Transfert humain et prise de rendez-vous" icon={SlidersHorizontal} color="blue">
-            <RowField label="Transfert vers un humain" hint="Si le client le demande">
+          <Group title={t('agents.behavior_title')} subtitle={t('agents.behavior_subtitle')} icon={SlidersHorizontal} color="blue">
+            <RowField label={t('agents.human_transfer')} hint={t('agents.human_transfer_hint')}>
               <Switch data-tour="agent-escalation" checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
             </RowField>
             {escalationEnabled && (
@@ -612,9 +614,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 <div className="py-3 space-y-3">
                   <div className="grid grid-cols-3 gap-2">
                     {([
-                      { id: 'keywords', label: 'Mots-clés' },
-                      { id: 'ai',       label: 'IA' },
-                      { id: 'both',     label: 'Les deux' },
+                      { id: 'keywords', label: t('agents.mode_keywords') },
+                      { id: 'ai',       label: t('agents.mode_ai') },
+                      { id: 'both',     label: t('agents.mode_both') },
                     ] as const).map(m => {
                       const on = escalationMode === m.id
                       return (
@@ -626,34 +628,34 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     })}
                   </div>
                   {(escalationMode === 'keywords' || escalationMode === 'both') && (
-                    <CleanInput value={escalationKeywords} onChange={setEscalationKeywords} placeholder="Mots-clés : humain, conseiller…" />
+                    <CleanInput value={escalationKeywords} onChange={setEscalationKeywords} placeholder={t('agents.keywords_placeholder')} />
                   )}
-                  <CleanTextarea value={escalationMessage} onChange={setEscalationMessage} placeholder="Message de transfert…" />
+                  <CleanTextarea value={escalationMessage} onChange={setEscalationMessage} placeholder={t('agents.transfer_message_placeholder')} />
                 </div>
               </>
             )}
             <Divider />
-            <RowField label="Lien de rendez-vous" hint="Calendly, Cal.com…" stacked>
-              <CleanInput value={bookingUrl} onChange={setBookingUrl} placeholder="https://calendly.com/votre-lien" />
+            <RowField label={t('agents.booking_link_label')} hint={t('agents.booking_link_hint')} stacked>
+              <CleanInput value={bookingUrl} onChange={setBookingUrl} placeholder={t('agents.booking_placeholder')} />
             </RowField>
           </Group>
 
-          <Group title="Réponses" subtitle="Délai et condition d'arrêt" icon={MessageSquare} color="violet">
-              <RowField label="Délai de réponse" hint="Temps d'attente avant que l'agent réponde">
+          <Group title={t('agents.responses_title')} subtitle={t('agents.responses_subtitle')} icon={MessageSquare} color="violet">
+              <RowField label={t('agents.response_delay_label')} hint={t('agents.response_delay_hint')}>
                 <span className="flex items-center gap-2 text-sm">
                   <MiniNum value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
                   <span className="text-muted-foreground">–</span>
                   <MiniNum value={delayMax} onChange={v => setDelayMax(parseInt(v) || 0)} />
-                  <span className="text-muted-foreground text-xs">sec</span>
+                  <span className="text-muted-foreground text-xs">{t('agents.unit_sec')}</span>
                 </span>
               </RowField>
               <Divider />
               {/* Garde-fou déterministe : la colonne, l'API et l'application
                   côté moteur existaient déjà, seul ce champ manquait. */}
-              <RowField label="Nombre maximum de messages" hint="L'agent se met en pause après N réponses dans une conversation (0 = illimité)">
+              <RowField label={t('agents.max_messages_label')} hint={t('agents.max_messages_hint')}>
                 <span className="flex items-center gap-2 text-sm">
                   <MiniNum value={parseInt(maxMessages) || 0} onChange={v => setMaxMessages(v)} />
-                  <span className="text-muted-foreground text-xs">messages</span>
+                  <span className="text-muted-foreground text-xs">{t('agents.unit_messages')}</span>
                 </span>
               </RowField>
 
@@ -661,16 +663,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               {(parseInt(maxMessages) || 0) > 0 && (
                 <>
                   <Divider />
-                  <RowField label="Demander avant de couper" hint="À la limite, envoyer un message à boutons « Voulez-vous continuer avec l'assistant ? ». L'IA se met en pause ; le client la réactive en cliquant le bon bouton.">
+                  <RowField label={t('agents.ask_before_cutoff')} hint={t('agents.ask_before_cutoff_hint')}>
                     <Switch checked={askOnMax} onCheckedChange={setAskOnMax} />
                   </RowField>
                   {askOnMax && (
                     <div className="space-y-3 py-3">
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Message à boutons à envoyer</label>
+                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('agents.button_message_to_send')}</label>
                         {btnTemplates.length === 0 ? (
                           <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-                            Aucun modèle approuvé avec des boutons. Créez-en un dans Modèles (avec des boutons « Oui / Non »).
+                            {t('agents.no_approved_template_buttons')}
                           </p>
                         ) : (
                           <select
@@ -679,15 +681,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                               const id = e.target.value || null
                               setResumeTemplateId(id)
                               // Pré-remplit le libellé de reprise avec le 1er bouton du modèle.
-                              const t = btnTemplates.find((x) => x.id === id)
-                              if (t?.buttons[0]?.text) setResumeButtonLabel(t.buttons[0].text)
+                              const tpl = btnTemplates.find((x) => x.id === id)
+                              if (tpl?.buttons[0]?.text) setResumeButtonLabel(tpl.buttons[0].text)
                             }}
                             className="w-full rounded-xl bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20"
                           >
-                            <option value="">— Choisir un modèle —</option>
-                            {btnTemplates.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name} [{t.language}] · {t.buttons.map((b) => b.text).join(' / ')}
+                            <option value="">{t('agents.choose_template')}</option>
+                            {btnTemplates.map((tpl) => (
+                              <option key={tpl.id} value={tpl.id}>
+                                {tpl.name} [{tpl.language}] · {tpl.buttons.map((b) => b.text).join(' / ')}
                               </option>
                             ))}
                           </select>
@@ -695,9 +697,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                       </div>
                       {resumeTemplateId && (
                         <div>
-                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Bouton qui RÉACTIVE l'assistant</label>
+                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('agents.button_reactivates')}</label>
                           <div className="flex flex-wrap gap-1.5">
-                            {(btnTemplates.find((t) => t.id === resumeTemplateId)?.buttons || []).map((b) => (
+                            {(btnTemplates.find((tpl) => tpl.id === resumeTemplateId)?.buttons || []).map((b) => (
                               <button
                                 key={b.text}
                                 type="button"
@@ -714,7 +716,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                             ))}
                           </div>
                           <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            Ce bouton réactive l'IA. Les autres (ex. « Non ») la laissent en pause.
+                            {t('agents.button_reactivates_help')}
                           </p>
                         </div>
                       )}
@@ -723,13 +725,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 </>
               )}
               <Divider />
-              <RowField label="Condition d'arrêt" hint="L'agent se met en pause si remplie" stacked>
-                <CleanTextarea value={stopCondition} onChange={setStopCondition} placeholder="Ex: si le client a confirmé son rendez-vous…" />
+              <RowField label={t('agents.stop_condition_label')} hint={t('agents.stop_condition_hint')} stacked>
+                <CleanTextarea value={stopCondition} onChange={setStopCondition} placeholder={t('agents.stop_condition_placeholder_detail')} />
               </RowField>
             </Group>
 
-            <Group title="Planning horaire" subtitle="Créneaux d'activité de l'agent" icon={SlidersHorizontal} color="amber" className="mt-4">
-              <RowField label="Activer le planning" hint="L'agent ne répond que sur ces créneaux">
+            <Group title={t('agents.schedule_title')} subtitle={t('agents.schedule_subtitle')} icon={SlidersHorizontal} color="amber" className="mt-4">
+              <RowField label={t('agents.enable_schedule')} hint={t('agents.enable_schedule_hint')}>
                 <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
               </RowField>
               {scheduleEnabled && (
@@ -763,8 +765,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ AVANCÉ ═══ */}
           {activeTab === 'advanced' && (
-          <Group title="Modèle & génération" subtitle="Réservé aux réglages fins de l'IA" icon={Settings2} color="slate">
-            <RowField label="Modèle IA" stacked>
+          <Group title={t('agents.advanced_group_title')} subtitle={t('agents.advanced_group_subtitle')} icon={Settings2} color="slate">
+            <RowField label={t('agents.ai_model')} stacked>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
                   const on = model === m
@@ -778,12 +780,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </RowField>
             <Divider />
-            <RowField label="Créativité" trailing={<span className="text-sm text-muted-foreground">{Math.round(temperature * 100)}%</span>} stacked>
+            <RowField label={t('agents.creativity')} trailing={<span className="text-sm text-muted-foreground">{Math.round(temperature * 100)}%</span>} stacked>
               <input type="range" min="0" max="1" step="0.1" value={temperature}
                 onChange={e => setTemperature(parseFloat(e.target.value))} className="w-full accent-foreground mt-2" />
             </RowField>
             <Divider />
-            <RowField label="Prompt système" stacked>
+            <RowField label={t('agents.system_prompt_label')} stacked>
               <textarea data-tour="agent-prompt" value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
                 className="w-full min-h-[120px] rounded-xl bg-muted/40 px-3.5 py-3 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all mt-1" />
             </RowField>
@@ -803,7 +805,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               channelCount={channelCount}
               docCount={docs.length}
               mediaCount={images.length}
-              language={autoDetectLanguage ? 'Auto' : 'Français'}
+              language={autoDetectLanguage ? t('agents.badge_auto_lang') : t('agents.badge_french')}
               onTest={() => setTestOpen(true)}
               onPermissions={() => setActiveTab('advanced')}
             />
@@ -816,8 +818,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <Dialog open={addDocOpen} onOpenChange={setAddDocOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Attacher un document</DialogTitle>
-            <DialogDescription>Choisissez depuis votre bibliothèque</DialogDescription>
+            <DialogTitle>{t('agents.attach_document')}</DialogTitle>
+            <DialogDescription>{t('agents.attach_document_desc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1 py-2 max-h-60 overflow-y-auto">
             {(() => {
@@ -828,7 +830,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               const isStoreDoc = (n: string) => /^(Catalogue|Pages|Politiques)\s*[·—]/.test(n)
               const attachable = allDocs.filter(d => !docs.find(dd => dd.id === d.id) && !isStoreDoc(d.name))
               if (attachable.length === 0) {
-                return <p className="text-sm text-center text-muted-foreground py-4">Aucun document à attacher. Uploadez-en un ci-dessous.</p>
+                return <p className="text-sm text-center text-muted-foreground py-4">{t('agents.no_doc_to_attach')}</p>
               }
               // Une ligne = attacher (clic sur le nom) + voir + supprimer.
               // Un <button> ne peut pas en contenir d'autres → conteneur <div>.
@@ -840,11 +842,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     <FileText className="h-4 w-4 text-blue-500 shrink-0" />
                     <span className="truncate text-sm">{doc.name}</span>
                   </button>
-                  <button onClick={() => handleViewDoc(doc)} title="Visualiser"
+                  <button onClick={() => handleViewDoc(doc)} title={t('agents.view')}
                     className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100">
                     <Eye className="h-4 w-4" />
                   </button>
-                  <button onClick={() => setConfirmDeleteDoc(doc)} title="Supprimer de la bibliothèque"
+                  <button onClick={() => setConfirmDeleteDoc(doc)} title={t('agents.delete_from_library')}
                     className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -866,7 +868,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             onClick={() => uploadDocRef.current?.click()}
           >
             {uploadingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-            Uploader un document
+            {t('agents.upload_document')}
           </Button>
         </DialogContent>
       </Dialog>
@@ -876,11 +878,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         <DialogContent className="sm:max-w-2xl rounded-2xl">
           <DialogHeader>
             <DialogTitle className="truncate">{viewingDoc?.name}</DialogTitle>
-            <DialogDescription>Contenu utilisé par l&apos;agent pour répondre.</DialogDescription>
+            <DialogDescription>{t('agents.doc_content_used')}</DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto rounded-xl border bg-muted/30 p-4">
             <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
-              {viewingDoc?.content || 'Document vide.'}
+              {viewingDoc?.content || t('agents.empty_document')}
             </pre>
           </div>
         </DialogContent>
@@ -890,21 +892,20 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <AlertDialog open={!!confirmDeleteDoc} onOpenChange={(o) => !o && setConfirmDeleteDoc(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce document ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('agents.delete_document_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{confirmDeleteDoc?.name}</strong> sera retiré de <strong>tous vos agents</strong> et
-              le fichier sera définitivement effacé. Cette action est irréversible.
+              <strong>{confirmDeleteDoc?.name}</strong> {t('agents.delete_document_desc_prefix')} <strong>{t('agents.delete_document_desc_all')}</strong> {t('agents.delete_document_desc_suffix')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!deletingDoc}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={!!deletingDoc}>{t('agents.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={!!deletingDoc}
               onClick={(e) => { e.preventDefault(); if (confirmDeleteDoc) handleDeleteDoc(confirmDeleteDoc) }}
             >
               {deletingDoc ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              Supprimer
+              {t('agents.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -915,16 +916,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
         <DialogContent className="sm:max-w-2xl rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Bibliothèque de médias</DialogTitle>
+            <DialogTitle>{t('agents.media_library')}</DialogTitle>
             <DialogDescription>
-              Réutilisez un média déjà envoyé par un autre agent. Un média appartient à un seul
-              agent, « Partager » le rend disponible pour tous.
+              {t('agents.media_library_desc')}
             </DialogDescription>
           </DialogHeader>
           {(() => {
             const others = allImages.filter((i) => i.agent_id !== id && i.agent_id !== null)
             if (others.length === 0) {
-              return <p className="py-6 text-center text-sm text-muted-foreground">Aucun média rattaché à un autre agent.</p>
+              return <p className="py-6 text-center text-sm text-muted-foreground">{t('agents.no_media_other_agent')}</p>
             }
             return (
               <div className="grid max-h-[55vh] grid-cols-2 gap-3 overflow-y-auto py-2 sm:grid-cols-3">
@@ -934,11 +934,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     <div className="flex gap-1">
                       <Button size="sm" variant="outline" className="h-7 flex-1 text-[11px]"
                         onClick={() => { handleReuseMedia(img, false); setMediaLibraryOpen(false) }}>
-                        Rattacher
+                        {t('agents.attach')}
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 flex-1 text-[11px]"
                         onClick={() => { handleReuseMedia(img, true); setMediaLibraryOpen(false) }}>
-                        Partager
+                        {t('agents.share')}
                       </Button>
                     </div>
                   </div>
@@ -952,17 +952,17 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <Dialog open={addMediaOpen} onOpenChange={setAddMediaOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Ajouter un média</DialogTitle>
-            <DialogDescription>L&apos;agent pourra l&apos;envoyer au client pendant le SAV (sans modèle).</DialogDescription>
+            <DialogTitle>{t('agents.add_media_title')}</DialogTitle>
+            <DialogDescription>{t('agents.add_media_desc')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-muted-foreground">Type</Label>
+              <Label className="text-xs text-muted-foreground">{t('agents.type')}</Label>
               <div className="grid grid-cols-3 gap-2 mt-1.5">
                 {([
-                  { id: 'image', label: 'Image', icon: Tag },
-                  { id: 'video', label: 'Vidéo', icon: Play },
-                  { id: 'document', label: 'Document', icon: FileText },
+                  { id: 'image', label: t('agents.media_type_image'), icon: Tag },
+                  { id: 'video', label: t('agents.media_type_video'), icon: Play },
+                  { id: 'document', label: t('agents.media_type_document'), icon: FileText },
                 ] as const).map(k => {
                   const on = mediaKind === k.id
                   return (
@@ -977,21 +977,21 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Référence (utilisée par l&apos;agent)</Label>
+              <Label className="text-xs text-muted-foreground">{t('agents.reference_label')}</Label>
               <input
                 value={mediaRef}
                 onChange={e => setMediaRef(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '-'))}
-                placeholder="ex: guide-retour"
+                placeholder={t('agents.reference_placeholder')}
                 className="mt-1.5 w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-blue-500"
               />
               {mediaRef && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  L&apos;agent écrira <code className="font-mono">[{mediaKind === 'video' ? 'VIDEO' : mediaKind === 'document' ? 'DOC' : 'IMAGE'}:{mediaRef}]</code>
+                  {t('agents.reference_agent_writes')} <code className="font-mono">[{mediaKind === 'video' ? 'VIDEO' : mediaKind === 'document' ? 'DOC' : 'IMAGE'}:{mediaRef}]</code>
                 </p>
               )}
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Fichier</Label>
+              <Label className="text-xs text-muted-foreground">{t('agents.file_label')}</Label>
               <input
                 type="file"
                 accept={mediaKind === 'image' ? 'image/jpeg,image/png,image/webp,image/gif' : mediaKind === 'video' ? 'video/mp4,video/3gpp' : 'application/pdf'}
@@ -999,14 +999,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 className="mt-1.5 w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {mediaKind === 'image' ? 'jpeg, png, webp, gif, max 5 Mo'
-                  : mediaKind === 'video' ? 'mp4, 3gp, max 16 Mo'
-                  : 'pdf, max 16 Mo'}
+                {mediaKind === 'image' ? t('agents.file_hint_image')
+                  : mediaKind === 'video' ? t('agents.file_hint_video')
+                  : t('agents.file_hint_document')}
               </p>
             </div>
             <Button className="w-full rounded-xl" disabled={uploadingMedia || !mediaFile || !mediaRef.trim()} onClick={handleUploadMedia}>
               {uploadingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Ajouter le média
+              {t('agents.add_media_button')}
             </Button>
           </div>
         </DialogContent>
@@ -1015,24 +1015,24 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       <Dialog open={addLinkOpen} onOpenChange={setAddLinkOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Créer un lien WhatsApp</DialogTitle>
-            <DialogDescription>Rattaché automatiquement à cet agent</DialogDescription>
+            <DialogTitle>{t('agents.create_whatsapp_link')}</DialogTitle>
+            <DialogDescription>{t('agents.auto_attached_agent')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <RowField label="Nom" stacked>
-              <CleanInput value={linkName} onChange={setLinkName} placeholder="Ex: QR Vitrine" />
+            <RowField label={t('agents.link_name_label')} stacked>
+              <CleanInput value={linkName} onChange={setLinkName} placeholder={t('agents.link_name_placeholder')} />
             </RowField>
-            <RowField label="Session WhatsApp" stacked>
+            <RowField label={t('agents.whatsapp_session_label')} stacked>
               <select
                 className="w-full rounded-xl bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20 mt-1"
                 value={linkSession} onChange={e => setLinkSession(e.target.value)}
               >
-                <option value="">Choisir une session…</option>
+                <option value="">{t('agents.choose_session')}</option>
                 {sessions.map(s => <option key={s.id} value={s.id}>{s.display_name || s.instance_name} ({s.phone_number})</option>)}
               </select>
             </RowField>
-            <RowField label="Message pré-rempli" hint="Optionnel" stacked>
-              <CleanTextarea value={linkMessage} onChange={setLinkMessage} placeholder="Bonjour, je suis intéressé…" />
+            <RowField label={t('agents.prefilled_message_label')} hint={t('agents.optional')} stacked>
+              <CleanTextarea value={linkMessage} onChange={setLinkMessage} placeholder={t('agents.prefilled_message_placeholder')} />
             </RowField>
             <button
               onClick={handleCreateLink}
@@ -1040,7 +1040,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               className="w-full flex items-center justify-center gap-2 rounded-full bg-foreground text-background py-2.5 text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity"
             >
               {linkSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              Créer le lien
+              {t('agents.create_link')}
             </button>
           </div>
         </DialogContent>
@@ -1080,6 +1080,7 @@ function MediaTile({ img, loadUrl, onView, onDelete, compact }: {
   onDelete?: () => void
   compact?: boolean
 }) {
+  const { t } = useTranslation()
   const [url, setUrl] = useState<string | null>(null)
   const kind = img.media_kind || 'image'
   const isImage = kind === 'image'
@@ -1097,7 +1098,7 @@ function MediaTile({ img, loadUrl, onView, onDelete, compact }: {
 
   return (
     <div className="group relative overflow-hidden rounded-xl border bg-muted/20 transition-colors hover:border-foreground/20">
-      <button onClick={onView} title="Ouvrir" className="block w-full">
+      <button onClick={onView} title={t('agents.media_open')} className="block w-full">
         <div className={cn('flex items-center justify-center overflow-hidden bg-muted/40', compact ? 'h-20' : 'h-24')}>
           {isImage && url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1112,14 +1113,14 @@ function MediaTile({ img, loadUrl, onView, onDelete, compact }: {
         </div>
       </button>
       {onDelete && (
-        <button onClick={onDelete} title="Retirer"
+        <button onClick={onDelete} title={t('agents.media_remove')}
           className="absolute right-1 top-1 rounded-lg bg-background/80 p-1 opacity-0 backdrop-blur transition-opacity hover:text-destructive group-hover:opacity-100">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       )}
       {img.agent_id === null && (
         <span className="absolute left-1 top-1 rounded bg-background/80 px-1 py-0.5 text-[9px] font-medium text-muted-foreground backdrop-blur">
-          Tous
+          {t('agents.media_all')}
         </span>
       )}
     </div>
@@ -1276,6 +1277,7 @@ function AgentPreviewCard({
   onTest: () => void
   onPermissions: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm">
       {/* Bandeau dégradé + avatar */}
@@ -1290,31 +1292,31 @@ function AgentPreviewCard({
           isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-muted/40 text-muted-foreground'
         )}>
           <span className={cn('h-1.5 w-1.5 rounded-full', isActive ? 'bg-emerald-400' : 'bg-muted-foreground/40')} />
-          {isActive ? 'Actif' : 'Inactif'}
+          {isActive ? t('agents.badge_active') : t('agents.badge_inactive')}
         </span>
       </div>
 
       <div className="px-5 pb-5 pt-8">
-        <h3 className="truncate text-lg font-bold tracking-tight text-foreground">{name || 'Agent'}</h3>
-        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{description || 'Aucune description'}</p>
+        <h3 className="truncate text-lg font-bold tracking-tight text-foreground">{name || t('agents.detail_agent_fallback')}</h3>
+        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{description || t('agents.no_description')}</p>
         <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-medium text-violet-400">
           <Sparkles className="h-3 w-3" /> {toneLabel}
         </span>
 
         {/* 4 mini-stats */}
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <MiniStat icon={Smartphone} label="Canaux" value={channelCount} color="text-blue-400" />
-          <MiniStat icon={FileText} label="Docs" value={docCount} color="text-blue-400" />
-          <MiniStat icon={ImageIcon} label="Médias" value={mediaCount} color="text-orange-400" />
-          <MiniStat icon={Globe} label="Langue" value={language} color="text-violet-400" />
+          <MiniStat icon={Smartphone} label={t('agents.preview_channels')} value={channelCount} color="text-blue-400" />
+          <MiniStat icon={FileText} label={t('agents.preview_docs')} value={docCount} color="text-blue-400" />
+          <MiniStat icon={ImageIcon} label={t('agents.preview_media')} value={mediaCount} color="text-orange-400" />
+          <MiniStat icon={Globe} label={t('agents.preview_language')} value={language} color="text-violet-400" />
         </div>
 
         {/* Actions */}
         <div className="mt-5">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t('agents.preview_actions')}</p>
           <div className="space-y-2">
-            <PreviewAction icon={Play} label="Tester l'agent" onClick={onTest} />
-            <PreviewAction icon={Shield} label="Permissions" onClick={onPermissions} />
+            <PreviewAction icon={Play} label={t('agents.test_agent')} onClick={onTest} />
+            <PreviewAction icon={Shield} label={t('agents.permissions')} onClick={onPermissions} />
           </div>
         </div>
       </div>

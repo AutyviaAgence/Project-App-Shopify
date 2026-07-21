@@ -39,22 +39,11 @@ type DashboardData = {
 
 // Les articles pointeront vers le blog. Pas de lien pour l'instant : l'utilisateur
 // fournira les URL réelles — mieux vaut un article inerte qu'un lien mort.
+// Les libellés (titre/extrait) sont traduits via les clés `dashboard.article_*`.
 const ARTICLES = [
-  {
-    image: '/blog/automatisations-whatsapp.webp',
-    title: '7 automatisations WhatsApp qui font gagner 10 h/semaine',
-    excerpt: 'Automatisez le SAV, les FAQ, les commandes et les relances panier.',
-  },
-  {
-    image: '/blog/taux-conversion-whatsapp.webp',
-    title: 'Comment augmenter son taux de conversion grâce à WhatsApp',
-    excerpt: 'Répondre en moins d’une minute augmente significativement vos ventes.',
-  },
-  {
-    image: '/blog/premier-agent-ia.webp',
-    title: 'Créer son premier agent IA Shopify en moins de 5 minutes',
-    excerpt: 'Connecter Shopify, WhatsApp Business et lancer son agent.',
-  },
+  { image: '/blog/automatisations-whatsapp.webp', titleKey: 'dashboard.article_1_title', excerptKey: 'dashboard.article_1_excerpt' },
+  { image: '/blog/taux-conversion-whatsapp.webp', titleKey: 'dashboard.article_2_title', excerptKey: 'dashboard.article_2_excerpt' },
+  { image: '/blog/premier-agent-ia.webp', titleKey: 'dashboard.article_3_title', excerptKey: 'dashboard.article_3_excerpt' },
 ]
 
 const ICONS: Record<string, typeof Store> = {
@@ -65,21 +54,22 @@ const ICONS: Record<string, typeof Store> = {
   campaign: Megaphone,
 }
 
-/** « il y a 12 min » — plus lisible qu'une date pour un flux d'activité. */
-function timeAgo(iso: string): string {
+/** « il y a 12 min » — plus lisible qu'une date pour un flux d'activité.
+ *  Les libellés relatifs sont traduits ; `t` et `locale` viennent de l'appelant. */
+function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string, locale: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const min = Math.floor(diff / 60000)
-  if (min < 1) return 'à l’instant'
-  if (min < 60) return `il y a ${min} min`
+  if (min < 1) return t('dashboard.time_now')
+  if (min < 60) return t('dashboard.time_min_ago', { min })
   const h = Math.floor(min / 60)
-  if (h < 24) return `il y a ${h} h`
+  if (h < 24) return t('dashboard.time_hours_ago', { h })
   const d = Math.floor(h / 24)
-  if (d < 30) return `il y a ${d} j`
-  return new Date(iso).toLocaleDateString('fr-FR')
+  if (d < 30) return t('dashboard.time_days_ago', { d })
+  return new Date(iso).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')
 }
 
 function DashboardHome() {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const tenant = useTenant()
   const [data, setData] = useState<DashboardData | null>(null)
 
@@ -94,7 +84,7 @@ function DashboardHome() {
   const activity = data?.activity ?? []
 
   const revenue = health
-    ? (health.whatsappRevenueCents / 100).toLocaleString('fr-FR', {
+    ? (health.whatsappRevenueCents / 100).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', {
         style: 'currency',
         currency: health.currency || 'EUR',
         maximumFractionDigits: 0,
@@ -120,7 +110,7 @@ function DashboardHome() {
           </TypingAnimation>
           <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{tenant.appName}</h1>
           <p className="max-w-xl pt-1 text-sm text-muted-foreground">
-            Votre espace de connexion. Reliez vos canaux et votre boutique pour que vos agents IA prennent le relais.
+            {t('dashboard.home_subtitle')}
           </p>
         </div>
         {/* Guide interactif — déclenché depuis le dashboard (et non la topbar). */}
@@ -148,9 +138,9 @@ function DashboardHome() {
               <Activity className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h2 className="text-base font-semibold">Activité récente</h2>
+              <h2 className="text-base font-semibold">{t('dashboard.recent_activity')}</h2>
               <p className="text-xs text-muted-foreground">
-                Ce que Xeyo a fait sur votre boutique.
+                {t('dashboard.recent_activity_sub', { appName: tenant.appName })}
               </p>
             </div>
           </div>
@@ -163,14 +153,14 @@ function DashboardHome() {
                   <li key={i} className="flex items-center gap-2.5">
                     <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />
                     <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(item.at)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(item.at, t, locale)}</span>
                   </li>
                 )
               })}
             </ul>
           ) : (
             <p className="mt-6 text-sm text-muted-foreground">
-              Rien pour l’instant. Connectez WhatsApp et votre boutique pour voir l’activité de votre agent.
+              {t('dashboard.activity_empty')}
             </p>
           )}
         </div>
@@ -179,7 +169,7 @@ function DashboardHome() {
         <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-card/50 p-5">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <h2 className="text-base font-semibold">Santé de votre agent IA</h2>
+            <h2 className="text-base font-semibold">{t('dashboard.agent_health')}</h2>
           </div>
 
           <div className="mt-4 flex items-end gap-4">
@@ -195,18 +185,18 @@ function DashboardHome() {
               {/* ⚠️ `—` quand la donnée n'existe pas encore : on n'invente pas un
                   chiffre pour remplir la case. */}
               <Metric
-                label="Temps de réponse"
+                label={t('dashboard.metric_response_time')}
                 value={health?.avgResponseMs != null ? `${(health.avgResponseMs / 1000).toFixed(1)} s` : '—'}
               />
               <Metric
-                label="Traité sans humain"
+                label={t('dashboard.metric_handled_no_human')}
                 value={health?.resolutionRate != null ? `${health.resolutionRate} %` : '—'}
-                hint="Conversations que l’agent a menées seul"
+                hint={t('dashboard.metric_handled_hint')}
               />
               <Metric
-                label="CA via WhatsApp"
+                label={t('dashboard.metric_whatsapp_revenue')}
                 value={revenue && health!.whatsappRevenueCents > 0 ? revenue : '—'}
-                hint="Ce mois-ci"
+                hint={t('dashboard.metric_this_month')}
               />
             </div>
           </div>
@@ -216,18 +206,18 @@ function DashboardHome() {
       {/* ── Blog ──────────────────────────────────────────────────────────── */}
       <div className="relative z-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Blog {tenant.appName}</h2>
+          <h2 className="text-lg font-semibold">{t('dashboard.blog_title', { appName: tenant.appName })}</h2>
           {/* Pas de lien tant que les URL réelles ne sont pas connues : un lien mort
               est pire que pas de lien. */}
           <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            Voir tous les articles <ArrowRight className="h-4 w-4" />
+            {t('dashboard.blog_see_all')} <ArrowRight className="h-4 w-4" />
           </span>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           {ARTICLES.map((a) => (
             <article
-              key={a.title}
+              key={a.titleKey}
               className="overflow-hidden rounded-2xl border border-white/10 bg-card/50"
             >
               <div className="relative h-32 overflow-hidden bg-muted">
@@ -236,10 +226,10 @@ function DashboardHome() {
               </div>
               <div className="p-4">
                 <span className="inline-block rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  Nouveau
+                  {t('dashboard.blog_new')}
                 </span>
-                <h3 className="mt-2 text-sm font-semibold leading-snug">{a.title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{a.excerpt}</p>
+                <h3 className="mt-2 text-sm font-semibold leading-snug">{t(a.titleKey)}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{t(a.excerptKey)}</p>
               </div>
             </article>
           ))}

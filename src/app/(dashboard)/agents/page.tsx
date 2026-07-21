@@ -128,12 +128,13 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
   onChange: (patch: { mascot?: string; mascot_bg?: string }) => void
   children: React.ReactNode
 }) {
+  const { t } = useTranslation()
   const currentMascot = agent.mascot ?? DEFAULT_MASCOT
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="center" className="w-72" onClick={(e) => e.stopPropagation()}>
-        <p className="mb-2 text-xs font-semibold text-muted-foreground">Mascotte</p>
+        <p className="mb-2 text-xs font-semibold text-muted-foreground">{t('agents.mascot_label')}</p>
         {/* Défilement interne : la liste s'est allongée (nouvelles poses), le
             popover ne doit pas dépasser l'écran. */}
         <div className="grid max-h-56 grid-cols-3 gap-2 overflow-y-auto [scrollbar-width:thin]">
@@ -152,7 +153,7 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
           ))}
         </div>
 
-        <p className="mb-2 mt-4 text-xs font-semibold text-muted-foreground">Fond</p>
+        <p className="mb-2 mt-4 text-xs font-semibold text-muted-foreground">{t('agents.background_label')}</p>
         <div className="flex flex-wrap gap-2">
           {Object.entries(MASCOT_BGS).map(([key, color]) => {
             const active = (agent.mascot_bg ?? '') === key || (!agent.mascot_bg && color === typeColor)
@@ -272,18 +273,18 @@ export default function AgentsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'Nouvel agent',
-          system_prompt: 'Tu es un assistant e-commerce. Réponds aux clients de la boutique de manière utile et fiable.',
+          name: t('agents.default_agent_name'),
+          system_prompt: t('agents.default_agent_prompt'),
           is_active: false,
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t('agents.delete_error_generic'))
       track('agent_created', { source: 'manual' })
       setCreateChoiceOpen(false)
       router.push(`/agents/${json.data.id}`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur')
+      toast.error(e instanceof Error ? e.message : t('agents.delete_error_generic'))
     } finally {
       setCreatingManual(false)
     }
@@ -354,7 +355,7 @@ export default function AgentsPage() {
         setAgents((prev) => prev.map((a) =>
           a.id === agent.id ? json.data : (next ? { ...a, is_default: false } : a)
         ))
-        toast.success(next ? 'Agent référent défini' : 'Agent référent retiré')
+        toast.success(next ? t('agents.default_set') : t('agents.default_removed'))
       } else {
         toast.error(json.error || t('common.network_error'))
       }
@@ -384,7 +385,7 @@ export default function AgentsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${agent.name} (copie)`,
+          name: `${agent.name} (${t('agents.copy_suffix')})`,
           description: agent.description,
           system_prompt: agent.system_prompt,
           objective: agent.objective,
@@ -488,16 +489,16 @@ export default function AgentsPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/mascots/sitting-phone.png" alt="" className="relative h-32 w-auto select-none drop-shadow-2xl" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight">Créons ton premier agent IA</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{t('agents.onboarding_title')}</h2>
             <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
-              Un agent intelligent qui répond automatiquement à vos clients, 24/7.
+              {t('agents.onboarding_subtitle')}
             </p>
           </div>
 
           <div className="mt-7 space-y-3">
             {!aiEnabled && (
               <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-600">
-                L’agent IA est réservé aux plans payants. <UpgradeBadge label="Voir les formules" />
+                {t('agents.paid_plan_notice')} <UpgradeBadge label={t('agents.see_plans')} />
               </div>
             )}
             <button
@@ -515,10 +516,10 @@ export default function AgentsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Configurer mon agent</span>
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Auto</span>
+                  <span className="font-semibold">{t('agents.configure_my_agent')}</span>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">{t('agents.badge_auto')}</span>
                 </div>
-                <div className="mt-0.5 text-sm text-muted-foreground">On l&apos;a pré-configuré à partir de ta boutique : tu vérifies et tu actives.</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">{t('agents.auto_preconfigured')}</div>
               </div>
               <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
             </button>
@@ -592,7 +593,7 @@ export default function AgentsPage() {
             <div className="relative flex w-full shrink-0 items-center justify-center pb-4 pt-2" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
-                <button onClick={() => go(-1)} aria-label="Précédent"
+                <button onClick={() => go(-1)} aria-label={t('agents.prev')}
                   style={{ top: arrowTop }}
                   className="absolute left-0 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
                   <ChevronLeft className="h-5 w-5" />
@@ -616,7 +617,7 @@ export default function AgentsPage() {
                   const isDeleting = deleting === agent.id
                   // Couleur de halo/fond : choix de l'agent sinon couleur par défaut
                   const typeColor = mascotBgColor(agent.mascot_bg, '#8b5cf6')
-                  const typeLabel = 'Conversation'
+                  const typeLabel = t('agents.conversation_type')
 
                   // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
                   const tx = offset * (isFront ? stepFront : stepBack)
@@ -702,7 +703,7 @@ export default function AgentsPage() {
                                 (is_pinned), purement cosmétique, faisait doublon. */}
                             <button
                               onClick={(e) => { e.stopPropagation(); handleToggleDefault(agent) }}
-                              title={agent.is_default ? 'Retirer comme référent' : 'Définir comme référent'}
+                              title={agent.is_default ? t('agents.remove_referent') : t('agents.set_referent')}
                               className="flex h-7 w-7 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white sm:h-9 sm:w-9"
                             >
                               <Star className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', agent.is_default && 'fill-current')} />
@@ -711,7 +712,7 @@ export default function AgentsPage() {
                             <button
                               data-tour="agent-activate"
                               onClick={(e) => { e.stopPropagation(); handleToggleActive(agent) }}
-                              title={agent.is_active ? 'Désactiver' : 'Activer'}
+                              title={agent.is_active ? t('agents.deactivate') : t('agents.activate')}
                               className="flex h-7 w-7 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white sm:h-9 sm:w-9"
                             >
                               {agent.is_active ? <Power className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <PowerOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -726,12 +727,12 @@ export default function AgentsPage() {
                             <>
                               <span
                                 className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-600"
-                                title="L'agent référent est celui qui répond à TOUTES les conversations WhatsApp de la boutique."
+                                title={t('agents.referent_tooltip')}
                               >
-                                <Star className="h-3 w-3 fill-current" /> Agent référent
+                                <Star className="h-3 w-3 fill-current" /> {t('agents.referent_agent')}
                               </span>
                               {/* La promesse en clair : c'est LUI qui parle à tout le monde. */}
-                              <p className="mt-0.5 text-[11px] text-muted-foreground">Répond à tous vos clients</p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">{t('agents.answers_all_clients')}</p>
                             </>
                           )}
                           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
@@ -745,7 +746,7 @@ export default function AgentsPage() {
                           <div className="mt-5 flex items-center gap-2 px-5 sm:gap-2.5 sm:px-6">
                             <Link href={`/agents/${agent.id}`} className="flex-1" onClick={(e) => e.stopPropagation()}>
                               <button className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-[13px] font-semibold text-primary-foreground shadow-[0_10px_24px_-8px] shadow-primary/40 transition-all hover:brightness-105 active:scale-[0.98] sm:h-12 sm:text-[14px]">
-                                Configurer
+                                {t('agents.configure')}
                               </button>
                             </Link>
                             <button
@@ -772,11 +773,11 @@ export default function AgentsPage() {
                               <DropdownMenuContent align="end" className="w-56">
                                 <DropdownMenuItem onClick={() => handleToggleDefault(agent)}>
                                   {agent.is_default ? <StarOff className="mr-2 h-3.5 w-3.5" /> : <Star className="mr-2 h-3.5 w-3.5" />}
-                                  {agent.is_default ? 'Retirer comme référent' : 'Définir comme référent'}
+                                  {agent.is_default ? t('agents.remove_referent') : t('agents.set_referent')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleToggleActive(agent)}>
                                   {agent.is_active ? <PowerOff className="mr-2 h-3.5 w-3.5" /> : <Power className="mr-2 h-3.5 w-3.5" />}
-                                  {agent.is_active ? 'Désactiver' : 'Activer'}
+                                  {agent.is_active ? t('agents.deactivate') : t('agents.activate')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                                   <Pencil className="mr-2 h-3.5 w-3.5" />
@@ -806,7 +807,7 @@ export default function AgentsPage() {
 
               {/* Flèche droite */}
               {n > 1 && (
-                <button onClick={() => go(1)} aria-label="Suivant"
+                <button onClick={() => go(1)} aria-label={t('agents.next')}
                   style={{ top: arrowTop }}
                   className="absolute right-0 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
                   <ChevronRight className="h-5 w-5" />
@@ -830,7 +831,7 @@ export default function AgentsPage() {
           {agents.map((_, i) => {
             const active = ((centerIndex % agents.length) + agents.length) % agents.length === i
             return (
-              <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
+              <button key={i} onClick={() => setCenterIndex(i)} aria-label={t('agents.agent_number', { n: i + 1 })}
                 style={{ height: 6, width: active ? 20 : 6, flex: '0 0 auto' }}
                 className={cn('rounded-full transition-all',
                   active ? 'bg-foreground/70' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
@@ -857,7 +858,7 @@ export default function AgentsPage() {
           </span>
           {t('agents.new_agent')}
         </button>
-        {!aiEnabled && <UpgradeBadge label="Agent IA, plan payant" />}
+        {!aiEnabled && <UpgradeBadge label={t('agents.new_agent_badge')} />}
       </div>
       </div>
 
@@ -866,8 +867,8 @@ export default function AgentsPage() {
       <Dialog open={createChoiceOpen} onOpenChange={(o) => { if (!creatingManual) setCreateChoiceOpen(o) }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Créer un agent IA</DialogTitle>
-            <DialogDescription>Comment veux-tu le configurer ?</DialogDescription>
+            <DialogTitle>{t('agents.create_ai_agent')}</DialogTitle>
+            <DialogDescription>{t('agents.how_configure')}</DialogDescription>
           </DialogHeader>
           <div className="mt-2 space-y-3">
             <button
@@ -880,10 +881,10 @@ export default function AgentsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Automatique</span>
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Recommandé</span>
+                  <span className="font-semibold">{t('agents.automatic')}</span>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">{t('agents.recommended')}</span>
                 </div>
-                <div className="mt-0.5 text-sm text-muted-foreground">Pré-configuré à partir de ta boutique (SAV, suivi commande, conseil). Tu vérifies et tu actives.</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">{t('agents.automatic_desc')}</div>
               </div>
               <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
             </button>
@@ -897,8 +898,8 @@ export default function AgentsPage() {
                 {creatingManual ? <Loader2 className="h-6 w-6 animate-spin" /> : <Wrench className="h-6 w-6" />}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">Manuel</div>
-                <div className="mt-0.5 text-sm text-muted-foreground">Crée un agent vierge et configure tout toi-même dans sa fiche.</div>
+                <div className="font-semibold">{t('agents.manual')}</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">{t('agents.manual_desc')}</div>
               </div>
               <ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
             </button>
