@@ -111,6 +111,36 @@ import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
 /** Libellés des boutons QUICK_REPLY d'un message : ces libellés servent de
  *  points de départ de branche (`button:<texte>`). Le webhook capte exactement
  *  ce `text` au clic → la branche matche le runtime. */
+/**
+ * Modèle à AFFICHER dans le builder, dans la langue du marchand.
+ *
+ * ⚠️ AFFICHAGE UNIQUEMENT — ne change ni `node.templateId` (ce qui est
+ * enregistré dans l'automatisation) ni ce qui part réellement au client :
+ * `resolveLanguageVariant` (dispatch.ts) choisit la variante à l'envoi selon la
+ * langue du CLIENT, pas celle du marchand.
+ *
+ * Sans ça, un marchand anglophone voyait l'aperçu en français dès que
+ * l'automatisation référençait la ligne FR — alors que la version EN existe
+ * sous le même nom.
+ */
+function localizedTemplate(
+  templates: WhatsAppTemplate[],
+  templateId: string | undefined | null,
+  locale: string
+): WhatsAppTemplate | null {
+  const base = templates.find((t) => t.id === templateId) || null
+  if (!base) return null
+  const want = locale === 'en' ? 'en' : 'fr'
+  if (base.language === want) return base
+  // Même nom = même modèle, langues différentes. On ne bascule que si la
+  // variante existe ET est approuvée (une variante en brouillon n'est pas
+  // représentative de ce qui sera envoyé).
+  const variant = templates.find(
+    (t) => t.name === base.name && t.language === want && t.status === 'approved'
+  )
+  return variant || base
+}
+
 function quickReplyLabels(t: WhatsAppTemplate | undefined | null): string[] {
   if (!t) return []
   return ((t.buttons ?? []) as TemplateButton[])
@@ -232,7 +262,7 @@ const VARIANT_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899']
 const BUTTON_COLORS = ['#25D366', '#0EA5E9', '#F59E0B', '#EC4899', '#8B5CF6']
 
 function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction, onTemplatesChanged, onMoveBranch } = props
   const chain = chainFrom(graph, fromId, branch)
   const horizontal = useOrientation() === 'horizontal'
@@ -262,7 +292,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
           // Un message à boutons quick-reply se comporte comme une condition :
           // chaque bouton ouvre SA propre branche (`button:<texte>`). L'utilisateur
           // tire une suite différente derrière « Oui » et derrière « Non ».
-          const tpl = templates.find((t) => t.id === node.templateId)
+          const tpl = localizedTemplate(templates, node.templateId, locale)
           const buttons = quickReplyLabels(tpl)
           if (buttons.length > 0) return (
             <React.Fragment key={id}>
@@ -798,14 +828,15 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
   onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void; onSelectAction: (t: string | null) => void
   onTemplatesChanged?: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerCat, setPickerCat] = useState<string>('all')
   // Recherche libre : nom, texte du message, langue. Indispensable dès qu'un
   // même modèle existe en plusieurs langues (panier_abandonne fr + en…).
   const [pickerQuery, setPickerQuery] = useState('')
   if (node.type !== 'action') return null
-  const selected = templates.find((t) => t.id === node.templateId) || null
+  // Aperçu dans la langue du MARCHAND (l'envoi suit, lui, la langue du CLIENT).
+  const selected = localizedTemplate(templates, node.templateId, locale)
   // Brief laissé par l'assistant IA quand aucun modèle existant ne convenait.
   const todo = (node as { todo?: { purpose: string; suggestion?: string } }).todo
   // Variables de CE modèle que le marchand doit renseigner lui-même : on ne
@@ -1049,6 +1080,18 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
               })()}
             </PopoverContent>
           </Popover>
+
+          {/* MULTILINGUE : lever l'ambiguïté de l'aperçu.
+              Le nœud montre UNE langue, mais l'envoi choisit la variante selon
+              la langue du CLIENT. Sans cette mention, le marchand croit que tous
+              ses clients recevront la langue affichée. */}
+          {selected && templates.some(
+            (v) => v.name === selected.name && v.language !== selected.language && v.status === 'approved'
+          ) && (
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+              {t('automations.builder.multilang_note', { lang: selected.language.toUpperCase() })}
+            </p>
+          )}
 
           {/* Aperçu du modèle sélectionné directement dans le nœud. */}
           {selected && (

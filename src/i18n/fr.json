@@ -1857,7 +1857,8 @@
       "canvas_hint": "Zoom : Ctrl + molette (ou pincer). Déplacer : cliquer-glisser le fond.",
       "zoom_out": "Dézoomer",
       "zoom_in": "Zoomer",
-      "recenter": "Recentrer"
+      "recenter": "Recentrer",
+      "multilang_note": "Aperçu en {lang}. Chaque client reçoit automatiquement la version dans sa langue."
     },
     "trigger": {
       "group_order": "Commande",

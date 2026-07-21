@@ -1857,7 +1857,8 @@
       "canvas_hint": "Zoom: Ctrl + scroll (or pinch). Move: click-drag the background.",
       "zoom_out": "Zoom out",
       "zoom_in": "Zoom in",
-      "recenter": "Recenter"
+      "recenter": "Recenter",
+      "multilang_note": "Preview in {lang}. Each customer automatically receives the version in their own language."
     },
     "trigger": {
       "group_order": "Order",
