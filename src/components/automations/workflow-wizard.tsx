@@ -408,7 +408,7 @@ function AiHelp({ value, onChange, busy, onGo, placeholder }: {
 // les autres viennent de USE_CASES (source hors périmètre, déjà gérée ailleurs).
 const PICKER_CATS: { key: string; label: string; labelKey?: string }[] = [
   { key: 'all', label: 'Tous', labelKey: 'automations.builder.all' },
-  ...USE_CASES.map((u) => ({ key: u.key as string, label: u.label })),
+  ...USE_CASES.map((u) => ({ key: u.key as string, label: u.label, labelKey: u.labelKey })),
 ]
 
 /** Catégorie d'un modèle. `use_case` est NULL sur ceux importés de Meta : on la

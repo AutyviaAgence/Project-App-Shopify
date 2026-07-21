@@ -13,10 +13,17 @@ export type MetaCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
 
 export type UseCase = {
   key: UseCaseKey
+  /**
+   * ⚠️ `label`/`description` FR = à NE PAS supprimer : `generate.ts:253` les
+   * injecte dans le prompt IA. `labelKey`/`descKey` servent à l'UI (résolus par
+   * t()). Même schéma que TRIGGER_EVENTS.
+   */
   label: string
+  labelKey: string
   /** nom d'icône lucide-react (résolu côté composant) */
   icon: string
   description: string
+  descKey: string
   /** catégorie Meta appliquée par défaut quand on choisit ce use_case */
   metaCategory: MetaCategory
 }
@@ -28,6 +35,8 @@ export const USE_CASES: UseCase[] = [
     icon: 'Package',
     description: 'Confirmation, expédition, livraison, annulation…',
     metaCategory: 'UTILITY',
+    labelKey: 'templates.usecase.order_status_label',
+    descKey: 'templates.usecase.order_status_desc',
   },
   {
     key: 'cart',
@@ -35,6 +44,8 @@ export const USE_CASES: UseCase[] = [
     icon: 'ShoppingCart',
     description: 'Panier abandonné, relance, récupération…',
     metaCategory: 'MARKETING',
+    labelKey: 'templates.usecase.cart_label',
+    descKey: 'templates.usecase.cart_desc',
   },
   {
     key: 'marketing',
@@ -42,6 +53,8 @@ export const USE_CASES: UseCase[] = [
     icon: 'Megaphone',
     description: 'Offres, nouveautés, codes promo, newsletters…',
     metaCategory: 'MARKETING',
+    labelKey: 'templates.usecase.marketing_label',
+    descKey: 'templates.usecase.marketing_desc',
   },
   {
     key: 'support',
@@ -49,6 +62,8 @@ export const USE_CASES: UseCase[] = [
     icon: 'MessageCircle',
     description: 'Bienvenue, demande d\'avis, retours, satisfaction…',
     metaCategory: 'UTILITY',
+    labelKey: 'templates.usecase.support_label',
+    descKey: 'templates.usecase.support_desc',
   },
   {
     key: 'billing',
@@ -56,6 +71,8 @@ export const USE_CASES: UseCase[] = [
     icon: 'CreditCard',
     description: 'Paiement reçu, remboursement, relance paiement…',
     metaCategory: 'UTILITY',
+    labelKey: 'templates.usecase.billing_label',
+    descKey: 'templates.usecase.billing_desc',
   },
 ]
 

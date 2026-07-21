@@ -918,7 +918,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 const cats = [
                   { key: 'all', label: t('automations.builder.all') },
                   // On n'affiche que les catégories qui ont au moins un modèle.
-                  ...USE_CASES.filter((u) => countIn(u.key) > 0).map((u) => ({ key: u.key as string, label: u.label })),
+                  ...USE_CASES.filter((u) => countIn(u.key) > 0).map((u) => ({ key: u.key as string, label: t(u.labelKey) })),
                 ]
                 return (
                   <div className="mb-2 flex flex-wrap gap-1">

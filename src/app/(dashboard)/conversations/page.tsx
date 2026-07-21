@@ -1154,7 +1154,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
                           tplFilter === u.key ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground',
                         )}
                       >
-                        {u.label} ({n})
+                        {t(u.labelKey)} ({n})
                       </button>
                     )
                   })}

@@ -109,7 +109,10 @@ function findGluedVariable(text: string): string | null {
 }
 
 export default function TemplatesPage() {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
+  // Langue à privilégier = celle de l'app. Un marchand anglophone crée et voit
+  // ses modèles en anglais d'abord, pas en français.
+  const preferredLang = locale === 'en' ? 'en' : 'fr'
   const { subscription } = useSubscription()
   // La création de modèles (manuelle ou IA) est réservée aux plans payants.
   const aiEnabled = subscription?.aiEnabled !== false
@@ -160,7 +163,7 @@ export default function TemplatesPage() {
 
   // Form
   const [name, setName] = useState('')
-  const [language, setLanguage] = useState('fr')
+  const [language, setLanguage] = useState(locale === 'en' ? 'en' : 'fr')
   const [category, setCategory] = useState('UTILITY')
   const [useCase, setUseCase] = useState<UseCaseKey>('support')
   const [bodyText, setBodyText] = useState('')
@@ -882,7 +885,10 @@ export default function TemplatesPage() {
   ).map((rows) => {
     // Ligne "principale" = la langue source si connue, sinon 'fr', sinon la 1re.
     const src = rows.find((r) => r.source_language && r.language === r.source_language)
-    const main = src || rows.find((r) => r.language === 'fr') || rows[0]
+    // Modèle « principal » affiché : la langue SOURCE d'abord, sinon celle de
+    // l'app (anglais pour un marchand anglophone), et le français en dernier
+    // recours pour ne pas casser l'existant.
+    const main = src || rows.find((r) => r.language === preferredLang) || rows.find((r) => r.language === 'fr') || rows[0]
     // Statut affiché = le plus faible (si une langue est en draft, le groupe l'est).
     const worst = rows.reduce((w, r) => {
       const s = effectiveStatus(r)
@@ -985,7 +991,7 @@ export default function TemplatesPage() {
                     useCaseFilter === u.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" /> {u.label} ({count})
+                  <Icon className="h-3.5 w-3.5" /> {t(u.labelKey)} ({count})
                 </button>
               )
             })}
@@ -1082,7 +1088,7 @@ export default function TemplatesPage() {
               const Icon = USE_CASE_ICONS[u.icon] || FileText
               return (
                 <span key={u.key} className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                  <Icon className="h-3.5 w-3.5" /> {u.label}
+                  <Icon className="h-3.5 w-3.5" /> {t(u.labelKey)}
                 </span>
               )
             })}
@@ -1275,7 +1281,7 @@ export default function TemplatesPage() {
                       const Icon = USE_CASE_ICONS[u.icon] || FileText
                       return (
                         <SelectItem key={u.key} value={u.key}>
-                          <span className="flex items-center gap-2"><Icon className="h-3.5 w-3.5" /> {u.label}</span>
+                          <span className="flex items-center gap-2"><Icon className="h-3.5 w-3.5" /> {t(u.labelKey)}</span>
                         </SelectItem>
                       )
                     })}

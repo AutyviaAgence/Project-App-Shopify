@@ -2919,7 +2919,19 @@
     "glued_error": "A variable is stuck to text (\"{glued}\"). Meta rejects sending: add a space before and after the variable.",
     "toast_max_cards": "Maximum 10 cards",
     "toast_max_card_buttons": "Maximum 2 buttons per card",
-    "toast_card_media_imported": "Card {n} media uploaded"
+    "toast_card_media_imported": "Card {n} media uploaded",
+    "usecase": {
+      "order_status_label": "Order status",
+      "order_status_desc": "Confirmation, shipping, delivery, cancellation…",
+      "cart_label": "Cart & recovery",
+      "cart_desc": "Abandoned cart, follow-up, recovery…",
+      "marketing_label": "Marketing & promos",
+      "marketing_desc": "Offers, new arrivals, promo codes, newsletters…",
+      "support_label": "Support & care",
+      "support_desc": "Welcome, review request, returns, satisfaction…",
+      "billing_label": "Payment & billing",
+      "billing_desc": "Payment received, refund, payment reminder…"
+    }
   },
   "macros": {
     "title_required": "Title and content required",

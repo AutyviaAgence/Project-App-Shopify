@@ -2919,7 +2919,19 @@
     "glued_error": "Une variable est collée à du texte (« {glued} »). Meta refuse l’envoi : ajoutez un espace avant et après la variable.",
     "toast_max_cards": "Maximum 10 cartes",
     "toast_max_card_buttons": "Maximum 2 boutons par carte",
-    "toast_card_media_imported": "Média de la carte {n} importé"
+    "toast_card_media_imported": "Média de la carte {n} importé",
+    "usecase": {
+      "order_status_label": "États de commande",
+      "order_status_desc": "Confirmation, expédition, livraison, annulation…",
+      "cart_label": "Panier & relance",
+      "cart_desc": "Panier abandonné, relance, récupération…",
+      "marketing_label": "Marketing & promos",
+      "marketing_desc": "Offres, nouveautés, codes promo, newsletters…",
+      "support_label": "Support & SAV",
+      "support_desc": "Bienvenue, demande d’avis, retours, satisfaction…",
+      "billing_label": "Paiement & facturation",
+      "billing_desc": "Paiement reçu, remboursement, relance paiement…"
+    }
   },
   "macros": {
     "title_required": "Titre et contenu requis",
