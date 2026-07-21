@@ -265,7 +265,7 @@ export async function handleUnsubscribe(
         alert_type: 'contact_opted_out',
         title: 'Contact désabonné',
         message: `Un contact s'est désabonné via l'assistant${reason ? ` (« ${reason} »)` : ''}. Il ne recevra plus de messages automatiques.`,
-        metadata: { conversation_id: ctx.conversationId, contact_id: conv.contact_id },
+        metadata: { conversation_id: ctx.conversationId, contact_id: conv.contact_id, reason: reason || null },
       })
     }
   }
@@ -344,7 +344,7 @@ export async function handleHandoff(
         alert_type: 'human_handoff',
         title: 'Un client demande un conseiller',
         message: `Un client a besoin d'une intervention humaine${reason ? ` : « ${reason} »` : ''}. L'assistant a été mis en pause sur cette conversation.`,
-        metadata: { conversation_id: ctx.conversationId, contact_id: (sess as { contact_id?: string } | null)?.contact_id },
+        metadata: { conversation_id: ctx.conversationId, contact_id: (sess as { contact_id?: string } | null)?.contact_id, reason: reason || null },
       })
     }
   }

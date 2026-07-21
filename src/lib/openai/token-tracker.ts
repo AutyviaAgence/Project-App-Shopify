@@ -157,6 +157,7 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
         tokens_used: new_total,
         tokens_limit: totalLimit,
         usage_percent: Math.round(usagePercent),
+        variant: 'warn_80',
       },
     })
     console.log('[TokenTracker] Alerte 80% envoyée pour user:', userId)
@@ -173,6 +174,7 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
         tokens_used: new_total,
         tokens_limit: totalLimit,
         usage_percent: Math.round(usagePercent),
+        variant: 'warn_90',
       },
     })
     console.log('[TokenTracker] Alerte 90% envoyée pour user:', userId)
@@ -189,6 +191,7 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
         tokens_used: new_total,
         tokens_limit: totalLimit,
         usage_percent: 100,
+        variant: 'reached',
       },
     })
     console.log('[TokenTracker] Alerte 100% envoyée pour user:', userId)

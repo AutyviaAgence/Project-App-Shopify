@@ -3454,5 +3454,68 @@
     "display_name_notice_after": " can’t be changed here — it requires Meta approval in WhatsApp Manager.",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "alerts": {
+    "agent_stopped": {
+      "title": "Agent stopped automatically",
+      "message": "The “{name}” agent stopped because its condition was met: “{condition}”"
+    },
+    "ai_credits_low": {
+      "title": "AI credits running low",
+      "message": "You have {remaining} AI conversations left this month ({used}/{limit}). Top up now to avoid an interruption."
+    },
+    "booking_click": {
+      "title": "Booking link clicked",
+      "message": "{contact} clicked the booking link offered by the “{agent}” agent.",
+      "message_phone": "{contact} clicked the booking link offered by the “{agent}” agent. (+{phone})"
+    },
+    "contact_opted_in": {
+      "title": "Contact resubscribed",
+      "message": "A contact resubscribed (“START”) and will receive your messages again."
+    },
+    "contact_opted_out": {
+      "title": "Contact unsubscribed",
+      "message": "A contact unsubscribed through the assistant. They will no longer receive automated messages.",
+      "message_reason": "A contact unsubscribed through the assistant (“{reason}”). They will no longer receive automated messages."
+    },
+    "conversation_long": {
+      "title": "Long conversation",
+      "message": "A conversation has been going for {n} AI replies. Do you want to take over?",
+      "paused_title": "Assistant paused",
+      "paused_message": "The assistant hit its limit of {cap} replies on a conversation and paused itself. Do you want to keep going with AI? Click “Continue with AI”, or “View conversation” to take over."
+    },
+    "fair_use_reached": {
+      "title": "High volume this month",
+      "message": "You have passed {cap} AI conversations this month ({used}). Your service continues as normal — get in touch and we will tailor a plan to your volume."
+    },
+    "human_handoff": {
+      "title": "A customer is asking for an agent",
+      "message": "A customer needs a human to step in. The assistant has been paused on this conversation.",
+      "message_reason": "A customer needs a human to step in: “{reason}”. The assistant has been paused on this conversation."
+    },
+    "quota_reached": {
+      "title": "AI credits used up",
+      "message": "You have reached {limit} AI conversations this month ({plan} plan). Top up your credits or upgrade your plan to keep replying automatically."
+    },
+    "session_disconnected": {
+      "title": "Session disconnected",
+      "message": "The “{name}” session is disconnected. Reconnect it by scanning the QR code."
+    },
+    "token_limit_reached": {
+      "warn_80_title": "AI tokens at 80%",
+      "warn_80_message": "You have used {percent}% of your AI tokens ({used} / {limit}). Top up now so you are not cut off.",
+      "warn_90_title": "AI token limit almost reached",
+      "warn_90_message": "You have used {percent}% of your AI tokens ({used} / {limit}). Buy extra tokens to avoid an interruption.",
+      "reached_title": "AI token limit reached",
+      "reached_message": "You have reached your AI token limit ({limit} tokens). AI replies are suspended. Buy extra tokens to continue."
+    },
+    "whatsapp_template_paused": {
+      "title": "Template paused by Meta: {name}",
+      "message": "Meta paused the “{name}” template. The automations using it have been turned off to avoid failed sends. Fix the template, then resubmit it.",
+      "message_reason": "Meta paused the “{name}” template ({reason}). The automations using it have been turned off to avoid failed sends. Fix the template, then resubmit it.",
+      "disabled_title": "Template disabled by Meta: {name}",
+      "disabled_message": "Meta disabled the “{name}” template. The automations using it have been turned off to avoid failed sends. Fix the template, then resubmit it.",
+      "disabled_message_reason": "Meta disabled the “{name}” template ({reason}). The automations using it have been turned off to avoid failed sends. Fix the template, then resubmit it."
+    }
   }
 }

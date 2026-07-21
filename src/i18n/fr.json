@@ -3454,5 +3454,68 @@
     "display_name_notice_after": " de votre marque ne se modifie pas ici : il passe par une validation Meta dans WhatsApp Manager.",
     "cancel": "Annuler",
     "save": "Enregistrer"
+  },
+  "alerts": {
+    "agent_stopped": {
+      "title": "Agent arrêté automatiquement",
+      "message": "L'agent « {name} » s'est arrêté car la condition a été remplie : « {condition} »"
+    },
+    "ai_credits_low": {
+      "title": "Crédits IA bientôt épuisés",
+      "message": "Il vous reste {remaining} conversations IA ce mois-ci ({used}/{limit}). Pensez à recharger pour éviter une interruption."
+    },
+    "booking_click": {
+      "title": "Clic sur lien de rendez-vous",
+      "message": "{contact} a cliqué sur le lien de rendez-vous proposé par l'agent « {agent} ».",
+      "message_phone": "{contact} a cliqué sur le lien de rendez-vous proposé par l'agent « {agent} ». (+{phone})"
+    },
+    "contact_opted_in": {
+      "title": "Contact réabonné",
+      "message": "Un contact s'est réabonné (« START ») : il recevra de nouveau vos messages."
+    },
+    "contact_opted_out": {
+      "title": "Contact désabonné",
+      "message": "Un contact s'est désabonné via l'assistant. Il ne recevra plus de messages automatiques.",
+      "message_reason": "Un contact s'est désabonné via l'assistant (« {reason} »). Il ne recevra plus de messages automatiques."
+    },
+    "conversation_long": {
+      "title": "Conversation longue",
+      "message": "Une conversation dure depuis {n} réponses de l'IA. Voulez-vous reprendre la main ?",
+      "paused_title": "Assistant en pause",
+      "paused_message": "L'assistant a atteint sa limite de {cap} réponses sur une conversation et s'est mis en pause. Voulez-vous continuer avec l'IA ? Cliquez « Continuer avec l'IA », ou « Voir conversation » pour reprendre la main."
+    },
+    "fair_use_reached": {
+      "title": "Volume élevé ce mois-ci",
+      "message": "Vous avez dépassé {cap} conversations IA ce mois-ci ({used}). Votre service continue normalement, contactez-nous pour un accompagnement adapté à votre volume."
+    },
+    "human_handoff": {
+      "title": "Un client demande un conseiller",
+      "message": "Un client a besoin d'une intervention humaine. L'assistant a été mis en pause sur cette conversation.",
+      "message_reason": "Un client a besoin d'une intervention humaine : « {reason} ». L'assistant a été mis en pause sur cette conversation."
+    },
+    "quota_reached": {
+      "title": "Crédits IA épuisés",
+      "message": "Vous avez atteint {limit} conversations IA ce mois-ci (plan {plan}). Rechargez des crédits ou passez à un plan supérieur pour continuer à répondre automatiquement."
+    },
+    "session_disconnected": {
+      "title": "Session déconnectée",
+      "message": "La session « {name} » est déconnectée. Reconnectez-vous via le QR code."
+    },
+    "token_limit_reached": {
+      "warn_80_title": "Tokens à 80%",
+      "warn_80_message": "Vous avez utilisé {percent}% de vos tokens IA ({used} / {limit}). Pensez à recharger pour ne pas être interrompu.",
+      "warn_90_title": "Limite de tokens bientôt atteinte",
+      "warn_90_message": "Vous avez utilisé {percent}% de vos tokens IA ({used} / {limit}). Achetez des tokens supplémentaires pour éviter une interruption.",
+      "reached_title": "Limite de tokens atteinte",
+      "reached_message": "Vous avez atteint votre limite de tokens IA ({limit} tokens). L'IA est suspendue. Achetez des tokens supplémentaires pour continuer."
+    },
+    "whatsapp_template_paused": {
+      "title": "Modèle mis en pause par Meta : {name}",
+      "message": "Meta a mis en pause le modèle « {name} ». Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le.",
+      "message_reason": "Meta a mis en pause le modèle « {name} » ({reason}). Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le.",
+      "disabled_title": "Modèle désactivé par Meta : {name}",
+      "disabled_message": "Meta a désactivé le modèle « {name} ». Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le.",
+      "disabled_message_reason": "Meta a désactivé le modèle « {name} » ({reason}). Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le."
+    }
   }
 }

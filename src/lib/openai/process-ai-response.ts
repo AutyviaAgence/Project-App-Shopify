@@ -332,7 +332,7 @@ Exemples :
                 user_id: sessP.user_id, alert_type: 'conversation_long',
                 title: 'Assistant en pause',
                 message: `L'assistant a atteint sa limite de ${aiCap} réponses sur une conversation et s'est mis en pause. Voulez-vous continuer avec l'IA ? Cliquez « Continuer avec l'IA », ou « Voir conversation » pour reprendre la main.`,
-                metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount },
+                metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount, cap: aiCap, variant: 'paused' },
               })
             }
           }
@@ -356,7 +356,7 @@ Exemples :
               alert_type: 'conversation_long',
               title: 'Conversation longue',
               message: `Une conversation dure depuis ${aiMsgCount} réponses de l'IA. Voulez-vous reprendre la main ?`,
-              metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount },
+              metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount, variant: 'long' },
             })
           }
         }
@@ -1019,6 +1019,7 @@ Sois strict : la condition doit être explicitement satisfaite.`,
               conversation_id: params.conversationId,
               session_id: params.sessionId,
               agent_id: params.agentId,
+              agent_name: agent.name,
               stop_condition: agent.stop_condition,
               reason: 'stop_condition_met',
             },

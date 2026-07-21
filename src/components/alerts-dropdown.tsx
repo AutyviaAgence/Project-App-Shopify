@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useTranslation } from '@/i18n/context'
 import type { UserAlert } from '@/types/database'
 
 const ALERT_ICONS: Record<string, typeof AlertTriangle> = {
@@ -40,7 +41,139 @@ const ALERT_COLORS: Record<string, string> = {
   booking_click: 'text-emerald-500',
 }
 
+/**
+ * Traduction au rendu.
+ *
+ * Les titres/messages stockés en base sont écrits en français au moment de
+ * l'événement : le serveur ignore la langue du marchand. On les re-rend donc
+ * ici depuis `alert_type` (clé stable) + `metadata` (les valeurs dynamiques).
+ * Toute alerte dont le type n'est pas couvert — ou dont un paramètre manque —
+ * retombe sur le texte stocké, jamais sur un « {n} » brut à l'écran.
+ */
+type AlertText = { titleKey: string; messageKey: string; params: Record<string, string | number> }
+
+function num(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined
+}
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
+function resolveAlertText(alert: UserAlert): AlertText | null {
+  const m = (alert.metadata || {}) as Record<string, unknown>
+
+  // L'union de `UserAlert` est en retard sur les types réellement insérés
+  // (contact_opted_in/out, human_handoff, fair_use_reached,
+  // whatsapp_template_paused) : on compare sur la chaîne brute.
+  switch (alert.alert_type as string) {
+    case 'agent_stopped': {
+      const name = str(m.agent_name)
+      const condition = str(m.stop_condition)
+      if (!name || !condition) return null
+      return { titleKey: 'alerts.agent_stopped.title', messageKey: 'alerts.agent_stopped.message', params: { name, condition } }
+    }
+    case 'ai_credits_low': {
+      const used = num(m.used)
+      const limit = num(m.limit)
+      if (used === undefined || limit === undefined) return null
+      return {
+        titleKey: 'alerts.ai_credits_low.title',
+        messageKey: 'alerts.ai_credits_low.message',
+        params: { used, limit, remaining: Math.max(0, limit - used) },
+      }
+    }
+    case 'booking_click': {
+      const contact = str(m.contact_name)
+      const agent = str(m.agent_name)
+      if (!contact || !agent) return null
+      const phone = str(m.contact_phone)
+      return phone
+        ? { titleKey: 'alerts.booking_click.title', messageKey: 'alerts.booking_click.message_phone', params: { contact, agent, phone } }
+        : { titleKey: 'alerts.booking_click.title', messageKey: 'alerts.booking_click.message', params: { contact, agent } }
+    }
+    case 'contact_opted_in':
+      return { titleKey: 'alerts.contact_opted_in.title', messageKey: 'alerts.contact_opted_in.message', params: {} }
+    case 'contact_opted_out': {
+      const reason = str(m.reason)
+      return reason
+        ? { titleKey: 'alerts.contact_opted_out.title', messageKey: 'alerts.contact_opted_out.message_reason', params: { reason } }
+        : { titleKey: 'alerts.contact_opted_out.title', messageKey: 'alerts.contact_opted_out.message', params: {} }
+    }
+    case 'conversation_long': {
+      // Deux variantes : plafond atteint (assistant en pause) ou simple soft cap.
+      const cap = num(m.cap)
+      if (m.variant === 'paused' && cap !== undefined) {
+        return { titleKey: 'alerts.conversation_long.paused_title', messageKey: 'alerts.conversation_long.paused_message', params: { cap } }
+      }
+      const n = num(m.ai_messages)
+      if (n === undefined) return null
+      return { titleKey: 'alerts.conversation_long.title', messageKey: 'alerts.conversation_long.message', params: { n } }
+    }
+    case 'fair_use_reached': {
+      const cap = num(m.cap)
+      const used = num(m.used)
+      if (cap === undefined || used === undefined) return null
+      return { titleKey: 'alerts.fair_use_reached.title', messageKey: 'alerts.fair_use_reached.message', params: { cap, used } }
+    }
+    case 'human_handoff': {
+      const reason = str(m.reason)
+      return reason
+        ? { titleKey: 'alerts.human_handoff.title', messageKey: 'alerts.human_handoff.message_reason', params: { reason } }
+        : { titleKey: 'alerts.human_handoff.title', messageKey: 'alerts.human_handoff.message', params: {} }
+    }
+    case 'quota_reached': {
+      const limit = num(m.limit)
+      const plan = str(m.plan)
+      if (limit === undefined || !plan) return null
+      return { titleKey: 'alerts.quota_reached.title', messageKey: 'alerts.quota_reached.message', params: { limit, plan } }
+    }
+    case 'session_disconnected': {
+      const name = str(m.instance_name)
+      if (!name) return null
+      return { titleKey: 'alerts.session_disconnected.title', messageKey: 'alerts.session_disconnected.message', params: { name } }
+    }
+    case 'token_limit_reached': {
+      const used = num(m.tokens_used)
+      const limit = num(m.tokens_limit)
+      const percent = num(m.usage_percent)
+      if (limit === undefined) return null
+      // Les anciennes lignes n'ont pas de `variant` : le pourcentage suffit.
+      const variant = str(m.variant) || (percent !== undefined && percent >= 100 ? 'reached' : percent !== undefined && percent >= 90 ? 'warn_90' : 'warn_80')
+      if (variant === 'reached') {
+        return {
+          titleKey: 'alerts.token_limit_reached.reached_title',
+          messageKey: 'alerts.token_limit_reached.reached_message',
+          params: { limit: limit.toLocaleString() },
+        }
+      }
+      if (used === undefined || percent === undefined) return null
+      return {
+        titleKey: `alerts.token_limit_reached.${variant}_title`,
+        messageKey: `alerts.token_limit_reached.${variant}_message`,
+        params: { percent, used: used.toLocaleString(), limit: limit.toLocaleString() },
+      }
+    }
+    case 'whatsapp_template_paused': {
+      const name = str(m.template)
+      if (!name) return null
+      const disabled = m.status === 'disabled'
+      const reason = str(m.reason)
+      const prefix = disabled ? 'disabled_' : ''
+      return {
+        titleKey: `alerts.whatsapp_template_paused.${disabled ? 'disabled_title' : 'title'}`,
+        messageKey: `alerts.whatsapp_template_paused.${prefix}${reason ? 'message_reason' : 'message'}`,
+        params: reason ? { name, reason } : { name },
+      }
+    }
+    // `info` couvre des événements hétérogènes (activation, achat, parrainage,
+    // escalation) qui partagent le même type : on garde le texte stocké.
+    default:
+      return null
+  }
+}
+
 export function AlertsDropdown() {
+  const { t } = useTranslation()
   const router = useRouter()
   const [alerts, setAlerts] = useState<UserAlert[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -218,6 +351,10 @@ export function AlertsDropdown() {
               const Icon = ALERT_ICONS[effectiveType] || Info
               const color = ALERT_COLORS[effectiveType] || 'text-muted-foreground'
               const isExpanded = expandedAlertId === alert.id
+              // Traduit si le type est couvert, sinon repli sur le texte stocké.
+              const i18n = resolveAlertText(alert)
+              const title = i18n ? t(i18n.titleKey, i18n.params) : alert.title
+              const message = i18n ? t(i18n.messageKey, i18n.params) : alert.message
 
               return (
                 <DropdownMenuItem
@@ -235,7 +372,7 @@ export function AlertsDropdown() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn('text-sm font-medium', !alert.is_read && 'font-semibold', !isExpanded && 'truncate')}>
-                        {alert.title}
+                        {title}
                       </span>
                       <span className="text-[10px] text-muted-foreground shrink-0">
                         {formatTime(alert.created_at)}
@@ -245,7 +382,7 @@ export function AlertsDropdown() {
                       'text-xs text-muted-foreground mt-0.5',
                       isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
                     )}>
-                      {alert.message}
+                      {message}
                     </p>
                     <div className="flex items-center gap-1 mt-2 flex-wrap">
                       {/* Assistant en pause (plafond atteint) → « Continuer avec l'IA ».

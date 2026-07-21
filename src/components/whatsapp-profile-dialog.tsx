@@ -25,11 +25,14 @@ export function WhatsAppProfileDialog({ open, onOpenChange }: { open: boolean; o
   const [website, setWebsite] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)   // photo actuelle (Meta)
   const [newPhoto, setNewPhoto] = useState<string | null>(null)   // data URL à envoyer
+  // Lien d'image mort (URL Meta expirée) → repli sur l'icône appareil photo.
+  const [photoBroken, setPhotoBroken] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
     setNewPhoto(null)
+    setPhotoBroken(false)
     setLoading(true)
     fetch('/api/whatsapp/profile')
       .then((r) => r.json())
@@ -53,7 +56,9 @@ export function WhatsAppProfileDialog({ open, onOpenChange }: { open: boolean; o
     if (file.size > 5 * 1024 * 1024) { toast.error(t('whatsapp_profile.photo_too_large')); return }
     if (!/^image\//.test(file.type)) { toast.error(t('whatsapp_profile.photo_not_image')); return }
     const reader = new FileReader()
-    reader.onload = () => setNewPhoto(reader.result as string)
+    // ⚠️ Reset indispensable : `photoBroken` vaut true si l'URL Meta a expiré,
+    // et il masquait alors la photo tout juste sélectionnée par le marchand.
+    reader.onload = () => { setPhotoBroken(false); setNewPhoto(reader.result as string) }
     reader.readAsDataURL(file)
   }
 
@@ -76,8 +81,6 @@ export function WhatsAppProfileDialog({ open, onOpenChange }: { open: boolean; o
   }
 
   const preview = newPhoto || photoUrl
-  // Lien d'image mort (URL Meta expirée) → on retombe sur l'icône appareil photo.
-  const [photoBroken, setPhotoBroken] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
