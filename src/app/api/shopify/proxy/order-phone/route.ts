@@ -26,12 +26,44 @@ export async function OPTIONS() {
  * donc on le récupère via l'Admin API avec le token de la boutique. C'est la
  * méthode utilisée par les apps WhatsApp concurrentes pour pré-remplir.
  */
+/**
+ * L'appel vient-il d'une page Shopify (boutique ou checkout) ?
+ *
+ * Substitut PARTIEL à la signature : `Origin` est posé par le navigateur et ne
+ * peut pas être falsifié depuis une page web. Insuffisant seul pour de la PII —
+ * on le combine donc à un identifiant de commande non devinable.
+ */
+function isShopifyOrigin(req: NextRequest): boolean {
+  const origin = req.headers.get('origin') || ''
+  if (!origin || origin === 'null') return false
+  try {
+    const u = new URL(origin)
+    if (u.protocol !== 'https:') return false
+    return u.hostname.endsWith('.myshopify.com')
+      || u.hostname === 'shopify.com' || u.hostname.endsWith('.shopify.com')
+      || u.hostname === 'checkout.shopify.com'
+  } catch {
+    return false
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  // SÉCURITÉ : cette route renvoie un téléphone client (PII). On exige la
-  // signature App Proxy de Shopify (fail-closed) pour empêcher l'énumération.
-  if (!verifyAppProxySignature(searchParams)) {
+  // SÉCURITÉ : cette route renvoie un téléphone client (PII). Deux portes.
+  //
+  // ⚠️ La signature seule ne pouvait PAS marcher : l'extension Merci appelle
+  // app.xeyo.io en direct (le proxy {shop}/apps/xeyo renvoie un 302 sans CORS),
+  // donc elle n'a aucune signature à fournir. Résultat : 401 systématique et
+  // champ jamais pré-rempli.
+  //
+  // Porte 2 pour ce cas : origine Shopify vérifiée ET identifiant COMPLET de la
+  // commande (gid). L'`order_number` séquentiel, lui, resterait énumérable —
+  // on ne l'accepte donc que par signature.
+  const signed = verifyAppProxySignature(searchParams)
+  const fromShopify = isShopifyOrigin(req)
+  const hasOpaqueId = (searchParams.get('id') || '').startsWith('gid://shopify/')
+  if (!signed && !(fromShopify && hasOpaqueId)) {
     return NextResponse.json({ phone: null, error: 'signature invalide' }, { status: 401, headers: { ...CORS, 'Cache-Control': 'no-store' } })
   }
 
