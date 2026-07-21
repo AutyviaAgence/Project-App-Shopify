@@ -205,9 +205,22 @@ export async function buildOrderContext(
 
   const firstName = order.customer?.first_name || ''
   const lastName = order.customer?.last_name || ''
-  const orderName = order.name || `#${order.order_number || ''}`
+  // ⚠️ Sur un panier abandonné, `name` ET `order_number` sont absents : la
+  // concaténation produisait « # » tout court. Non vide, donc le repli ne se
+  // déclenchait PAS et le client recevait « votre commande # ».
+  const orderName = order.name || (order.order_number ? `#${order.order_number}` : '')
   const total = order.total_price ? parseFloat(order.total_price) : undefined
-  const tracking = order.fulfillments?.[0]?.tracking_url || ''
+  // ⚠️ REPLI SUR LA PAGE DE SUIVI SHOPIFY.
+  //
+  // `tracking_url` vient du transporteur et manque très souvent au moment du
+  // webhook (étiquette créée sans numéro). Le contexte étant FIGÉ ici, un délai
+  // sur l'automatisation n'y change rien : le lien restait vide, Meta rejetait
+  // l'envoi (#131008) et le client ne recevait RIEN.
+  //
+  // `order_status_url` est la page Shopify de la commande : elle existe toujours
+  // et affiche le suivi dès qu'il est disponible. Mieux vaut ce lien que pas de
+  // message du tout.
+  const tracking = order.fulfillments?.[0]?.tracking_url || order.order_status_url || ''
 
   // Données pour les CONDITIONS d'automatisation.
   const country = (order.shipping_address?.country_code
@@ -262,8 +275,12 @@ export async function buildOrderContext(
       customer_first_name: firstName,
       customer_last_name: lastName,
       customer_full_name: [firstName, lastName].filter(Boolean).join(' '),
-      customer_phone: order.customer?.phone || '',
-      customer_email: order.customer?.email || '',
+      // `phone` / `email` viennent de la cascade complète calculée plus haut
+      // (checkout, adresses, attributs) — `order.customer` seul est souvent vide
+      // sur une commande invité, et la variable partait vide alors qu'on avait
+      // la donnée.
+      customer_phone: phone || '',
+      customer_email: email || '',
       order_number: orderName,
       order_total: order.total_price ? `${order.total_price}${order.currency ? ' ' + order.currency : ''}` : '',
       order_status: statusLabel,

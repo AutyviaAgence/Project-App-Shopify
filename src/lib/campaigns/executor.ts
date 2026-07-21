@@ -103,15 +103,22 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   const userTimezone = profile?.timezone || 'Europe/Paris'
 
   // Récupérer le template Meta approuvé (mode prioritaire pour la relance hors fenêtre 24h)
-  let template: { name: string; language: string; source_language: string | null } | null = null
+  let template: {
+    name: string; language: string; source_language: string | null
+    variable_keys: string[]; variables_count: number
+  } | null = null
   if (campaign.template_id) {
     const { data } = await supabase
       .from('whatsapp_templates')
-      .select('name, language, status, source_language')
+      .select('name, language, status, source_language, variable_keys, variables_count')
       .eq('id', campaign.template_id)
       .single()
     if (data && data.status === 'approved') {
-      template = { name: data.name, language: data.language, source_language: data.source_language }
+      template = {
+        name: data.name, language: data.language, source_language: data.source_language,
+        variable_keys: Array.isArray(data.variable_keys) ? data.variable_keys : [],
+        variables_count: typeof data.variables_count === 'number' ? data.variables_count : 0,
+      }
     } else {
       console.error(`[Campaign ${campaignId}] Template ${campaign.template_id} introuvable ou non approuvé`)
     }
@@ -281,10 +288,29 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     const sessionDelay = session.ai_message_delay ?? 0
     const result = await withSessionDelay(session.id, sessionDelay, () => {
       if (template) {
-        // Paramètres du template : valeurs de campaign.template_params, avec {contact_name} résolu
-        const params = Object.values(campaign.template_params || {}).map((v) =>
-          String(v).replace(/{contact_name}/g, contact.name || 'Client')
-        )
+        // ⚠️ PARAMÈTRES ORDONNÉS PAR `variable_keys`, PAS PAR Object.values().
+        //
+        // Meta envoie les paramètres par POSITION ({{1}}, {{2}}…). `Object.values`
+        // suivait l'ordre d'insertion des clés JSON, sans aucun lien avec l'ordre
+        // du modèle : un décalage était garanti dès que l'ordre différait.
+        // Pire, `template_params` n'est écrit nulle part → params vide → Meta
+        // rejetait l'envoi (#132000) pour tout modèle à variables.
+        //
+        // On mappe donc clé par clé, avec repli sur les données du contact.
+        const saved = (campaign.template_params || {}) as Record<string, string>
+        const first = (contact.name || '').trim().split(/\s+/)[0] || ''
+        const ctx: Record<string, string> = {
+          customer_first_name: first,
+          customer_full_name: contact.name || '',
+          customer_phone: contact.phone_number || '',
+          store_name: session.instance_name || '',
+        }
+        const count = template!.variables_count || template!.variable_keys.length
+        const params = Array.from({ length: count }, (_, i) => {
+          const key = template!.variable_keys[i]
+          const raw = (key && saved[key]) || ctx[key || ''] || ''
+          return String(raw).replace(/{contact_name}/g, contact.name || 'Client')
+        })
         // MULTILINGUE : choisir la langue de la variante selon le contact.
         // Cascade : langue contact → langue source → 'fr' → langue du modèle.
         const prefs = [contact.preferred_language, template!.source_language, 'fr', template!.language]

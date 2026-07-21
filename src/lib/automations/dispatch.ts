@@ -199,10 +199,22 @@ export async function sendTemplateToContact(params: {
   // qu'il n'est pas déjà fourni par le trigger — sinon on afficherait « notre
   // boutique » alors qu'on connaît le vrai nom (Shopify).
   const vars: Record<string, string> = { ...params.variables }
-  if (keys.some((k) => /store_name|shop_name/.test(k)) && !vars.store_name) {
+  // ⚠️ `store_url` et `review_url` n'étaient produits par AUCUN déclencheur, alors
+  // que deux modèles par défaut les déclarent (`promotion`, `review_request`) :
+  // ces modèles partaient donc avec une URL vide et Meta rejetait l'envoi. On les
+  // dérive ici du domaine de la boutique, déjà connu.
+  const needsStore = keys.some((k) => /store_name|shop_name|store_url|review_url/.test(k))
+  if (needsStore && (!vars.store_name || !vars.store_url || !vars.review_url)) {
     const { data: store } = await supabase
-      .from('shopify_stores').select('shop_name').eq('user_id', tpl.user_id).limit(1).maybeSingle()
-    if (store?.shop_name) vars.store_name = store.shop_name
+      .from('shopify_stores').select('shop_name, shop_domain').eq('user_id', tpl.user_id).limit(1).maybeSingle()
+    if (store?.shop_name && !vars.store_name) vars.store_name = store.shop_name
+    if (store?.shop_domain) {
+      const base = `https://${store.shop_domain}`
+      if (!vars.store_url) vars.store_url = base
+      // Pas de plateforme d'avis connue : on renvoie vers la boutique plutôt que
+      // de casser l'envoi. Le marchand peut poser sa vraie URL sur le nœud.
+      if (!vars.review_url) vars.review_url = base
+    }
   }
   const resolved = resolveVariables(keys, vars)
   // Valeur de secours par variable VIDE : Meta refuse les paramètres vides
@@ -220,6 +232,28 @@ export async function sendTemplateToContact(params: {
   }
   const out = resolved.slice(0, varsCount).map((v, i) => (v && v.trim() ? v : fallbackFor(keys[i])))
   while (out.length < varsCount) out.push(fallbackFor(keys[out.length]))
+
+  // ⚠️ NE PAS ENVOYER UN MESSAGE QUI SERA FAUX OU REJETÉ.
+  //
+  // Deux replis étaient des impasses :
+  //  · une URL manquante donnait '' — Meta rejette alors TOUT l'envoi (#131008),
+  //    le client ne reçoit rien et le marchand n'en sait rien (« géré ailleurs »
+  //    dans l'ancien commentaire ne correspondait à aucun code) ;
+  //  · un « — » au milieu d'une phrase (« votre commande — », « Montant : — »)
+  //    est lu par le CLIENT comme un bug de la boutique.
+  //
+  // On préfère ne pas envoyer et le dire : le marchand voit un motif lisible
+  // dans le job plutôt qu'un échec Meta opaque ou un message abîmé.
+  const CRITICAL = /^(order_number|order_total|tracking_number|order_status|promo_code)$/
+  const missing = keys.slice(0, varsCount).filter((k, i) => {
+    const v = resolved[i]
+    if (v && v.trim()) return false
+    return !!k && (/url|link/.test(k) || CRITICAL.test(k))
+  })
+  if (missing.length > 0) {
+    console.warn(`[dispatch] ${tpl.name}: envoi annulé, variables non résolues`, missing)
+    return { ok: false, error: `variables_manquantes:${missing.join(',')}` }
+  }
   const components: unknown[] = out.length > 0
     ? [{ type: 'body', parameters: out.map((p) => ({ type: 'text', text: p })) }]
     : []
