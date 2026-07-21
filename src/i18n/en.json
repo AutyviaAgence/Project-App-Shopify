@@ -3377,5 +3377,24 @@
     "search_placeholder": "Search…",
     "thanks_heading": "Thanks for your order",
     "theme_active": "Live"
+  },
+  "link_store": {
+    "title": "Link your Shopify store",
+    "title_done": "Store linked",
+    "anonymous_hint": "Sign in to the Xeyo account you want to link your store to, or create one.",
+    "have_account": "I already have a Xeyo account",
+    "create_account": "Create an account",
+    "confirm_hint": "Link your Shopify store to the account:",
+    "confirm_cta": "Link my store",
+    "switch_account": "Use a different account",
+    "linking": "Linking…",
+    "done_linked": "{shop} is linked to {email}.",
+    "done_fallback_shop": "Your store",
+    "done_back_hint": "You can head back to your Shopify tab — everything is ready.",
+    "open_dashboard": "Open my dashboard",
+    "back_dashboard": "Back to dashboard",
+    "err_missing_token": "Missing link token. Reopen Xeyo from your Shopify admin.",
+    "err_failed": "Linking failed.",
+    "err_network": "Network error. Please try again."
   }
 }

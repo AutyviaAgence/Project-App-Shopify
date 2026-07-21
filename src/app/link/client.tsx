@@ -6,10 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Store, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 type Phase = 'checking' | 'anonymous' | 'confirm' | 'linking' | 'done' | 'error'
 
 export default function LinkClient() {
+  const { t } = useTranslation()
   const router = useRouter()
   const params = useSearchParams()
   const token = params.get('token') || ''
@@ -32,7 +34,7 @@ export default function LinkClient() {
   // jeton : on le repasse en `redirect`, que /login et le callback Google honorent.
   useEffect(() => {
     if (!token) {
-      setError('Lien de liaison manquant. Rouvrez Xeyo depuis votre admin Shopify.')
+      setError(t('link_store.err_missing_token'))
       setPhase('error')
       return
     }
@@ -75,7 +77,7 @@ export default function LinkClient() {
       })
       const json = await res.json()
       if (!res.ok) {
-        setError(json.error || 'La liaison a échoué.')
+        setError(json.error || t('link_store.err_failed'))
         setPhase('error')
         return
       }
@@ -84,7 +86,7 @@ export default function LinkClient() {
       // Pas de redirection automatique : le marchand vient de l'admin Shopify et veut
       // y retourner. On le laisse choisir (le dashboard reste à un clic).
     } catch {
-      setError('Erreur réseau. Réessayez.')
+      setError(t('link_store.err_network'))
       setPhase('error')
     }
   }
@@ -103,7 +105,7 @@ export default function LinkClient() {
             )}
           </div>
           <CardTitle>
-            {phase === 'done' ? 'Boutique reliée' : 'Relier votre boutique Shopify'}
+            {phase === 'done' ? t('link_store.title_done') : t('link_store.title')}
           </CardTitle>
         </CardHeader>
 
@@ -118,14 +120,14 @@ export default function LinkClient() {
           {phase === 'anonymous' && (
             <>
               <p className="text-center text-sm text-muted-foreground">
-                Connectez-vous au compte Xeyo auquel rattacher votre boutique, ou créez-en un.
+                {t('link_store.anonymous_hint')}
               </p>
               <div className="space-y-2">
                 <Button className="w-full" onClick={() => goAuth('/login')}>
-                  J’ai déjà un compte Xeyo
+                  {t('link_store.have_account')}
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => goAuth('/register')}>
-                  Créer un compte
+                  {t('link_store.create_account')}
                 </Button>
               </div>
             </>
@@ -136,20 +138,20 @@ export default function LinkClient() {
           {phase === 'confirm' && (
             <>
               <p className="text-center text-sm text-muted-foreground">
-                Rattacher votre boutique Shopify au compte&nbsp;:
+                {t('link_store.confirm_hint')}
               </p>
               <p className="rounded-md border bg-muted/40 px-3 py-2 text-center text-sm font-medium">
                 {email}
               </p>
               <Button className="w-full" onClick={claim}>
-                Relier ma boutique
+                {t('link_store.confirm_cta')}
               </Button>
               <button
                 type="button"
                 onClick={() => router.push(`/api/auth/switch-account?redirect=${encodeURIComponent(`/link?token=${token}`)}`)}
                 className="w-full text-center text-xs text-muted-foreground hover:underline"
               >
-                Utiliser un autre compte
+                {t('link_store.switch_account')}
               </button>
             </>
           )}
@@ -157,23 +159,22 @@ export default function LinkClient() {
           {phase === 'linking' && (
             <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Liaison en cours…
+              {t('link_store.linking')}
             </div>
           )}
 
           {phase === 'done' && (
             <>
               <p className="text-center text-sm text-muted-foreground">
-                {shopName ? <strong>{shopName}</strong> : 'Votre boutique'} est reliée à{' '}
-                <strong>{email}</strong>.
+                {t('link_store.done_linked', { shop: shopName || t('link_store.done_fallback_shop'), email: email || '' })}
               </p>
               {/* Le marchand est venu de l'admin Shopify : c'est là qu'il veut
                   retourner. On le lui dit — l'onglet Shopify est resté ouvert. */}
               <p className="text-center text-xs text-muted-foreground">
-                Vous pouvez retourner sur l’onglet Shopify : tout y est prêt.
+                {t('link_store.done_back_hint')}
               </p>
               <Button variant="outline" className="w-full" onClick={() => router.push('/dashboard')}>
-                Ouvrir mon tableau de bord
+                {t('link_store.open_dashboard')}
               </Button>
             </>
           )}
@@ -182,7 +183,7 @@ export default function LinkClient() {
             <>
               <p className="text-center text-sm text-destructive">{error}</p>
               <Button variant="outline" className="w-full" onClick={() => router.push('/dashboard')}>
-                Retour au tableau de bord
+                {t('link_store.back_dashboard')}
               </Button>
             </>
           )}

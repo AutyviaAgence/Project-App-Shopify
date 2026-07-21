@@ -3377,5 +3377,24 @@
     "search_placeholder": "Rechercher…",
     "thanks_heading": "Merci pour votre commande",
     "theme_active": "Actif"
+  },
+  "link_store": {
+    "title": "Relier votre boutique Shopify",
+    "title_done": "Boutique reliée",
+    "anonymous_hint": "Connectez-vous au compte Xeyo auquel rattacher votre boutique, ou créez-en un.",
+    "have_account": "J'ai déjà un compte Xeyo",
+    "create_account": "Créer un compte",
+    "confirm_hint": "Rattacher votre boutique Shopify au compte :",
+    "confirm_cta": "Relier ma boutique",
+    "switch_account": "Utiliser un autre compte",
+    "linking": "Liaison en cours…",
+    "done_linked": "{shop} est reliée à {email}.",
+    "done_fallback_shop": "Votre boutique",
+    "done_back_hint": "Vous pouvez retourner sur l'onglet Shopify : tout y est prêt.",
+    "open_dashboard": "Ouvrir mon tableau de bord",
+    "back_dashboard": "Retour au tableau de bord",
+    "err_missing_token": "Lien de liaison manquant. Rouvrez Xeyo depuis votre admin Shopify.",
+    "err_failed": "La liaison a échoué.",
+    "err_network": "Erreur réseau. Réessayez."
   }
 }
