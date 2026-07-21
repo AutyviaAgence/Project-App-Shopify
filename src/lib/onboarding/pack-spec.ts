@@ -17,6 +17,8 @@ export type PackTriggerSpec = {
   /** nom stable du modèle créé (unicité par user via name|language) */
   templateName: string
   label: string
+  /** Nom anglais — choisi à la génération selon la langue du marchand. */
+  labelEn: string
   category: 'UTILITY' | 'MARKETING'
   use_case: UseCaseKey
   /** {{1}} = variable_keys[0], etc. — vocabulaire résolu par le moteur */
@@ -36,7 +38,7 @@ export type PackTriggerSpec = {
 
 export const PACK_SPECS: PackTriggerSpec[] = [
   {
-    trigger: 'order_created', templateName: 'onb_commande_creee', label: 'Commande créée',
+    trigger: 'order_created', templateName: 'onb_commande_creee', label: 'Commande créée', labelEn: 'Order created',
     category: 'UTILITY', use_case: 'order_status',
     variable_keys: ['customer_first_name', 'order_number', 'order_total'],
     sample_values: ['Marie', '#1024', '49,90 €'],
@@ -49,7 +51,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     buttons: [{ type: 'QUICK_REPLY', text: 'J’ai une question' }],
   },
   {
-    trigger: 'order_paid', templateName: 'onb_commande_payee', label: 'Commande payée',
+    trigger: 'order_paid', templateName: 'onb_commande_payee', label: 'Commande payée', labelEn: 'Order paid',
     category: 'UTILITY', use_case: 'order_status',
     variable_keys: ['customer_first_name', 'order_number'],
     sample_values: ['Marie', '#1024'],
@@ -58,7 +60,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Confirmer la réception du paiement, annoncer la préparation.',
   },
   {
-    trigger: 'order_fulfilled', templateName: 'onb_commande_expediee', label: 'Commande expédiée',
+    trigger: 'order_fulfilled', templateName: 'onb_commande_expediee', label: 'Commande expédiée', labelEn: 'Order shipped',
     category: 'UTILITY', use_case: 'order_status',
     variable_keys: ['customer_first_name', 'order_number', 'tracking_url'],
     sample_values: ['Marie', '#1024', 'https://suivi.exemple.com/1024'],
@@ -67,7 +69,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Annoncer l’expédition avec le lien de suivi.',
   },
   {
-    trigger: 'order_delivered', templateName: 'onb_commande_livree', label: 'Commande livrée',
+    trigger: 'order_delivered', templateName: 'onb_commande_livree', label: 'Commande livrée', labelEn: 'Order delivered',
     category: 'UTILITY', use_case: 'order_status',
     variable_keys: ['customer_first_name', 'order_number'],
     sample_values: ['Marie', '#1024'],
@@ -80,7 +82,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     ],
   },
   {
-    trigger: 'order_cancelled', templateName: 'onb_commande_annulee', label: 'Commande annulée',
+    trigger: 'order_cancelled', templateName: 'onb_commande_annulee', label: 'Commande annulée', labelEn: 'Order cancelled',
     category: 'UTILITY', use_case: 'order_status',
     variable_keys: ['customer_first_name', 'order_number'],
     sample_values: ['Marie', '#1024'],
@@ -89,7 +91,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Confirmer l’annulation avec empathie, proposer de l’aide.',
   },
   {
-    trigger: 'refund_created', templateName: 'onb_remboursement', label: 'Remboursement émis',
+    trigger: 'refund_created', templateName: 'onb_remboursement', label: 'Remboursement émis', labelEn: 'Refund issued',
     category: 'UTILITY', use_case: 'billing',
     variable_keys: ['customer_first_name', 'order_number', 'order_total'],
     sample_values: ['Marie', '#1024', '49,90 €'],
@@ -98,7 +100,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Confirmer le remboursement et le délai bancaire.',
   },
   {
-    trigger: 'return_requested', templateName: 'onb_demande_retour', label: 'Demande de retour',
+    trigger: 'return_requested', templateName: 'onb_demande_retour', label: 'Demande de retour', labelEn: 'Return request',
     category: 'UTILITY', use_case: 'support',
     variable_keys: ['customer_first_name', 'order_number'],
     sample_values: ['Marie', '#1024'],
@@ -107,7 +109,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Accuser réception de la demande de retour, rassurer sur la prise en charge.',
   },
   {
-    trigger: 'checkout_abandoned', templateName: 'onb_panier_abandonne', label: 'Panier abandonné',
+    trigger: 'checkout_abandoned', templateName: 'onb_panier_abandonne', label: 'Panier abandonné', labelEn: 'Abandoned cart',
     category: 'MARKETING', use_case: 'cart',
     variable_keys: ['customer_first_name', 'cart_url'],
     sample_values: ['Marie', 'https://boutique.exemple.com/panier'],
@@ -116,7 +118,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Relancer un panier non finalisé, ton léger, lien direct.',
   },
   {
-    trigger: 'contact_opted_in', templateName: 'onb_bienvenue', label: 'Bienvenue (opt-in)',
+    trigger: 'contact_opted_in', templateName: 'onb_bienvenue', label: 'Bienvenue (opt-in)', labelEn: 'Welcome (opt-in)',
     category: 'MARKETING', use_case: 'marketing',
     variable_keys: ['customer_first_name', 'store_name', 'store_url'],
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
@@ -126,7 +128,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     buttons: [{ type: 'URL', text: 'Découvrir la boutique', url: '{store_url}' }],
   },
   {
-    trigger: 'optin_popup', templateName: 'onb_bienvenue_popup', label: 'Bienvenue (popup site)',
+    trigger: 'optin_popup', templateName: 'onb_bienvenue_popup', label: 'Bienvenue (popup site)', labelEn: 'Welcome (site popup)',
     category: 'MARKETING', use_case: 'marketing',
     variable_keys: ['customer_first_name', 'store_name', 'store_url'],
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
@@ -136,7 +138,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     buttons: [{ type: 'URL', text: 'Découvrir la boutique', url: '{store_url}' }],
   },
   {
-    trigger: 'button_clicked', templateName: 'onb_clic_bouton', label: 'Clic sur un bouton',
+    trigger: 'button_clicked', templateName: 'onb_clic_bouton', label: 'Clic sur un bouton', labelEn: 'Button clicked',
     category: 'UTILITY', use_case: 'support',
     variable_keys: ['customer_first_name', 'button_title'],
     sample_values: ['Marie', 'Suivre ma commande'],
@@ -145,7 +147,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Accuser réception du choix cliqué et enchaîner.',
   },
   {
-    trigger: 'message_read', templateName: 'onb_relance_lecture', label: 'Relance après lecture',
+    trigger: 'message_read', templateName: 'onb_relance_lecture', label: 'Relance après lecture', labelEn: 'Follow-up after read',
     category: 'MARKETING', use_case: 'marketing',
     variable_keys: ['customer_first_name'],
     sample_values: ['Marie'],
@@ -154,7 +156,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     intent: 'Relancer en douceur un client qui a lu sans répondre.',
   },
   {
-    trigger: 'no_customer_reply', templateName: 'onb_relance_sans_reponse', label: 'Relance sans réponse',
+    trigger: 'no_customer_reply', templateName: 'onb_relance_sans_reponse', label: 'Relance sans réponse', labelEn: 'Follow-up no reply',
     category: 'UTILITY', use_case: 'support',
     variable_keys: ['customer_first_name'],
     sample_values: ['Marie'],
@@ -164,7 +166,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     buttons: [{ type: 'QUICK_REPLY', text: 'Parler à un conseiller' }],
   },
   {
-    trigger: 'scheduled_date', templateName: 'onb_campagne_planifiee', label: 'Campagne planifiée',
+    trigger: 'scheduled_date', templateName: 'onb_campagne_planifiee', label: 'Campagne planifiée', labelEn: 'Scheduled campaign',
     category: 'MARKETING', use_case: 'marketing',
     variable_keys: ['customer_first_name', 'store_name', 'store_url'],
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
@@ -174,7 +176,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     buttons: [{ type: 'URL', text: 'Voir les nouveautés', url: '{store_url}' }],
   },
   {
-    trigger: 'customer_birthday', templateName: 'onb_anniversaire', label: 'Anniversaire client',
+    trigger: 'customer_birthday', templateName: 'onb_anniversaire', label: 'Anniversaire client', labelEn: 'Customer birthday',
     category: 'MARKETING', use_case: 'marketing',
     variable_keys: ['customer_first_name', 'store_name', 'store_url'],
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],

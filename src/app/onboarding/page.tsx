@@ -145,7 +145,7 @@ const PLAN_DESC_KEY: Record<string, string> = {
 }
 
 export default function OnboardingPage() {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const router = useRouter()
   // Cartes de tarifs (dérivées de PLANS) — construites ici pour traduire
   // description/cta via t(). Recalculées à chaque rendu (peu coûteux, 3 plans).
@@ -281,7 +281,7 @@ export default function OnboardingPage() {
   // Générations en arrière-plan (relançables en cas d'échec).
   function loadPack() {
     setPackLoading(true)
-    fetch('/api/onboarding/generate-pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+    fetch('/api/onboarding/generate-pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locale }) })
       .then((r) => r.json())
       .then((json) => {
         const items: PackItem[] = json.data?.items || []

@@ -34,7 +34,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as { tone?: string; objectives?: string[]; refresh?: boolean }
+  const body = (await req.json().catch(() => ({}))) as { tone?: string; objectives?: string[]; refresh?: boolean; locale?: string }
+  // Langue du MARCHAND (interface) — ne concerne QUE le NOM de l'automatisation,
+  // pas le corps du message (destiné au CLIENT, sa langue à lui).
+  const merchantEn = body.locale === 'en'
 
   // Cache de reprise : pack déjà généré → renvoyé tel quel (pas de re-coût IA).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,7 +125,10 @@ ${specLines}`
     return {
       trigger: s.trigger,
       templateName: s.templateName,
-      label: s.label,
+      // `label` et `automation_name` = NOM de l'automatisation (interface
+      // marchand) → suit sa langue. Le corps du message reste, lui, dans la
+      // langue du client.
+      label: merchantEn ? s.labelEn : s.label,
       category: s.category,
       use_case: s.use_case,
       header_text,
@@ -131,7 +137,7 @@ ${specLines}`
       variable_keys: s.variable_keys,
       sample_values: s.sample_values,
       delay_minutes: s.default_delay_minutes,
-      automation_name: s.label,
+      automation_name: merchantEn ? s.labelEn : s.label,
       description: s.intent,
       buttons: s.buttons
         ? s.buttons.map((b) => (b.type === 'URL' ? { ...b, url: b.url.replaceAll('{store_url}', storeUrl) } : b))
