@@ -28,6 +28,8 @@ export type PackTriggerSpec = {
   default_delay_minutes: number
   /** corps de secours si l'IA échoue (déjà valide, variables comprises) */
   fallback_body: string
+  /** Corps de secours anglais — mêmes variables {{n}}, choisi selon la langue du marchand. */
+  fallback_body_en: string
   /** indication de rédaction pour l'IA */
   intent: string
   /** Boutons du modèle (déterministes, jamais rédigés par l'IA). Les URL
@@ -44,6 +46,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024', '49,90 €'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, votre commande {{2}} ({{3}}) est bien enregistrée. Merci pour votre confiance !',
+    fallback_body_en: 'Hi {{1}}, your order {{2}} ({{3}}) is confirmed. Thanks so much for shopping with us!',
     intent: 'Confirmer la commande juste après l’achat, rassurer, remercier.',
     // Premier message reçu par le client : ouvrir la porte au SAV tout de
     // suite (l'URL de commande est dynamique par commande, impossible en
@@ -57,6 +60,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, le paiement de votre commande {{2}} est confirmé. Nous la préparons !',
+    fallback_body_en: 'Hi {{1}}, payment for your order {{2}} is confirmed. We’re getting it ready!',
     intent: 'Confirmer la réception du paiement, annoncer la préparation.',
   },
   {
@@ -66,6 +70,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024', 'https://suivi.exemple.com/1024'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, votre commande {{2}} vient d’être expédiée. Suivez votre colis : {{3}}',
+    fallback_body_en: 'Hi {{1}}, your order {{2}} is on its way. Track your parcel here: {{3}}',
     intent: 'Annoncer l’expédition avec le lien de suivi.',
   },
   {
@@ -75,6 +80,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024'],
     default_delay_minutes: 60,
     fallback_body: 'Bonjour {{1}}, votre commande {{2}} a été livrée. Tout s’est bien passé ? Répondez-nous si besoin !',
+    fallback_body_en: 'Hi {{1}}, your order {{2}} has been delivered. Did everything go well? Just reply if you need anything!',
     intent: 'Confirmer la livraison, ouvrir la porte au SAV et à l’avis.',
     buttons: [
       { type: 'QUICK_REPLY', text: 'Tout est parfait 👍' },
@@ -88,6 +94,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, votre commande {{2}} a bien été annulée. Une question ? Répondez à ce message.',
+    fallback_body_en: 'Hi {{1}}, your order {{2}} has been cancelled. Any questions? Just reply to this message.',
     intent: 'Confirmer l’annulation avec empathie, proposer de l’aide.',
   },
   {
@@ -97,6 +104,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024', '49,90 €'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, le remboursement de votre commande {{2}} ({{3}}) a été émis. Il apparaîtra sous 3 à 5 jours ouvrés.',
+    fallback_body_en: 'Hi {{1}}, the refund for your order {{2}} ({{3}}) has been issued. It should show up within 3 to 5 business days.',
     intent: 'Confirmer le remboursement et le délai bancaire.',
   },
   {
@@ -106,6 +114,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', '#1024'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, nous avons bien reçu votre demande de retour pour la commande {{2}}. On s’en occupe et on revient vers vous rapidement.',
+    fallback_body_en: 'Hi {{1}}, we’ve received your return request for order {{2}}. We’re on it and will get back to you shortly.',
     intent: 'Accuser réception de la demande de retour, rassurer sur la prise en charge.',
   },
   {
@@ -115,6 +124,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', 'https://boutique.exemple.com/panier'],
     default_delay_minutes: 120,
     fallback_body: 'Bonjour {{1}}, votre panier vous attend toujours 🙂 Finalisez votre commande ici : {{2}}',
+    fallback_body_en: 'Hi {{1}}, your cart is still waiting for you 🙂 Finish your order here: {{2}}',
     intent: 'Relancer un panier non finalisé, ton léger, lien direct.',
   },
   {
@@ -124,6 +134,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
     default_delay_minutes: 0,
     fallback_body: 'Bienvenue {{1}} ! Vous êtes maintenant connecté(e) à {{2}} sur WhatsApp. Découvrez la boutique : {{3}}',
+    fallback_body_en: 'Welcome {{1}}! You’re now connected with {{2}} on WhatsApp. Come browse the shop: {{3}}',
     intent: 'Souhaiter la bienvenue à un nouvel abonné WhatsApp, présenter la marque.',
     buttons: [{ type: 'URL', text: 'Découvrir la boutique', url: '{store_url}' }],
   },
@@ -134,6 +145,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, merci de nous avoir rejoints depuis {{2}} ! Besoin d’un conseil ? Répondez à ce message. La boutique : {{3}}',
+    fallback_body_en: 'Hi {{1}}, thanks for joining us from {{2}}! Need advice? Just reply to this message. The shop: {{3}}',
     intent: 'Accueillir un visiteur qui a laissé son numéro via la popup du site.',
     buttons: [{ type: 'URL', text: 'Découvrir la boutique', url: '{store_url}' }],
   },
@@ -144,6 +156,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', 'Suivre ma commande'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, vous avez choisi « {{2}} ». On s’en occupe tout de suite !',
+    fallback_body_en: 'Hi {{1}}, you picked "{{2}}". We’re on it right away!',
     intent: 'Accuser réception du choix cliqué et enchaîner.',
   },
   {
@@ -153,6 +166,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie'],
     default_delay_minutes: 60,
     fallback_body: 'Bonjour {{1}}, vous avez vu notre message 👀 Une question ? Nous sommes là pour vous aider.',
+    fallback_body_en: 'Hi {{1}}, we saw you read our message 👀 Any questions? We’re here to help.',
     intent: 'Relancer en douceur un client qui a lu sans répondre.',
   },
   {
@@ -162,6 +176,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie'],
     default_delay_minutes: 2880,
     fallback_body: 'Bonjour {{1}}, nous restons disponibles si vous avez besoin d’aide. Répondez à ce message quand vous voulez !',
+    fallback_body_en: 'Hi {{1}}, we’re still here if you need a hand. Reply to this message any time!',
     intent: 'Relance SAV bienveillante après silence prolongé.',
     buttons: [{ type: 'QUICK_REPLY', text: 'Parler à un conseiller' }],
   },
@@ -172,6 +187,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, du nouveau chez {{2}} ! Venez découvrir : {{3}}',
+    fallback_body_en: 'Hi {{1}}, something new just landed at {{2}}! Take a look: {{3}}',
     intent: 'Base réutilisable pour une annonce/campagne datée (nouveautés, offre).',
     buttons: [{ type: 'URL', text: 'Voir les nouveautés', url: '{store_url}' }],
   },
@@ -182,6 +198,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     sample_values: ['Marie', 'Ma Boutique', 'https://boutique.exemple.com'],
     default_delay_minutes: 0,
     fallback_body: 'Joyeux anniversaire {{1}} 🎂 Toute l’équipe {{2}} vous souhaite une superbe journée ! Un petit plaisir ? {{3}}',
+    fallback_body_en: 'Happy birthday {{1}} 🎂 Everyone at {{2}} wishes you a wonderful day! Fancy a little treat? {{3}}',
     intent: 'Souhaiter l’anniversaire, ton chaleureux, invitation douce.',
     buttons: [{ type: 'URL', text: 'Me faire plaisir', url: '{store_url}' }],
   },

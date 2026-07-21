@@ -67,7 +67,11 @@ export async function POST(req: Request) {
   // (crédits = conversations WhatsApp) — seul le journal de coûts opérateur
   // (ai_usage_log) trace l'appel.
 
-  const body = (await req.json().catch(() => ({}))) as { objectives?: string[] }
+  const body = (await req.json().catch(() => ({}))) as { objectives?: string[]; locale?: string }
+  // Langue de l'INTERFACE marchand : elle pilote les textes qu'il VOIT
+  // (questions d'essai, system_prompt qu'il relit), pas la langue de reponse
+  // aux clients — celle-la reste detectee au 1er message.
+  const merchantEn = body.locale === 'en'
   const objectives = (body.objectives?.length ? body.objectives : ['sav', 'advice', 'conversion', 'loyalty'])
     .filter((o) => OBJECTIVE_LABELS[o])
 
@@ -105,10 +109,10 @@ export async function POST(req: Request) {
   "languages": ["fr", ...] (langues probables des clients d'après la boutique/le pays),
   "system_prompt": "prompt système COMPLET (voir structure)",
   "escalation_situations": "texte (4 à 8 lignes) décrivant les SITUATIONS où l'agent doit transférer à un conseiller humain, DÉDUITES des politiques de la boutique (retours, remboursements, délais, livraison, litiges) + bonnes pratiques e-commerce",
-  "sample_questions": ["2 questions COURTES qu'un VRAI client de CETTE boutique poserait sur WhatsApp, à la 1re personne, pour tester l'agent. ⚠️ IMPÉRATIF : elles doivent porter UNIQUEMENT sur ce que l'agent peut RÉELLEMENT répondre ici et maintenant — le CATALOGUE (produits, prix, matières, tailles, stock, conseil) et les POLITIQUES de la boutique (livraison, délais, retours, remboursement, garantie, paiement). INTERDIT : toute question sur une COMMANDE, un COLIS, un SUIVI, un NUMÉRO DE COMMANDE, un compte ou une donnée personnelle. Ce test tourne pendant l'inscription du marchand : aucune commande, aucun client n'existe encore. L'agent répondrait « je vais vérifier… » et ne vérifierait rien — il bluffe, et c'est la 1re impression que le marchand a de lui. Ex. VALIDES : « Vous avez ce modèle en taille M ? », « Quels sont vos délais de livraison ? », « Je peux le retourner s'il ne me va pas ? ». Ex. INTERDITS : « Où en est ma commande #1024 ? », « Mon colis est arrivé ? »."]
+  "sample_questions": ["${merchantEn ? 'REDIGE CES QUESTIONS EN ANGLAIS. ' : ''}2 questions COURTES qu'un VRAI client de CETTE boutique poserait sur WhatsApp, à la 1re personne, pour tester l'agent. ⚠️ IMPÉRATIF : elles doivent porter UNIQUEMENT sur ce que l'agent peut RÉELLEMENT répondre ici et maintenant — le CATALOGUE (produits, prix, matières, tailles, stock, conseil) et les POLITIQUES de la boutique (livraison, délais, retours, remboursement, garantie, paiement). INTERDIT : toute question sur une COMMANDE, un COLIS, un SUIVI, un NUMÉRO DE COMMANDE, un compte ou une donnée personnelle. Ce test tourne pendant l'inscription du marchand : aucune commande, aucun client n'existe encore. L'agent répondrait « je vais vérifier… » et ne vérifierait rien — il bluffe, et c'est la 1re impression que le marchand a de lui. Ex. VALIDES : « Vous avez ce modèle en taille M ? », « Quels sont vos délais de livraison ? », « Je peux le retourner s'il ne me va pas ? ». Ex. INTERDITS : « Où en est ma commande #1024 ? », « Mon colis est arrivé ? »."]
 }
 
-Le system_prompt (texte brut, titres en MAJUSCULES, ≥500 mots, français) couvre :
+Le system_prompt (texte brut, titres en MAJUSCULES, ≥500 mots, ${merchantEn ? 'ANGLAIS' : 'français'}) couvre :
 ROLE ET OBJECTIF, assistant e-commerce de la boutique, ce qu'il fait (SAV, conseil produit, conversion, fidélisation selon les objectifs).
 LANGUE, détecte la langue du 1er message, répond dans cette langue, n'en change jamais.
 IDENTITE, c'est une IA, le confirme si on lui demande.

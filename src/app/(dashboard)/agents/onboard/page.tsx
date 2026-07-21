@@ -40,7 +40,7 @@ type Config = {
 
 export default function AgentOnboardPage() {
   const router = useRouter()
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const OBJECTIVES = OBJECTIVE_META.map((o) => ({ ...o, label: t(o.labelKey), desc: t(o.descKey) }))
   const TONES = TONE_META.map((tn) => ({ ...tn, label: t(tn.labelKey) }))
   const LANGS = LANG_META.map((l) => ({ ...l, label: t(l.labelKey) }))
@@ -84,7 +84,7 @@ export default function AgentOnboardPage() {
     try {
       const res = await fetch('/api/agents/onboard', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objectives: objs }),
+        body: JSON.stringify({ objectives: objs, locale }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || t('agents.onboard_error'))

@@ -301,7 +301,7 @@ export default function OnboardingPage() {
       fetch('/api/agents').then((r) => r.json()).catch(() => null),
       fetch('/api/agents/onboard', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objectives: ['sav', 'advice', 'conversion', 'loyalty'] }),
+        body: JSON.stringify({ objectives: ['sav', 'advice', 'conversion', 'loyalty'], locale }),
       }).then((r) => r.json()).catch(() => null),
     ]).then(([agents, gen]) => {
       const first = agents?.data?.[0]

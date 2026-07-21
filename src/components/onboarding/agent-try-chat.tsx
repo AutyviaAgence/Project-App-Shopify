@@ -31,6 +31,17 @@ fois la boutique connectée, puis propose ce que tu peux vraiment faire maintena
 `.trim()
 
 /**
+ * Langue de l'APERÇU : ici l'agent parle au MARCHAND qui teste sa configuration,
+ * pas à un client. Il doit donc répondre dans la langue de l'interface.
+ *
+ * En PRODUCTION rien ne change : l'agent suit la langue du client (détection
+ * automatique), ce que ce test ne préjuge pas.
+ */
+const PREVIEW_LANG_EN = `
+LANGUAGE: reply in ENGLISH only, whatever language the question is asked in.
+`.trim()
+
+/**
  * Mini-chat de test de l'agent, pour l'onboarding. Le marchand essaie son
  * agent en direct (avec le prompt EN COURS d'édition, pas encore sauvegardé)
  * via /api/agents/[id]/test (system_prompt_override). Questions suggérées
@@ -48,7 +59,7 @@ export function AgentTryChat({
   /** Plafond de questions d'essai (limite les coûts tokens). Absent = illimité. */
   maxQuestions?: number
 }) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -68,7 +79,7 @@ export function AgentTryChat({
       const res = await fetch(`/api/agents/${agentId}/test`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         // ⚠️ Consigne propre à CE test, jamais en production (voir PREVIEW_RULE).
-        body: JSON.stringify({ message: msg, history, system_prompt_override: `${systemPrompt}\n\n${PREVIEW_RULE}` }),
+        body: JSON.stringify({ message: msg, history, system_prompt_override: `${systemPrompt}\n\n${PREVIEW_RULE}${locale === 'en' ? `\n\n${PREVIEW_LANG_EN}` : ''}` }),
       })
       const json = await res.json()
       const reply = json?.data?.response || json?.error || t('onboarding_agent_chat.error_generic')

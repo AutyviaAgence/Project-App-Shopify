@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     return `- id "${s.trigger}", ${s.label}. Intention : ${s.intent} Variables imposées : ${vars}.`
   }).join('\n')
 
-  const SYSTEM = `Tu rédiges des messages WhatsApp e-commerce pour la boutique « ${shopName} ». Ton : ${toneLine}. Langue : français.
+  const SYSTEM = `Tu rédiges des messages WhatsApp e-commerce pour la boutique « ${shopName} ». Ton : ${toneLine}. Langue : ${merchantEn ? 'ANGLAIS (chaque message intégralement en anglais)' : 'français'}.
 Pour CHAQUE id listé, écris un message court (2 à 4 phrases max, ≤ 550 caractères) qui utilise LES variables imposées sous leur forme numérotée {{1}}, {{2}}… (toutes, dans un ordre naturel, n'invente JAMAIS d'autre variable ni de {{n}} non listé). Mentionne la marque quand c'est naturel. Pas de MAJUSCULES criardes, pas de spam, emojis sobres autorisés (0 à 2).
 Réponds UNIQUEMENT en JSON : { "items": [ { "id": "<trigger>", "header": "titre court (≤ 40 car.) ou null", "body": "le message avec {{n}}" } ] }, un item par id, tous les ids.`
 
@@ -120,7 +120,10 @@ ${specLines}`
   const storeUrl = `https://${store.shop_domain}`
   const items: PackItem[] = PACK_SPECS.map((s) => {
     const g = generated[s.trigger]
-    const body_text = g && isValidBody(g.body || '', s.variable_keys.length) ? g.body!.trim() : s.fallback_body
+    // Corps de secours dans la langue rédigée (l'IA écrit en anglais quand le
+    // marchand est en anglais → le fallback doit suivre, sinon message mixte).
+    const fallback = merchantEn ? s.fallback_body_en : s.fallback_body
+    const body_text = g && isValidBody(g.body || '', s.variable_keys.length) ? g.body!.trim() : fallback
     const header_text = g?.header && g.header.length <= 60 ? g.header.trim() : null
     return {
       trigger: s.trigger,
@@ -133,7 +136,7 @@ ${specLines}`
       use_case: s.use_case,
       header_text,
       body_text,
-      footer_text: 'Répondez STOP pour vous désinscrire',
+      footer_text: merchantEn ? 'Reply STOP to unsubscribe' : 'Répondez STOP pour vous désinscrire',
       variable_keys: s.variable_keys,
       sample_values: s.sample_values,
       delay_minutes: s.default_delay_minutes,
@@ -161,17 +164,22 @@ ${specLines}`
         header_media_url: p.image_url,
         // Body de carte ≤ 160 caractères (règle Meta).
         body_text: `${p.title}${p.price ? ` · ${p.price}` : ''}`.slice(0, 160),
-        buttons: [{ type: 'URL' as const, text: 'Voir', url: p.url || storeUrl }],
+        buttons: [{ type: 'URL' as const, text: merchantEn ? 'View' : 'Voir', url: p.url || storeUrl }],
       }))
       // Règles Meta carrousel : pas de header ni footer sur la bulle principale.
       campaign.header_text = null
       campaign.footer_text = null
-      campaign.label = 'Campagne carrousel produits'
-      campaign.description = 'Campagne avec carrousel de vos produits (image, prix, bouton Voir).'
+      campaign.label = merchantEn ? 'Product carousel campaign' : 'Campagne carrousel produits'
+      campaign.description = merchantEn
+        ? 'Campaign with a carousel of your products (image, price, View button).'
+        : 'Campagne avec carrousel de vos produits (image, prix, bouton Voir).'
     }
   }
 
-  const pack: OnboardingPack = { version: PACK_VERSION, generated_at: new Date().toISOString(), language: 'fr', items }
+  // ⚠️ La langue REELLEMENT redigee — pas 'fr' en dur : apply-pack cree ensuite
+  // la variante de l'autre langue via translateTemplateRow, et il partirait de
+  // la mauvaise source si on mentait ici.
+  const pack: OnboardingPack = { version: PACK_VERSION, generated_at: new Date().toISOString(), language: merchantEn ? 'en' : 'fr', items }
 
   // Cache serveur (reprise sans re-génération).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
