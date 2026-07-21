@@ -775,19 +775,36 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 cas, la carte proposait « Annuler l'abonnement » sur un
                 abonnement déjà résilié : action sans effet et message trompeur. */}
             {shopifyBilled && isCancelled && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-                  {t('subscription.sub_cancelled_notice')}{' '}
-                  {subscription?.subscriptionEndsAt && (
-                    <span className="font-semibold">
-                      {subscription.subscriptionEndsAt.toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR', {
-                        day: 'numeric', month: 'long', year: 'numeric',
-                      })}
-                    </span>
-                  )}
-                  . {t('subscription.sub_resubscribe_below')}
-                </p>
+              <div className="flex flex-col gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-2">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+                    {t('subscription.sub_cancelled_notice')}{' '}
+                    {subscription?.subscriptionEndsAt && (
+                      <span className="font-semibold">
+                        {subscription.subscriptionEndsAt.toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR', {
+                          day: 'numeric', month: 'long', year: 'numeric',
+                        })}
+                      </span>
+                    )}
+                    . {t('subscription.sub_resubscribe_below')}
+                  </p>
+                </div>
+                {/* Accès Shopify TOUJOURS disponible — même annulé, le marchand
+                    doit pouvoir consulter ses factures ou réactiver côté Shopify. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    const domain = subscription?.shopDomain
+                    if (!domain) return
+                    window.open(`https://${domain}/admin/settings/billing`, '_blank', 'noopener')
+                  }}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  {t('subscription.sub_open_shopify')}
+                </Button>
               </div>
             )}
 
