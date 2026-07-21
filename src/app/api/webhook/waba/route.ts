@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { contactFirstName } from '@/lib/templates/variables'
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
@@ -234,7 +235,7 @@ export async function POST(req: NextRequest) {
                   .then(undefined, () => {})
 
                 const { data: readContact } = await supabase
-                  .from('contacts').select('name').eq('id', contactId).single()
+                  .from('contacts').select('name, first_name').eq('id', contactId).single()
 
                 try {
                   const { enqueueAutomations } = await import('@/lib/automations/engine')
@@ -244,7 +245,7 @@ export async function POST(req: NextRequest) {
                     ctx: {
                       contactId,
                       variables: {
-                        customer_first_name: (readContact?.name || '').split(' ')[0] || '',
+                        customer_first_name: contactFirstName(readContact),
                         customer_full_name: readContact?.name || '',
                       },
                       // ⚠️ ANTI-BOUCLE INFINIE.
@@ -790,7 +791,7 @@ export async function POST(req: NextRequest) {
                     buttonTitle: clickedButtonTitle,
                     variables: {
                       button_title: clickedButtonTitle,
-                      customer_first_name: (contact.name || '').split(' ')[0] || '',
+                      customer_first_name: contactFirstName(contact),
                       customer_full_name: contact.name || '',
                     },
                     // idempotence : un même clic (wa_message_id) ne déclenche qu'une fois

@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   // Boutique → user (+ token pour relier le client Shopify)
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('user_id, access_token')
+    .select('user_id, access_token, shop_name')
     .eq('shop_domain', shop)
     .maybeSingle()
   if (!store?.user_id) return J({ ok: false, error: 'boutique non liée' }, 404)
@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
   // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit ;
   // si null (reconnexion nécessaire), on saute juste la liaison (best-effort).
   let shopifyCustomerId: string | null = null
+  let shopifyName: string | null = null
   if (store.access_token) {
     try {
       const token = await getValidAccessToken(shop)
@@ -164,11 +165,24 @@ export async function POST(req: NextRequest) {
         const cust = (email ? await findCustomerByEmail(shop, token, email) : null)
           || await findCustomerByPhone(shop, token, phone)
         shopifyCustomerId = cust?.id ?? null
+        // ⚠️ ON RÉCUPÈRE AUSSI LE NOM.
+        //
+        // Seul l'`id` était exploité : le `displayName` que Shopify renvoie dans
+        // la même réponse était jeté. Résultat, un client identifié chez Shopify
+        // recevait quand même « Hello there » / « Bonjour cher client », alors
+        // que la boutique connaît son nom. La popup n'a pas toujours de champ
+        // nom — Shopify, si.
+        if (!shopifyName && cust?.displayName) shopifyName = cust.displayName.trim() || null
       } else {
         console.warn('[optin] jeton Shopify invalide pour', shop, '→ liaison client Shopify ignorée')
       }
     } catch { /* non bloquant */ }
   }
+
+  // Nom retenu : celui SAISI dans la popup s'il existe (le client vient de
+  // l'écrire), sinon celui que Shopify connaît. Sans ce repli, un client
+  // pourtant identifié recevait « Hello there ».
+  const effectiveName = name || shopifyName
 
   // Upsert contact opted-in
   const now = new Date().toISOString()
@@ -178,7 +192,7 @@ export async function POST(req: NextRequest) {
       {
         session_id: session.id,
         phone_number: phone,
-        name,
+        name: effectiveName,
         notify_email: email,
         opt_in_status: 'subscribed',
         opt_in_source: 'shopify_storefront',
@@ -201,12 +215,14 @@ export async function POST(req: NextRequest) {
   if (contact?.id) {
     try {
       const { enqueueAutomations } = await import('@/lib/automations/engine')
-      const firstName = (name || '').split(' ')[0] || ''
+      const firstName = (effectiveName || '').split(' ')[0] || ''
       const baseVars = {
         customer_first_name: firstName,
-        customer_full_name: name || '',
+        customer_full_name: effectiveName || '',
         customer_phone: phone,
-        store_name: shop?.replace('.myshopify.com', '') || 'la boutique',
+        // ⚠️ `shop_name` réel, pas le handle technique : « xeyo-dev » s'affichait
+        // dans les messages à la place du nom commercial de la boutique.
+        store_name: store.shop_name || shop?.replace('.myshopify.com', '') || 'la boutique',
       }
       await enqueueAutomations({
         userId: store.user_id,

@@ -1,4 +1,5 @@
 import 'server-only'
+import { contactFirstName } from '@/lib/templates/variables'
 
 /**
  * Déclencheurs TEMPORELS (hors webhooks Shopify) — réutilisable.
@@ -132,7 +133,7 @@ async function handleNoReply(supabase: SB, a: Auto, hours: number, recurrence?: 
     // `a.id` reste dans la clé : sans lui, deux automatisations « pas de réponse »
     // du même marchand s'écrasaient l'une l'autre et la seconde ne partait jamais.
     const dedup = `noreply:${a.id}:${c.contact_id}:${dedupSuffix(recurrence, since || 'never')}`
-    if (await enqueue(supabase, a, c.contact_id, { customer_first_name: (contact?.name || '').split(' ')[0] || '' }, dedup)) n++
+    if (await enqueue(supabase, a, c.contact_id, { customer_first_name: contactFirstName(contact) }, dedup)) n++
   }
   return n
 }
@@ -171,12 +172,12 @@ async function handleScheduled(supabase: SB, a: Auto, scheduledAt: string | unde
   const sessionIds = await sessionIdsOf(supabase, a.user_id)
   if (!sessionIds.length) return 0
   const { data: contacts } = await supabase
-    .from('contacts').select('id, name, opt_in_status, preferred_channel')
+    .from('contacts').select('id, name, first_name, opt_in_status, preferred_channel')
     .in('session_id', sessionIds).eq('opt_in_status', 'subscribed').neq('preferred_channel', 'none').limit(500)
   let n = 0
   for (const ct of contacts || []) {
     const dedup = `sched:${a.id}:${scheduledAt}:${ct.id}`
-    if (await enqueue(supabase, a, ct.id, { customer_first_name: (ct.name || '').split(' ')[0] || '' }, dedup)) n++
+    if (await enqueue(supabase, a, ct.id, { customer_first_name: contactFirstName(ct) }, dedup)) n++
   }
   // Date précise = envoi UNIQUE : on marque l'automatisation comme déclenchée
   // pour ne plus jamais la rejouer.
@@ -207,7 +208,7 @@ async function handleBirthday(supabase: SB, a: Auto, today: string): Promise<num
     const bday = (ct.metadata as { birthday?: string } | null)?.birthday
     if (!bday || bday.slice(-5) !== mmdd) continue
     const dedup = `bday:${ct.id}:${today.slice(0, 4)}`
-    if (await enqueue(supabase, a, ct.id, { customer_first_name: (ct.name || '').split(' ')[0] || '' }, dedup)) n++
+    if (await enqueue(supabase, a, ct.id, { customer_first_name: contactFirstName(ct) }, dedup)) n++
   }
   return n
 }

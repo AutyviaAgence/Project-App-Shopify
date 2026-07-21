@@ -101,3 +101,33 @@ export function resolveVariables(
     return (raw === undefined || raw === null) ? '' : String(raw)
   })
 }
+
+/**
+ * Prénom du contact, quelle que soit la colonne renseignée.
+ *
+ * ⚠️ `contacts` a DEUX colonnes de nom : `name` (nom complet, posé par l'opt-in
+ * et WhatsApp) et `first_name`/`last_name` (saisie manuelle, import). Tous les
+ * producteurs de variables ne lisaient que `name` : un contact n'ayant que
+ * `first_name` recevait « cher client » / « Hello there » alors que son prénom
+ * était en base.
+ */
+export function contactFirstName(contact: {
+  name?: string | null
+  first_name?: string | null
+} | null | undefined): string {
+  if (!contact) return ''
+  const fromName = (contact.name || '').trim().split(/\s+/)[0] || ''
+  return fromName || (contact.first_name || '').trim()
+}
+
+/** Nom complet du contact, même logique de repli. */
+export function contactFullName(contact: {
+  name?: string | null
+  first_name?: string | null
+  last_name?: string | null
+} | null | undefined): string {
+  if (!contact) return ''
+  const full = (contact.name || '').trim()
+  if (full) return full
+  return [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim()
+}
