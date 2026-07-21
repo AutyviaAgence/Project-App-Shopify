@@ -1,4 +1,5 @@
 import 'server-only'
+import { downloadMediaFromStorage } from '@/lib/storage/media'
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { resolveVariables } from '@/lib/templates/variables'
 
@@ -37,7 +38,7 @@ async function resolveLanguageVariant(
   // Toutes les variantes approuvées de ce modèle (même utilisateur + même nom).
   const { data: variants } = await supabase
     .from('whatsapp_templates')
-    .select('id, user_id, name, language, source_language, status, category, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons')
+    .select('id, user_id, name, language, source_language, status, category, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons, header_type, header_media_url')
     .eq('user_id', base.user_id)
     .eq('name', base.name)
     .eq('status', 'approved')
@@ -115,7 +116,7 @@ export async function sendTemplateToContact(params: {
 
   // Modèle de base (celui choisi dans l'automation). On l'utilise pour connaître
   // le `name` et résoudre ensuite la variante linguistique du contact.
-  const SELECT = 'id, user_id, name, language, source_language, status, category, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons'
+  const SELECT = 'id, user_id, name, language, source_language, status, category, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons, header_type, header_media_url'
   const { data: baseTpl } = await supabase
     .from('whatsapp_templates')
     .select(SELECT)
@@ -266,6 +267,43 @@ export async function sendTemplateToContact(params: {
   const components: unknown[] = out.length > 0
     ? [{ type: 'body', parameters: out.map((p) => ({ type: 'text', text: p })) }]
     : []
+
+  // ⚠️ EN-TÊTE MÉDIA — un modèle à header image/vidéo/document DOIT le fournir
+  // à l'envoi, même si l'image est figée dans le modèle approuvé.
+  //
+  // Il était totalement absent ici : tout modèle avec en-tête média partait sans
+  // son composant `header`, et Meta rejetait l'envoi (132012 « format de
+  // variable refusé »). Le message n'arrivait jamais, et l'erreur pointait à
+  // tort vers le corps du texte.
+  //
+  // Le carrousel gérait déjà ce cas (carousel-send.ts) ; on applique le même
+  // mécanisme : télécharger le média, l'uploader chez Meta, référencer son id.
+  const headerKind = (tpl as { header_type?: string | null }).header_type
+  const headerUrl = (tpl as { header_media_url?: string | null }).header_media_url
+  if (headerUrl && headerKind && headerKind !== 'none' && headerKind !== 'text') {
+    const mediatype: 'image' | 'video' | 'document' =
+      headerKind === 'video' ? 'video' : headerKind === 'document' ? 'document' : 'image'
+    try {
+      const dl = await downloadMediaFromStorage(headerUrl)
+      if (dl.ok) {
+        // Import local : `wabaClient` n'est chargé qu'à l'envoi, plus bas.
+        const { wabaClient: media } = await import('@/lib/whatsapp-cloud/client')
+        const up = await media.uploadMedia(
+          session.waba_phone_number_id, token, dl.buffer, dl.mimeType, `header.${mediatype}`
+        )
+        if (up.ok) {
+          // Le header se place AVANT le body dans les composants Meta.
+          components.unshift({ type: 'header', parameters: [{ type: mediatype, [mediatype]: { id: up.data.id } }] })
+        } else {
+          console.error(`[dispatch] ${tpl.name}: upload header Meta échoué:`, up.error)
+        }
+      } else {
+        console.error(`[dispatch] ${tpl.name}: header introuvable (${headerUrl}):`, dl.error)
+      }
+    } catch (e) {
+      console.error(`[dispatch] ${tpl.name}: header non envoyé:`, e)
+    }
+  }
 
   // Carrousel → ajoute le composant `carousel`. Chaque carte doit re-fournir son
   // média d'en-tête (upload Meta → media_id), c'est pourquoi c'est async et qu'on
