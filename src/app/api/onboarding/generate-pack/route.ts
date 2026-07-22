@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { checkTokenLimit } from '@/lib/openai/token-tracker'
+import { checkRateLimit } from '@/lib/rate-limit/middleware'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
@@ -30,13 +30,20 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  // ⚠️ QUOTA DE TOKENS — la cle OpenAI est mutualisee entre tous les marchands.
-  // Sans ce controle, un seul compte pouvait boucler sur cette route et bruler
-  // le budget API. Les routes agents/generate & co le verifiaient deja.
-  const tokenCheck = await checkTokenLimit(user.id)
-  if (!tokenCheck.allowed) {
-    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
-  }
+  // ⚠️ PAS DE GATE DE PLAN ICI — la generation d'onboarding est OFFERTE.
+  //
+  // `checkTokenLimit` refusait tout compte sans abonnement actif. Or cette
+  // etape est la 6e sur 8 et l'abonnement n'arrive qu'a la 8e : TOUT nouveau
+  // marchand se heurtait a « La generation n'a pas abouti » (429) avant meme
+  // qu'on lui ait propose un plan. Un reviewer App Store aussi.
+  //
+  // Meme regle que /api/agents/onboard, qui l'assume explicitement.
+  //
+  // Le budget OpenAI reste protege : la cle est mutualisee, donc on garde une
+  // limite de DEBIT (un compte ne peut pas boucler sur cette route) plutot
+  // qu'une limite de plan.
+  const limited = checkRateLimit(req, 'HEAVY')
+  if (limited) return limited
 
   const body = (await req.json().catch(() => ({}))) as { tone?: string; objectives?: string[]; refresh?: boolean; locale?: string }
   // Langue du MARCHAND (interface) — ne concerne QUE le NOM de l'automatisation,
