@@ -1,4 +1,7 @@
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
+// ⚠️ Un numéro de téléphone est une donnée client protégée (Protected Customer
+// Data de Shopify) : il ne doit pas apparaître en clair dans les journaux.
+import { maskPhoneNumber } from '@/lib/format-phone'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { decryptMessage, encryptMessage } from '@/lib/crypto/encryption'
 import { canUseAi } from '@/lib/plans/gate'
@@ -332,7 +335,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
         .eq('id', recipient.id)
 
       sentThisHour++
-      console.log(`[Campaign ${campaignId}] Sent to ${contact.phone_number} (${sentThisHour}/${campaign.messages_per_hour}/h)`)
+      console.log(`[Campaign ${campaignId}] Sent to ${maskPhoneNumber(contact.phone_number)} (${sentThisHour}/${campaign.messages_per_hour}/h)`)
 
       // Mettre à jour la conversation si elle existe
       if (recipient.conversation_id) {
@@ -395,7 +398,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
           error_message: result.error
         })
         .eq('id', recipient.id)
-      console.log(`[Campaign ${campaignId}] Failed to send to ${contact.phone_number}: ${result.error}`)
+      console.log(`[Campaign ${campaignId}] Failed to send to ${maskPhoneNumber(contact.phone_number)}: ${result.error}`)
     }
 
     // Mettre à jour les stats

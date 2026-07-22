@@ -19,6 +19,15 @@
     <input type="tel" class="xeyo-optin-phone" placeholder="{{ block.settings.placeholder }}" />
     <button type="button" class="xeyo-optin-submit">{{ block.settings.button }}</button>
   </div>
+  {%- comment -%}
+    ⚠️ MENTION DE CONSENTEMENT — obligatoire.
+    Ce bloc collectait un numéro de téléphone SANS aucune mention de consentement,
+    contrairement à la popup et aux extensions de checkout : ni objet du traitement,
+    ni moyen de se désinscrire. C'est exigé par la politique Meta et par le RGPD.
+  {%- endcomment -%}
+  {%- if block.settings.consent != blank -%}
+    <p class="xeyo-optin-consent">{{ block.settings.consent }}</p>
+  {%- endif -%}
   <p class="xeyo-optin-msg" aria-live="polite"></p>
   {%- if block.settings.show_branding -%}
     <a class="xeyo-optin-branding" href="https://xeyo.io" target="_blank" rel="noopener noreferrer">Powered by Xeyo.io</a>
@@ -41,6 +50,7 @@
     border-radius: 8px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
   }
   .xeyo-optin-submit:disabled { opacity: .6; cursor: default; }
+  .xeyo-optin-consent { margin: 10px 0 0; font-size: 11px; line-height: 1.4; opacity: .7; }
   .xeyo-optin-msg { margin: 8px 0 0; font-size: 13px; min-height: 16px; }
   .xeyo-optin-msg.ok { color: #15803d; }
   .xeyo-optin-msg.err { color: #b91c1c; }
@@ -108,6 +118,12 @@
       "id": "label",
       "label": "t:blocks.whatsapp_optin.label",
       "default": "📦 Get my order updates on WhatsApp"
+    },
+    {
+      "type": "text",
+      "id": "consent",
+      "label": "t:blocks.whatsapp_optin.consent",
+      "default": "By submitting, I agree to receive WhatsApp messages about my order. Reply STOP to unsubscribe."
     },
     {
       "type": "text",

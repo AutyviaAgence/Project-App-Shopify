@@ -40,7 +40,8 @@
       "placeholder": "Phone number placeholder",
       "button": "Button text",
       "accent_color": "Color",
-      "show_branding": "Show \"Powered by Xeyo.io\""
+      "show_branding": "Show \"Powered by Xeyo.io\"",
+      "consent": "Consent notice (required by Meta and GDPR)"
     },
     "whatsapp_optin_popup": {
       "name": "Xeyo — Opt-in popup",
