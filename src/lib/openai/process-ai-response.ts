@@ -339,7 +339,19 @@ Exemples :
           return // l'IA ne répond PAS : elle est en pause.
         }
 
-        // MODE « continue » (défaut, soft cap) : on notifie juste le marchand.
+        // ⚠️ PLAFOND ATTEINT → L'IA EST DÉSACTIVÉE sur cette conversation.
+        //
+        // Ce mode se contentait d'alerter et laissait l'IA répondre indéfiniment
+        // (« soft cap »). Décision produit : au plafond, on coupe. Une IA qui
+        // enchaîne 13 réponses sans reprise humaine coûte des crédits et risque
+        // de tourner en rond face à un client qu'elle ne débloque pas.
+        //
+        // Le marchand réactive d'un clic depuis la notification
+        // (« Continuer avec l'IA »), qui appelle PATCH /conversations/:id/agent.
+        await supabase.from('conversations')
+          .update({ is_ai_active: false })
+          .eq('id', params.conversationId)
+
         const { data: session2 } = await supabase
           .from('whatsapp_sessions').select('user_id').eq('id', params.sessionId).single()
         if (session2?.user_id) {
@@ -354,13 +366,13 @@ Exemples :
             await supabase.from('user_alerts').insert({
               user_id: session2.user_id,
               alert_type: 'conversation_long',
-              title: 'Conversation longue',
-              message: `Une conversation dure depuis ${aiMsgCount} réponses de l'IA. Voulez-vous reprendre la main ?`,
+              title: 'Agent IA désactivé',
+              message: `Votre agent IA a été désactivé après ${aiMsgCount} réponses sur cette conversation. Cliquez « Continuer avec l'IA » pour le réactiver, ou reprenez la main.`,
               metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount, variant: 'long' },
             })
           }
         }
-        // On continue quand même (soft cap) : l'IA répond, le marchand décide.
+        return // l'IA ne répond PAS : elle vient d'être désactivée.
       }
     }
 

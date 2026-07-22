@@ -3479,8 +3479,8 @@
       "message_reason": "A contact unsubscribed through the assistant (“{reason}”). They will no longer receive automated messages."
     },
     "conversation_long": {
-      "title": "Long conversation",
-      "message": "A conversation has been going for {n} AI replies. Do you want to take over?",
+      "title": "AI agent disabled",
+      "message": "Your AI agent was disabled after {n} replies on this conversation. Reactivate it, or take over yourself.",
       "paused_title": "Assistant paused",
       "paused_message": "The assistant hit its limit of {cap} replies on a conversation and paused itself. Do you want to keep going with AI? Click “Continue with AI”, or “View conversation” to take over."
     },

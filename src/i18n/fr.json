@@ -3479,8 +3479,8 @@
       "message_reason": "Un contact s'est désabonné via l'assistant (« {reason} »). Il ne recevra plus de messages automatiques."
     },
     "conversation_long": {
-      "title": "Conversation longue",
-      "message": "Une conversation dure depuis {n} réponses de l'IA. Voulez-vous reprendre la main ?",
+      "title": "Agent IA désactivé",
+      "message": "Votre agent IA a été désactivé après {n} réponses sur cette conversation. Réactivez-le, ou reprenez la main.",
       "paused_title": "Assistant en pause",
       "paused_message": "L'assistant a atteint sa limite de {cap} réponses sur une conversation et s'est mis en pause. Voulez-vous continuer avec l'IA ? Cliquez « Continuer avec l'IA », ou « Voir conversation » pour reprendre la main."
     },
