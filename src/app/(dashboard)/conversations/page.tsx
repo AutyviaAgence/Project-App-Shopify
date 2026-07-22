@@ -104,6 +104,8 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
   }[]>([])
   // Filtre par catégorie e-commerce du sélecteur de modèles (façon onboarding).
   const [tplFilter, setTplFilter] = useState<UseCaseKey | 'all'>('all')
+  // Filtre propre au dialogue « Nouvelle conversation » (indépendant de `tplFilter`).
+  const [newConvFilter, setNewConvFilter] = useState<UseCaseKey | 'all'>('all')
   // Nouvelle conversation
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [newConvPhone, setNewConvPhone] = useState('')
@@ -378,6 +380,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
   useEffect(() => {
     if (!templateDialogOpen && !newConvOpen) return
     if (templateDialogOpen) setTplFilter('all') // repart sur « Tous » à chaque ouverture
+    if (newConvOpen) { setNewConvFilter('all'); setNewConvTemplate('') }
     fetch('/api/templates')
       .then((r) => r.json())
       .then((j) => {
@@ -1082,16 +1085,91 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
                   {t('conversations.no_approved_templates', { templates: t('conversations.templates_link') })}
                 </p>
               ) : (
-                <select
-                  value={newConvTemplate}
-                  onChange={(e) => setNewConvTemplate(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <option value="">{t('conversations.choose_template')}</option>
-                  {approvedTemplates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language})</option>
-                  ))}
-                </select>
+                // Sélecteur VISUEL, comme dans « Envoyer un modèle » et le builder
+                // d'automatisations : un simple <select> n'affichait que des noms
+                // techniques (« maketing_avec_un_carrousel_apres_x_jours »), sans
+                // permettre de voir le message ni de filtrer par catégorie.
+                (() => {
+                  const catOf = (tpl: { use_case?: string | null; name: string; category?: string | null }) =>
+                    (tpl.use_case as UseCaseKey) || guessUseCase(tpl.name, tpl.category)
+                  const present = new Set(approvedTemplates.map(catOf))
+                  const filters = USE_CASES.filter((u) => present.has(u.key))
+                  const shown = newConvFilter === 'all'
+                    ? approvedTemplates
+                    : approvedTemplates.filter((tpl) => catOf(tpl) === newConvFilter)
+                  return (
+                    <div className="w-full min-w-0 space-y-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setNewConvFilter('all')}
+                          className={cn(
+                            'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                            newConvFilter === 'all' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          {t('conversations.filter_all_count', { count: approvedTemplates.length })}
+                        </button>
+                        {filters.map((u) => {
+                          const n = approvedTemplates.filter((tpl) => catOf(tpl) === u.key).length
+                          return (
+                            <button
+                              key={u.key}
+                              onClick={() => setNewConvFilter(u.key)}
+                              className={cn(
+                                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                newConvFilter === u.key ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              {t(u.labelKey)} ({n})
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {shown.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">{t('conversations.no_template_in_category')}</p>
+                      ) : (
+                        <div
+                          className="flex w-full min-w-0 gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
+                          onWheel={(e) => {
+                            if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
+                              e.currentTarget.scrollLeft += e.deltaY
+                            }
+                          }}
+                        >
+                          {shown.map((tpl) => (
+                            <button
+                              key={tpl.id}
+                              onClick={() => setNewConvTemplate(tpl.id)}
+                              className={cn(
+                                'group flex w-[230px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition-all hover:border-primary hover:shadow-md',
+                                newConvTemplate === tpl.id && 'border-primary ring-2 ring-primary/40',
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+                                <span className="truncate text-sm font-medium">{tpl.name}</span>
+                                <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{tpl.language}</span>
+                              </div>
+                              <div className="flex-1 p-3">
+                                <TemplateBubble template={{
+                                  body_text: tpl.body_text || '',
+                                  header_text: tpl.header_text ?? null,
+                                  footer_text: tpl.footer_text ?? null,
+                                  header_type: (tpl.header_type ?? null) as WhatsAppTemplate['header_type'],
+                                  header_media_url: tpl.header_media_url ?? null,
+                                  template_type: (tpl.template_type ?? null) as WhatsAppTemplate['template_type'],
+                                  buttons: (tpl.buttons ?? null) as WhatsAppTemplate['buttons'],
+                                  carousel_cards: (tpl.carousel_cards ?? null) as WhatsAppTemplate['carousel_cards'],
+                                  lto_title: tpl.lto_title ?? null,
+                                  lto_default_hours: tpl.lto_default_hours ?? null,
+                                }} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()
               )}
             </div>
             <Button
