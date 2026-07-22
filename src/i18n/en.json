@@ -3516,6 +3516,11 @@
       "disabled_title": "Template disabled by Meta: {name}",
       "disabled_message": "Meta disabled the “{name}” template. The automations using it have been turned off to avoid failed sends. Fix the template, then resubmit it.",
       "disabled_message_reason": "Meta disabled the “{name}” template ({reason}). The automations using it have been turned off to avoid failed sends. Fix the template, then resubmit it."
-    }
+    },
+    "resume_ai": "Continue with AI",
+    "view_conversation": "View conversation",
+    "delete": "Delete",
+    "resume_ok": "Assistant reactivated on this conversation.",
+    "resume_ko": "Couldn’t reactivate the assistant."
   }
 }

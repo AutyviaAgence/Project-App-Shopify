@@ -3516,6 +3516,11 @@
       "disabled_title": "Modèle désactivé par Meta : {name}",
       "disabled_message": "Meta a désactivé le modèle « {name} ». Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le.",
       "disabled_message_reason": "Meta a désactivé le modèle « {name} » ({reason}). Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le."
-    }
+    },
+    "resume_ai": "Continuer avec l’IA",
+    "view_conversation": "Voir conversation",
+    "delete": "Supprimer",
+    "resume_ok": "Assistant réactivé sur cette conversation.",
+    "resume_ko": "Impossible de réactiver l’assistant."
   }
 }

@@ -292,10 +292,10 @@ export function AlertsDropdown() {
         body: JSON.stringify({ is_ai_active: true }),
       })
       if (res.ok) {
-        toast.success('Assistant réactivé sur cette conversation.')
+        toast.success(t('alerts.resume_ok'))
         handleMarkAsRead(alert.id)
       } else {
-        toast.error('Impossible de réactiver l’assistant.')
+        toast.error(t('alerts.resume_ko'))
       }
     } catch {
       toast.error('Erreur réseau.')
@@ -400,7 +400,7 @@ export function AlertsDropdown() {
                           }}
                         >
                           <Play className="mr-1 h-2.5 w-2.5" />
-                          {resuming === alert.id ? '…' : 'Continuer avec l’IA'}
+                          {resuming === alert.id ? '…' : t('alerts.resume_ai')}
                         </Button>
                       )}
                       {hasConversationLink(alert) && (
@@ -414,7 +414,7 @@ export function AlertsDropdown() {
                           }}
                         >
                           <ExternalLink className="mr-1 h-2.5 w-2.5" />
-                          Voir conversation
+                          {t('alerts.view_conversation')}
                         </Button>
                       )}
                       {!alert.is_read && (
@@ -441,7 +441,7 @@ export function AlertsDropdown() {
                         }}
                       >
                         <Trash2 className="mr-0.5 h-2.5 w-2.5" />
-                        Supprimer
+                        {t('alerts.delete')}
                       </Button>
                     </div>
                   </div>
