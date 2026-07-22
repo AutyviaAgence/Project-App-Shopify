@@ -278,11 +278,33 @@ Exemples :
     // qui s'éternisent + qualité (l'IA tourne parfois en rond au-delà).
     const aiCap = agent.max_messages_per_conversation
     if (aiCap && aiCap > 0) {
-      const { count: aiMsgCount } = await supabase
+      // ⚠️ LE COMPTEUR REPART DE ZÉRO À CHAQUE RÉACTIVATION.
+      //
+      // Sans borne, il portait sur TOUT l'historique : le marchand cliquait
+      // « Continuer avec l'IA », elle répondait UNE fois, et le plafond déjà
+      // dépassé la recoupait aussitôt. Le bouton n'aurait rien réactivé.
+      //
+      // Repère : la dernière alerte de plafond posée sur CETTE conversation. On
+      // ne compte que les réponses IA postérieures. La déduplication d'alerte
+      // (plus bas) ne regarde que les alertes NON LUES — celle-ci ayant été
+      // marquée lue à la réactivation, une nouvelle notification pourra donc
+      // réapparaître au prochain plafond.
+      const { data: lastCap } = await supabase
+        .from('user_alerts')
+        .select('created_at')
+        .eq('alert_type', 'conversation_long')
+        .contains('metadata', { conversation_id: params.conversationId })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      let countQuery = supabase
         .from('messages')
         .select('id', { count: 'exact', head: true })
         .eq('conversation_id', params.conversationId)
         .eq('sent_by', 'ai_agent')
+      if (lastCap?.created_at) countQuery = countQuery.gt('created_at', lastCap.created_at)
+      const { count: aiMsgCount } = await countQuery
 
       if ((aiMsgCount ?? 0) >= aiCap) {
         const agentX = agent as typeof agent & {
@@ -361,6 +383,11 @@ Exemples :
             .eq('user_id', session2.user_id)
             .eq('alert_type', 'conversation_long')
             .contains('metadata', { conversation_id: params.conversationId })
+            // ⚠️ Seules les alertes NON LUES bloquent une nouvelle notification.
+            // Sans ce filtre, une seule alerte serait créée par conversation À
+            // VIE : apres reactivation, le marchand ne serait plus jamais
+            // prevenu que l'agent s'est de nouveau desactive.
+            .eq('is_read', false)
             .maybeSingle()
           if (!existing) {
             await supabase.from('user_alerts').insert({

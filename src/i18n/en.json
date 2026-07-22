@@ -3521,6 +3521,7 @@
     "view_conversation": "View conversation",
     "delete": "Delete",
     "resume_ok": "Assistant reactivated on this conversation.",
-    "resume_ko": "Couldn’t reactivate the assistant."
+    "resume_ko": "Couldn’t reactivate the assistant.",
+    "mark_read_error": "Couldn’t mark as read"
   }
 }

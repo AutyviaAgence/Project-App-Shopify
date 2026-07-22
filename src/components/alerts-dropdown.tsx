@@ -211,7 +211,7 @@ export function AlertsDropdown() {
       setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, is_read: true } : a))
       setUnreadCount(prev => Math.max(0, prev - 1))
     } catch {
-      toast.error('Erreur lors du marquage')
+      toast.error(t('alerts.mark_read_error'))
     }
   }
 
@@ -228,7 +228,7 @@ export function AlertsDropdown() {
       setUnreadCount(0)
       toast.success('Toutes les alertes marquées comme lues')
     } catch {
-      toast.error('Erreur lors du marquage')
+      toast.error(t('alerts.mark_read_error'))
     } finally {
       setIsLoading(false)
     }

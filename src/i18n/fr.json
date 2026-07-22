@@ -3521,6 +3521,7 @@
     "view_conversation": "Voir conversation",
     "delete": "Supprimer",
     "resume_ok": "Assistant réactivé sur cette conversation.",
-    "resume_ko": "Impossible de réactiver l’assistant."
+    "resume_ko": "Impossible de réactiver l’assistant.",
+    "mark_read_error": "Erreur lors du marquage"
   }
 }
