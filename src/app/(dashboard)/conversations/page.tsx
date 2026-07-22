@@ -1061,14 +1061,20 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
       {/* Bascule template : le client est hors fenêtre 24h */}
       {/* Nouvelle conversation : numéro + modèle approuvé */}
       <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-        <DialogContent>
+        {/* ⚠️ Largeur BORNÉE + défilement vertical.
+            Sans `sm:max-w-2xl`, le carrousel de modèles poussait la largeur du
+            dialog et débordait de l'écran (les cartes sortaient à droite, sans
+            moyen de les atteindre). `max-h` + `overflow-y-auto` : la liste des
+            catégories peut être longue, le bouton de validation doit rester
+            joignable. Mêmes contraintes que le dialogue « Envoyer un modèle ». */}
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('conversations.new_conversation')}</DialogTitle>
             <DialogDescription>
               {t('conversations.new_conversation_desc')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t('conversations.whatsapp_number_label')}</label>
               <input
@@ -1078,7 +1084,9 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
             </div>
-            <div className="space-y-1.5">
+            {/* min-w-0 : sans lui, le carrousel imbriqué repousse ce conteneur
+                et le dialog déborde malgré sa largeur maximale. */}
+            <div className="min-w-0 space-y-1.5">
               <label className="text-sm font-medium">{t('conversations.template_label')}</label>
               {approvedTemplates.length === 0 ? (
                 <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
