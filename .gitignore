@@ -62,3 +62,6 @@ scripts/loadtest/last-run-summary.json
 
 # Fichiers de workspace VS Code (locaux)
 *.code-workspace
+
+# Videos (demo App Store, captures) — jamais versionnees
+*.mp4
