@@ -20,7 +20,7 @@ export async function checkTokenLimit(userId: string): Promise<
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('tokens_used, tokens_limit, tokens_extra, subscription_status, trial_ends_at, subscription_ends_at, role')
+    .select('tokens_used, tokens_limit, tokens_extra, subscription_status, trial_ends_at, subscription_ends_at, role, onboarding_completed_at')
     .eq('id', userId)
     .single()
 
@@ -31,6 +31,22 @@ export async function checkTokenLimit(userId: string): Promise<
   // Les admins ne sont jamais bloqués (même règle que plan-quota).
   if ((profile as { role?: string | null }).role === 'admin') {
     return { allowed: true, remaining: Number.MAX_SAFE_INTEGER }
+  }
+
+  // ⚠️ ONBOARDING EN COURS → budget d'essai, quel que soit l'abonnement.
+  //
+  // Le choix du plan est la DERNIÈRE étape (8/8), mais l'agent se teste à la 5e
+  // et les modèles se génèrent à la 6e. Un compte neuf a forcément
+  // `subscription_status='none'` à ce moment : toutes les routes IA lui
+  // renvoyaient « Limite de tokens IA atteinte » avant qu'on lui ait propose
+  // de payer — y compris a un reviewer App Store.
+  //
+  // `agents/[id]/test` portait deja cette exception, en local. On la remonte
+  // ici pour qu'elle couvre TOUTES les routes du parcours d'un coup.
+  const ONBOARDING_TRIAL_TOKENS = 25_000
+  const inOnboarding = !(profile as { onboarding_completed_at?: string | null }).onboarding_completed_at
+  if (inOnboarding && (profile.tokens_used || 0) < ONBOARDING_TRIAL_TOKENS) {
+    return { allowed: true, remaining: ONBOARDING_TRIAL_TOKENS - (profile.tokens_used || 0) }
   }
 
   // ⚠️ MARCHAND SHOPIFY : `profiles.subscription_status` N'EST JAMAIS ÉCRIT par

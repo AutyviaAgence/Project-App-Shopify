@@ -180,26 +180,12 @@ export async function POST(
     return NextResponse.json({ error: 'Message requis' }, { status: 400 })
   }
 
-  // Vérifier la limite de tokens.
-  // EXCEPTION onboarding : l'agent se teste AVANT le choix du plan (le compte
-  // a encore subscription_status='none', que checkTokenLimit refuse). On
-  // accorde donc un petit budget d'essai, plafonné EN DUR côté serveur — le
-  // chat d'onboarding limite déjà à 3 questions côté client.
+  // Limite de tokens. L'exception d'onboarding (budget d'essai avant le choix
+  // du plan) est desormais portee par `checkTokenLimit` lui-meme, pour couvrir
+  // TOUTES les routes IA du parcours et non la seule page d'essai.
   const tokenCheck = await checkTokenLimit(user.id)
   if (!tokenCheck.allowed) {
-    const ONBOARDING_TRIAL_TOKENS = 25_000
-    // `as any` : onboarding_completed_at absent des types Supabase générés
-    // (même contournement que /api/onboarding/state).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: prof } = await (supabase as any)
-      .from('profiles')
-      .select('onboarding_completed_at, tokens_used')
-      .eq('id', user.id)
-      .maybeSingle()
-    const trialAllowed = prof && !prof.onboarding_completed_at && (prof.tokens_used || 0) < ONBOARDING_TRIAL_TOKENS
-    if (!trialAllowed) {
-      return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
-    }
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
   }
 
   // Construire les messages pour l'API
