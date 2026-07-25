@@ -127,8 +127,6 @@ export function StatsOverviewBoard({
     () => stats.charts.messagesOverTime.map((p) => ({
       date: p.date,
       value: p.inbound + p.outbound,
-      inbound: p.inbound,
-      outbound: p.outbound,
     })),
     [stats.charts.messagesOverTime]
   )
@@ -301,7 +299,7 @@ function MessageChart({
   data,
   locale,
 }: {
-  data: { date: string; value: number; inbound?: number; outbound?: number }[]
+  data: { date: string; value: number }[]
   locale: string
 }) {
   const { t } = useTranslation()
@@ -328,34 +326,21 @@ function MessageChart({
     // lisible sur petit écran.
     <div className="mt-4 flex min-h-[6rem] flex-1 flex-col">
       <div className="flex min-h-0 flex-1 items-end gap-[3px]">
-        {shown.map((d, i) => {
-          // Barre EMPILÉE : le sous-titre promet « reçus ET envoyés » — on les
-          // distingue donc par couleur au lieu d'une barre grise unique.
-          const totalH = Math.max(3, (d.value / max) * 100)
-          const inH = d.value > 0 ? (d.inbound ?? 0) / d.value * 100 : 0
-          return (
-            <div
-              key={i}
-              className="group/bar relative flex flex-1 flex-col justify-end"
-              style={{ height: `${totalH}%` }}
-            >
-              {/* Reçus (accent) au-dessus, envoyés (neutre) en dessous. */}
-              <div className="w-full rounded-t-[2px] bg-primary/80 transition-colors group-hover/bar:bg-primary" style={{ height: `${inH}%` }} />
-              <div className="w-full bg-foreground/70 transition-colors group-hover/bar:bg-foreground" style={{ height: `${100 - inH}%` }} />
-              <span className="pointer-events-none absolute -top-10 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 transition-opacity group-hover/bar:opacity-100">
-                {fmt(d.date)} · {t('stats.ov_messages_received')} {d.inbound ?? 0} · {t('stats.ov_messages_sent')} {d.outbound ?? 0}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-      {/* Légende : sans elle, deux couleurs sans explication n'aident pas. */}
-      <div className="mt-2 flex items-center gap-4 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-sm bg-primary/80" />{t('stats.ov_messages_received')}</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-sm bg-foreground/70" />{t('stats.ov_messages_sent')}</span>
+        {shown.map((d, i) => (
+          <div
+            key={i}
+            className="group/bar relative flex-1 rounded-t-[2px] bg-foreground/80 transition-colors hover:bg-primary"
+            style={{ height: `${Math.max(3, (d.value / max) * 100)}%` }}
+          >
+            {/* Infobulle au survol : la date et le nombre exact. */}
+            <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 transition-opacity group-hover/bar:opacity-100">
+              {fmt(d.date)} : {d.value}
+            </span>
+          </div>
+        ))}
       </div>
       {/* Repères de dates aux extrémités (pas sous chaque barre : illisible). */}
-      <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+      <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
         <span>{fmt(shown[0].date)}</span>
         <span>{fmt(shown[shown.length - 1].date)}</span>
       </div>

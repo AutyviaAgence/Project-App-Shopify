@@ -220,7 +220,7 @@ export default function StatsPage() {
           {/* `mt-6` : de l'air entre les onglets et les cartes, qui étaient collés.
               `flex-1 min-h-0` : ce contenu occupe la hauteur restante → la Vue
               globale tient sur un écran. */}
-          <TabsContent value="overview" className="mt-6 min-h-0 flex-1 overflow-y-auto data-[state=active]:flex data-[state=active]:flex-col">
+          <TabsContent value="overview" className="mt-6 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
             <StatsOverviewBoard
               stats={stats}
               locale={locale}
