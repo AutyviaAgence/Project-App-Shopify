@@ -1,4 +1,5 @@
 import 'server-only'
+import { logAiUsage } from './usage-log'
 import OpenAI from 'openai'
 
 /**
@@ -43,12 +44,22 @@ export async function transcribeAudio(
     const uint8 = new Uint8Array(audioBuffer)
     const file = new File([uint8], `audio.${ext}`, { type: mimeType })
 
+    const started = Date.now()
     const transcription = await openai.audio.transcriptions.create({
       file,
       model: 'whisper-1',
     })
 
-    // Whisper ne retourne pas de token count — estimation ~100 tokens
+    // ⚠️ WHISPER FACTURE A LA DUREE (0.006 USD/min), pas aux tokens.
+    // WhatsApp encode en Opus ~16 kbps -> ~2000 octets/s : on estime la duree
+    // depuis la taille du buffer (plancher 1 s pour ne pas sous-facturer un
+    // court vocal). Ce cout etait TOTALEMENT invisible jusqu'ici.
+    const estSeconds = Math.max(1, audioBuffer.length / 2000)
+    const costUsd = (estSeconds / 60) * 0.006
+    void logAiUsage({
+      feature: 'transcription', model: 'whisper-1',
+      costUsdOverride: costUsd, latencyMs: Date.now() - started,
+    })
     return { ok: true, text: transcription.text, tokensUsed: 100 }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown Whisper error'
@@ -94,6 +105,13 @@ export async function describeImage(
     if (!description) {
       return { ok: false, error: 'Empty response from Vision' }
     }
+    // Vision journalise ses tokens REELS (gpt-4o) — l'image est facturee dans
+    // le prompt via `detail: 'low'` (~85 tokens/image). Cout jusqu'ici invisible.
+    void logAiUsage({
+      feature: 'vision', model: response.model || 'gpt-4o',
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+    })
     return { ok: true, description, tokensUsed: response.usage?.total_tokens || 0 }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown Vision error'
