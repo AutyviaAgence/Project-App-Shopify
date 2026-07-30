@@ -58,11 +58,21 @@ export type ResolvedUser = {
 export async function resolveXeyoUser(shop: string): Promise<ResolvedUser | null> {
   const supabase = admin()
 
+  // ⚠️ NE PAS filtrer sur `is_active`.
+  //
+  // Le LIEN compte↔boutique vit dans `user_id`, indépendamment de `is_active`.
+  // Une boutique peut être temporairement `is_active: false` (echec de token
+  // exchange lors d'une reinstallation, etat intermediaire) alors qu'elle EST
+  // bien reliee a un compte. En exigeant `is_active: true`, on rendait ce lien
+  // invisible : l'app affichait « Installation requise » a l'infini et le
+  // reviewer Shopify ne pouvait acceder a aucun onglet.
+  //
+  // On distingue en revanche une boutique DELIEE (unlinked_at pose, user_id
+  // efface volontairement) — la, user_id est deja null, donc rien a exclure.
   const { data: store } = await supabase
     .from('shopify_stores')
     .select('user_id')
     .eq('shop_domain', shop)
-    .eq('is_active', true)
     .maybeSingle()
 
   if (!store?.user_id) return null
