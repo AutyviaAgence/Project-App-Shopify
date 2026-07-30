@@ -62,11 +62,9 @@ function phoneSearchVariants(digits: string): string[] {
  *
  * Détail : write_orders (refundCreate/orderCancel) · write_discounts
  * (discountCodeBasicCreate) · read_fulfillments (webhook livraison) ·
- * read_all_orders (scope PRIVILÉGIÉ, approuvé par Shopify : sans lui, l'Admin API
  * plafonne aux 60 derniers jours et tronque SILENCIEUSEMENT au-delà).
  */
 const DEFAULT_SCOPES = [
-  'read_all_orders',
   'read_customers',
   'write_discounts',
   'read_orders',
@@ -507,15 +505,16 @@ export async function fetchOrderById(
  * `max` borne le nombre total récupéré (garde-fou anti-boucle).
  */
 /**
- * Historique COMPLET des commandes (pas de borne temporelle).
+ * Commandes des 60 DERNIERS JOURS.
  *
- * ⚠️ Exige le scope `read_all_orders` — un scope privilégié, approuvé par Shopify
- * le 13 juillet 2026. Avec `read_orders` seul, l'Admin API plafonne aux 60 derniers
- * jours et **tronque silencieusement** au-delà : on croirait avoir tout l'historique
- * alors qu'il en manquerait la moitié.
+ * ⚠️ Volontairement BORNÉ à 60 jours pour rester dans le scope `read_orders`
+ * standard (le scope privilégié `read_all_orders` a été RETIRÉ : la review App
+ * Store a jugé qu'il n'était pas essentiel — cf. requirement 3.2.1).
  *
- * Si ce scope venait à être révoqué, il faudrait RÉTABLIR une borne explicite
- * (`query: "created_at:>=..."`) plutôt que de laisser l'API mentir.
+ * `read_orders` seul plafonne l'Admin API aux 60 derniers jours ; on aligne donc
+ * la requête sur cette fenêtre (`created_at:>=`) plutôt que de laisser l'API
+ * tronquer silencieusement. L'historique plus ancien se reconstitue ensuite au
+ * fil de l'eau via les webhooks orders/* (chaque nouvelle commande est stockée).
  */
 export async function listAllOrders(
   shop: string,
@@ -529,19 +528,25 @@ export async function listAllOrders(
   let cursor: string | null = null
   let guard = 0
 
+  // Fenêtre de 60 jours : la borne que `read_orders` seul autorise. On la calcule
+  // ici plutôt qu'avec Date.now() global (interdit ailleurs, mais ok en runtime
+  // serveur classique).
+  const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+  const sinceQuery = `status:any created_at:>=${since}`
+
   while (orders.length < max && guard++ < 50) {
     const take = Math.min(100, max - orders.length) // 100 = plafond GraphQL / page
     const res: { ok: true; data: OrdersPage } | { ok: false; error: string } =
       await shopifyGraphQL<OrdersPage>(
         shop,
         accessToken,
-        `query($n: Int!, $after: String) {
-           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: "status:any") {
+        `query($n: Int!, $after: String, $q: String!) {
+           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: $q) {
              nodes { ${ORDER_GQL_FIELDS} }
              pageInfo { hasNextPage endCursor }
            }
          }`,
-        { n: take, after: cursor }
+        { n: take, after: cursor, q: sinceQuery }
       )
     if (!res.ok) return { ok: false, error: res.error }
     const page: OrdersPage['orders'] | undefined = res.data?.orders
