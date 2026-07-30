@@ -29,7 +29,7 @@ COPY . .
 
 # Trace de build (utile dans les logs Dokploy pour vérifier qu'on a bien
 # reconstruit). `CACHEBUST` reste accepté si Dokploy le passe explicitement.
-ARG CACHEBUST=auto
+ARG CACHEBUST=2026-07-30-scope-fix
 RUN echo "cache bust: $CACHEBUST"
 
 # ⚠️ PURGE DU CACHE DE COMPILATION NEXT.JS.
