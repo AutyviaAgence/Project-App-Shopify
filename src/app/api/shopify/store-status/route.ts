@@ -11,11 +11,21 @@ export async function GET() {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
+  // ⚠️ TOLÉRANT AU MULTI-BOUTIQUE — ne PAS revenir à `.maybeSingle()` sec.
+  //
+  // `.maybeSingle()` LÈVE une erreur (PGRST116) si la requête renvoie 2+ lignes.
+  // Un compte peut se retrouver avec deux `shopify_stores` actives (adoption
+  // parasite, boutique de test reliée par erreur…). Le dashboard renvoyait alors
+  // `connected: false` — « Connectez votre boutique » — alors que la boutique
+  // ÉTAIT bien liée et active. On prend donc la plus récemment mise à jour au lieu
+  // de planter. Le modèle reste « une boutique par compte » ; ceci est un garde-fou.
   let { data: store } = await supabase
     .from('shopify_stores')
     .select('shop_name, shop_domain, last_synced_at, last_sync_summary, store_context')
     .eq('user_id', user.id)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   // ── Adoption d'une boutique ORPHELINE (user_id NULL) ────────────────────────

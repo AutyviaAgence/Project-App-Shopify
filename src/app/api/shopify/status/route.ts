@@ -29,9 +29,12 @@ export async function GET(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+    // Tolérant au multi-boutique : `.maybeSingle()` plante sur 2+ lignes (voir
+    // store-status). On prend la plus récente au lieu de casser « installed ».
     const { data: own } = await adminEarly
       .from('shopify_stores').select('shop_domain')
-      .eq('user_id', user.id).eq('is_active', true).maybeSingle()
+      .eq('user_id', user.id).eq('is_active', true)
+      .order('updated_at', { ascending: false }).limit(1).maybeSingle()
     shop = own?.shop_domain ?? null
     if (!shop) return NextResponse.json({ data: { installed: false } })
   }
