@@ -76,11 +76,17 @@ export async function GET(req: NextRequest) {
   const token = rawToken(req)
   await ensureStoreProvisioned(session.shop, token)
 
+  // ⚠️ `.limit(1)` avant `.maybeSingle()` : cette route GATE tout l'écran embedded.
+  // Un `.maybeSingle()` sec LÈVE PGRST116 sur 2+ lignes actives (réinstallation,
+  // doublon shop_domain) → réponse cassée → le client tombe sur « reconnectez votre
+  // boutique » alors qu'elle EST liée. On prend la plus récente au lieu de planter.
   const { data: store } = await admin()
     .from('shopify_stores')
     .select('user_id, shop_name')
     .eq('shop_domain', session.shop)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   // Déjà liée : inutile d'aller chercher l'identité (un appel réseau de moins).
@@ -142,6 +148,8 @@ export async function POST(req: NextRequest) {
     .select('id, user_id, shop_name, shop_domain')
     .eq('shop_domain', session.shop)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (!store) return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })

@@ -190,10 +190,18 @@ export async function exchangeSessionToken(
   const { apiKey, apiSecret } = getShopifyConfig()
   if (!apiKey || !apiSecret) return { ok: false, error: 'Config Shopify manquante' }
 
+  // ⚠️ TIMEOUT OBLIGATOIRE. Sans `AbortController`, ce fetch pend indéfiniment si le
+  // réseau vers `{shop}/admin` traîne (ETIMEDOUT observé en prod). Or cette fonction
+  // est sur le chemin embedded (ensureStoreProvisioned l'appelle à chaque nav quand
+  // shop_email manque) : un pend = la page reste bloquée ou retombe sur « reconnectez
+  // votre boutique ». On borne à 8 s et on renvoie une erreur nette.
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 8000)
   try {
     const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
       body: JSON.stringify({
         client_id: apiKey,
         client_secret: apiSecret,
@@ -219,7 +227,10 @@ export async function exchangeSessionToken(
     const data = await res.json()
     return { ok: true, tokens: toTokens(data) }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
+    const msg = ctrl.signal.aborted ? 'Timeout token exchange (8s)' : err instanceof Error ? err.message : 'Erreur réseau'
+    return { ok: false, error: msg }
+  } finally {
+    clearTimeout(timer)
   }
 }
 

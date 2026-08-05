@@ -47,21 +47,47 @@ export async function ensureStoreProvisioned(
 ): Promise<boolean> {
   const supabase = admin()
 
-  // Déjà provisionnée ET complète ? Rien à faire — c'est le cas de la quasi-totalité
-  // des requêtes, donc on sort avant tout appel réseau.
+  // Déjà provisionnée ? Rien à faire — c'est le cas de la quasi-totalité des requêtes,
+  // donc on sort avant tout appel réseau.
   //
-  // ⚠️ On exige aussi `shop_email` : une boutique provisionnée mais SANS email est
-  // inexploitable (resolveXeyoUser ne peut pas créer le compte → boutique orpheline
-  // → 0 contact, 0 agent). Sans cette condition, une boutique tombée dans cet état
-  // y restait pour toujours : le token existait, donc on sortait immédiatement et
-  // on ne retentait jamais de récupérer ses infos.
+  // ⚠️ DÉCOUPLAGE « provisionné » vs « email récupéré » — NE PAS re-fusionner.
+  //
+  // On sortait tôt SEULEMENT si `access_token ET shop_email` étaient présents. Mais
+  // `shop_email` est une donnée client PROTÉGÉE que Shopify ne renvoie qu'après
+  // approbation *Protected Customer Data* : tant qu'elle est en attente, `shop_email`
+  // reste VIDE. Conséquence : cette fonction, appelée à CHAQUE navigation embedded,
+  // refaisait un token exchange réseau (+ fetchShopInfo + registerWebhooks) à chaque
+  // page. Un seul de ces appels qui traîne/timeout (ETIMEDOUT observé) faisait
+  // retomber l'app sur « reconnectez votre boutique ». C'est le symptôme rapporté par
+  // le reviewer (« connected, mais reconnect en naviguant »).
+  //
+  // La boutique est UTILISABLE dès qu'elle a un `access_token` valide (non expiré) :
+  // on sort alors tôt. La récupération de l'email est un enrichissement best-effort
+  // qu'on RE-tente au maximum une fois par heure (via updated_at), jamais à chaque
+  // requête, et qui ne bloque JAMAIS l'accès.
   const { data: existing } = await supabase
     .from('shopify_stores')
-    .select('id, access_token, shop_email')
+    .select('id, access_token, shop_email, token_expires_at, updated_at')
     .eq('shop_domain', shop)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
-  if (existing?.access_token && existing.shop_email) return true
+
+  const tokenValid =
+    !!existing?.access_token &&
+    (!existing.token_expires_at || new Date(existing.token_expires_at).getTime() > Date.now())
+
+  if (tokenValid) {
+    // Token OK → boutique utilisable. Si l'email manque encore, on retente son
+    // enrichissement au plus une fois/heure, sans bloquer (best-effort, hors chemin
+    // critique). Sinon on sort immédiatement.
+    if (existing!.shop_email) return true
+    const staleMs = existing!.updated_at ? Date.now() - new Date(existing!.updated_at).getTime() : Infinity
+    if (staleMs < 60 * 60 * 1000) return true // retenté récemment : ne pas re-cogner Shopify
+    // Email toujours manquant et pas retenté depuis 1h : on tombe dans le bloc
+    // ci-dessous qui refait un exchange pour ré-essayer fetchShopInfo. Best-effort.
+  }
 
   // Managed install : la boutique n'existe pas (ou son jeton est inexploitable).
   // On obtient un jeu de jetons EXPIRANTS en échangeant le session token.

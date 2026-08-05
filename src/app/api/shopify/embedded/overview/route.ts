@@ -72,11 +72,15 @@ export async function GET(req: NextRequest) {
   const sessionIds = (sessions || []).map((s) => s.id)
 
   // Plan (source de vérité : la boutique, facturée par Shopify).
+  // `.limit(1)` : un compte avec 2 boutiques actives ferait planter `.maybeSingle()`
+  // (PGRST116) → overview null → plan/onboarding/contacts disparaissent.
   const { data: store } = await admin
     .from('shopify_stores')
     .select('plan, subscription_status, shop_domain, current_period_end, pending_plan, billing_interval')
     .eq('user_id', authed.userId)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   // Email du compte Xeyo auquel la boutique est reliée. En embedded, l'identité

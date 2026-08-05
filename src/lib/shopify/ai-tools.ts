@@ -568,6 +568,8 @@ async function getUserStore(userId: string): Promise<{ shop: string; token: stri
     .select('shop_domain, access_token')
     .eq('user_id', userId)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
   if (!store?.shop_domain || !store.access_token) return null
   const token = await getValidAccessToken(store.shop_domain)

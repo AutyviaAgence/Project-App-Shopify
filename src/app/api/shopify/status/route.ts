@@ -58,10 +58,16 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // `.limit(1)` : un `shop_domain` peut avoir 2 lignes (réinstallation : ancienne
+  // désactivée + nouvelle active). `.maybeSingle()` sec planterait (PGRST116) →
+  // `installed:false` → écran « Installation requise » à tort. On prend la plus
+  // récemment mise à jour.
   const { data: store } = await admin
     .from('shopify_stores')
     .select('id, user_id, shop_name, is_active, plan, subscription_status')
     .eq('shop_domain', shop)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (!store) {
