@@ -39,11 +39,21 @@ export async function GET() {
   const completed = Boolean(profile.onboarding_completed_at)
 
   // Boutique Shopify liée + état de la 1ʳᵉ synchronisation.
+  //
+  // ⚠️ `.limit(1)` avant `.maybeSingle()` — NE PAS retirer. C'est CETTE route que le
+  // layout dashboard interroge pour décider `storeLinked` (layout l.191). Un
+  // `.maybeSingle()` sec renvoie `data:null` (+ erreur PGRST116) dès que le compte a
+  // 2+ boutiques actives → `shopifyLinked:false` → écran « Reconnecter ma boutique »
+  // sur Conversations/Agents/Templates… ALORS QUE le Dashboard (dashboard/route.ts,
+  // qui fait déjà `.limit(1)`) affiche « connected ». C'est la contradiction exacte
+  // du rejet App Store 2.1.1 (« connected, but navigating prompts to reconnect »).
   const { data: store } = await supabase
     .from('shopify_stores')
     .select('id, shop_name, shop_domain, last_synced_at, last_sync_summary, billing_source')
     .eq('user_id', user.id)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   // WhatsApp connecté ?
