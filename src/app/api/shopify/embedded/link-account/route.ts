@@ -66,6 +66,74 @@ function rawToken(req: NextRequest): string {
 }
 
 /**
+ * Crée (si besoin) le compte Xeyo de l'identité Shopify VÉRIFIÉE et lui rattache la
+ * boutique. Facteur commun de la « porte 1 » manuelle (POST action:create) ET de
+ * l'auto-liaison silencieuse au 1er chargement (GET).
+ *
+ * ⚠️ Ne DOIT être appelée que sur une identité déjà validée par l'appelant :
+ * `staff.email` présent, `staff.emailVerified === true`, `staff.collaborator !== true`.
+ * Renvoie l'issue pour que l'appelant décide du code HTTP.
+ */
+async function provisionAndLink(
+  supabase: ReturnType<typeof admin>,
+  store: { id: string; shop_name: string | null; shop_domain: string },
+  staff: { email: string; firstName?: string | null; lastName?: string | null }
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  // Un compte porte-t-il déjà cet email ? On le RATTACHE (jamais de doublon).
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .ilike('email', staff.email)
+    .maybeSingle()
+
+  let userId = existing?.id as string | undefined
+
+  if (!userId) {
+    const { data: made, error } = await supabase.auth.admin.createUser({
+      email: staff.email,
+      email_confirm: true, // Shopify a vérifié cet email (email_verified === true).
+      user_metadata: {
+        full_name: [staff.firstName, staff.lastName].filter(Boolean).join(' ') || store.shop_name,
+        signup_source: 'shopify',
+        shop_domain: store.shop_domain,
+      },
+    })
+    if (error || !made?.user?.id) {
+      console.error('[shopify/link-account] création du compte échouée:', error?.message)
+      return { ok: false, error: 'Création du compte impossible', status: 500 }
+    }
+    userId = made.user.id
+  }
+
+  // `.is('user_id', null)` : garde anti-course — deux onglets ne peuvent pas lier
+  // la boutique à deux comptes différents.
+  const { error: linkErr } = await supabase
+    .from('shopify_stores')
+    .update({
+      user_id: userId,
+      billing_source: 'shopify',
+      unlinked_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', store.id)
+    .is('user_id', null)
+
+  if (linkErr) {
+    console.error('[shopify/link-account] liaison échouée:', linkErr.message)
+    return { ok: false, error: 'Liaison impossible', status: 500 }
+  }
+
+  // Synchro (agent + RAG) best-effort : ne doit jamais bloquer l'entrée dans l'app.
+  try {
+    await autoConfigureAgentFromShop(store.id)
+  } catch (e) {
+    console.error('[shopify/link-account] auto-config agent échec (non bloquant):', e)
+  }
+
+  return { ok: true }
+}
+
+/**
  * État de la liaison, et identité de la personne connectée à l'admin.
  * Ne lie RIEN : c'est une lecture. Le marchand choisit ensuite.
  */
@@ -82,7 +150,7 @@ export async function GET(req: NextRequest) {
   // boutique » alors qu'elle EST liée. On prend la plus récente au lieu de planter.
   const { data: store } = await admin()
     .from('shopify_stores')
-    .select('user_id, shop_name')
+    .select('id, user_id, shop_name, shop_domain, unlinked_at')
     .eq('shop_domain', session.shop)
     .eq('is_active', true)
     .order('updated_at', { ascending: false })
@@ -99,6 +167,48 @@ export async function GET(req: NextRequest) {
   // Pas encore liée : QUI est devant l'écran ? C'est ce qui permet de lui proposer
   // « Continuer en tant que jean@gmail.com » plutôt que de lui imposer un compte.
   const staff = await fetchStaffUser(session.shop, token)
+
+  // ── AUTO-LIAISON SILENCIEUSE (le fix du rejet 2.1.1) ────────────────────────
+  //
+  // LE PROBLÈME : en managed install, la boutique est provisionnée SANS user_id
+  // (orpheline). Le seul rattachement automatique (adoption par email dans
+  // store-status) exige `shop_email`, une donnée client PROTÉGÉE, VIDE tant que
+  // *Protected Customer Data* n'est pas approuvé. Résultat : la boutique est
+  // installée + active côté Shopify mais reste orpheline → sur app.xeyo.io le
+  // dashboard filtre `.eq('user_id', user.id)`, ne la trouve pas → « Reconnectez
+  // votre boutique », sans issue (le reviewer App Store est resté coincé là-dessus).
+  //
+  // LA SOLUTION : dans l'embedded, l'identité NE dépend PAS de shop_email — elle
+  // vient de `associated_user` (le staff connecté à l'admin), dont Shopify garantit
+  // l'email vérifié. On peut donc créer+lier le compte AUTOMATIQUEMENT dès la 1ʳᵉ
+  // ouverture, sans clic ni Protected Customer Data. Mêmes garde-fous que la porte 1
+  // manuelle : email vérifié + PAS collaborateur (une agence ne doit pas capter la
+  // boutique sur son compte perso).
+  //
+  // ⚠️ On NE ré-adopte JAMAIS une boutique déliée VOLONTAIREMENT (`unlinked_at`) :
+  // le marchand a choisi de la détacher, on respecte ce choix (il repassera par une
+  // liaison explicite).
+  const eligibleAutoLink =
+    !!store &&
+    !store.unlinked_at &&
+    !!staff?.email &&
+    staff.emailVerified === true &&
+    staff.collaborator !== true
+
+  if (eligibleAutoLink && store) {
+    const res = await provisionAndLink(
+      admin(),
+      { id: store.id, shop_name: store.shop_name, shop_domain: store.shop_domain },
+      { email: staff!.email, firstName: staff!.firstName, lastName: staff!.lastName }
+    )
+    if (res.ok) {
+      return NextResponse.json({
+        data: { installed: true, linked: true, shopName: store.shop_name ?? null, autoLinked: true },
+      })
+    }
+    // Échec best-effort : on retombe sur l'écran de liaison manuelle ci-dessous.
+    console.error('[shopify/link-account] auto-liaison échouée, fallback manuel:', res.error)
+  }
 
   // A-t-il déjà un compte Xeyo sous cet email ? → « c'est bien moi » au lieu de « créer ».
   let hasAccount = false
@@ -193,55 +303,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Un compte porte-t-il déjà cet email ? On le RATTACHE (jamais de doublon).
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('id')
-    .ilike('email', staff.email)
-    .maybeSingle()
-
-  let userId = existing?.id as string | undefined
-
-  if (!userId) {
-    const { data: made, error } = await supabase.auth.admin.createUser({
-      email: staff.email,
-      email_confirm: true, // Shopify a vérifié cet email (email_verified === true).
-      user_metadata: {
-        full_name: [staff.firstName, staff.lastName].filter(Boolean).join(' ') || store.shop_name,
-        signup_source: 'shopify',
-        shop_domain: store.shop_domain,
-      },
-    })
-    if (error || !made?.user?.id) {
-      console.error('[shopify/link-account] création du compte échouée:', error?.message)
-      return NextResponse.json({ error: 'Création du compte impossible' }, { status: 500 })
-    }
-    userId = made.user.id
-  }
-
-  // `.is('user_id', null)` : garde anti-course — deux onglets ne peuvent pas lier
-  // la boutique à deux comptes différents.
-  const { error: linkErr } = await supabase
-    .from('shopify_stores')
-    .update({
-      user_id: userId,
-      billing_source: 'shopify',
-      unlinked_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', store.id)
-    .is('user_id', null)
-
-  if (linkErr) {
-    console.error('[shopify/link-account] liaison échouée:', linkErr.message)
-    return NextResponse.json({ error: 'Liaison impossible' }, { status: 500 })
-  }
-
-  // Best-effort : ne doit jamais bloquer l'entrée dans l'app.
-  try {
-    await autoConfigureAgentFromShop(store.id)
-  } catch (e) {
-    console.error('[shopify/link-account] auto-config agent échec (non bloquant):', e)
+  // Création + liaison + synchro : logique partagée avec l'auto-liaison du GET.
+  const res = await provisionAndLink(
+    supabase,
+    { id: store.id, shop_name: store.shop_name, shop_domain: store.shop_domain },
+    { email: staff.email, firstName: staff.firstName, lastName: staff.lastName }
+  )
+  if (!res.ok) {
+    return NextResponse.json({ error: res.error }, { status: res.status })
   }
 
   return NextResponse.json({ data: { linked: true } })

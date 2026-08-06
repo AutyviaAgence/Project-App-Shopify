@@ -532,7 +532,8 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   <h2 className="text-2xl font-bold text-foreground">Connectez votre boutique Shopify</h2>
                   <p className="text-muted-foreground">
                     {tenant.appName} fonctionne à partir de votre boutique : sans elle, les conversations,
-                    agents, modèles, automatisations et statistiques sont en pause.
+                    agents, modèles, automatisations et statistiques sont en pause. Ouvrez {tenant.appName}
+                    depuis votre admin Shopify pour la relier en un clic.
                   </p>
                 </div>
                 <Link
@@ -540,7 +541,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <Store className="h-5 w-5" />
-                  Reconnecter ma boutique
+                  Connecter ma boutique
                 </Link>
               </div>
             </div>

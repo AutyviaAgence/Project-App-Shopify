@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { autoConfigureAgentFromShop } from '@/lib/shopify/sync'
 
 /**
  * GET /api/shopify/store-status
@@ -72,6 +73,17 @@ export async function GET() {
       if (!linkErr) {
         console.log('[store-status] boutique orpheline adoptée :', orphan.shop_domain, '→', user.id)
         store = orphan
+        // ⚠️ SYNCHRO APRÈS ADOPTION — sinon boutique reliée mais VIDE (pas d'agent,
+        // pas de RAG, pas de last_synced_at). L'adoption posait `user_id` sans jamais
+        // déclencher la synchro, contrairement à claim/connect/link-account. Si elle
+        // n'a jamais été synchronisée, on lance la config best-effort (non bloquant).
+        if (!orphan.last_synced_at) {
+          try {
+            await autoConfigureAgentFromShop(orphan.id)
+          } catch (e) {
+            console.error('[store-status] auto-config après adoption échec (non bloquant):', e)
+          }
+        }
       }
     }
   }
