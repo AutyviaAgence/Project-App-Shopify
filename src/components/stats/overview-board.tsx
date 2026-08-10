@@ -326,18 +326,27 @@ function MessageChart({
     // lisible sur petit écran.
     <div className="mt-4 flex min-h-[6rem] flex-1 flex-col">
       <div className="flex min-h-0 flex-1 items-end gap-[3px]">
-        {shown.map((d, i) => (
-          <div
-            key={i}
-            className="group/bar relative flex-1 rounded-t-[2px] bg-foreground/80 transition-colors hover:bg-primary"
-            style={{ height: `${Math.max(3, (d.value / max) * 100)}%` }}
-          >
-            {/* Infobulle au survol : la date et le nombre exact. */}
-            <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 transition-opacity group-hover/bar:opacity-100">
-              {fmt(d.date)} : {d.value}
-            </span>
-          </div>
-        ))}
+        {shown.map((d, i) => {
+          const empty = d.value === 0
+          return (
+            <div
+              key={i}
+              className={cn(
+                'group/bar relative flex-1 rounded-t-[2px] transition-colors',
+                // Jour AVEC messages : barre bleue (marque), plus vive au survol.
+                // Jour VIDE : fine ligne de base grise, PAS un moignon de barre
+                // (l'ancien `Math.max(3, …)` donnait un demi-bâton moche sur les 0).
+                empty ? 'bg-muted-foreground/15' : 'bg-primary/80 hover:bg-primary'
+              )}
+              style={{ height: empty ? '2px' : `${Math.max(6, (d.value / max) * 100)}%` }}
+            >
+              {/* Infobulle au survol : la date et le nombre exact. */}
+              <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 transition-opacity group-hover/bar:opacity-100">
+                {fmt(d.date)} : {d.value}
+              </span>
+            </div>
+          )
+        })}
       </div>
       {/* Repères de dates aux extrémités (pas sous chaque barre : illisible). */}
       <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
