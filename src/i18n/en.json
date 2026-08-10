@@ -71,7 +71,13 @@
     "cancelled": "Your subscription has been cancelled. Resubscribe to access the platform.",
     "expired": "Your subscription has expired. Renew it to continue using {appName}.",
     "trial_ended": "Your trial period has ended. Subscribe to continue using {appName}.",
+    "no_subscription": "Choose a plan to activate {appName}: AI agent, automations, campaigns and WhatsApp inbox. 7-day free trial.",
     "manage_subscription": "Manage my subscription"
+  },
+  "store_gate": {
+    "title": "Connect your Shopify store",
+    "description": "{appName} runs on your store: without it, conversations, agents, templates, automations and statistics are paused. Open {appName} from your Shopify admin to connect it in one click.",
+    "cta": "Connect my store"
   },
   "dashboard": {
     "greeting": "Hello!",

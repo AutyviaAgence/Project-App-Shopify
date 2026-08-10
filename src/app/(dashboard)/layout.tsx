@@ -529,11 +529,9 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   <Store className="h-8 w-8 text-primary" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">Connectez votre boutique Shopify</h2>
+                  <h2 className="text-2xl font-bold text-foreground">{t('store_gate.title')}</h2>
                   <p className="text-muted-foreground">
-                    {tenant.appName} fonctionne à partir de votre boutique : sans elle, les conversations,
-                    agents, modèles, automatisations et statistiques sont en pause. Ouvrez {tenant.appName}
-                    depuis votre admin Shopify pour la relier en un clic.
+                    {t('store_gate.description', { appName: tenant.appName })}
                   </p>
                 </div>
                 <Link
@@ -541,7 +539,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <Store className="h-5 w-5" />
-                  Connecter ma boutique
+                  {t('store_gate.cta')}
                 </Link>
               </div>
             </div>
@@ -564,7 +562,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                         ? t('blocked.expired', { appName: tenant.appName })
                         : subscription?.status === 'trialing'
                           ? t('blocked.trial_ended', { appName: tenant.appName })
-                          : `Choisissez une formule pour activer ${tenant.appName} : agent IA, automatisations, campagnes et boîte de réception WhatsApp. 7 jours d'essai gratuit.`}
+                          : t('blocked.no_subscription', { appName: tenant.appName })}
                   </p>
                 </div>
                 <Link

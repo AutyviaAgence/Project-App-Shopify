@@ -71,7 +71,13 @@
     "cancelled": "Votre abonnement a été annulé. Réabonnez-vous pour accéder à la plateforme.",
     "expired": "Votre abonnement a expiré. Renouvelez-le pour continuer à utiliser {appName}.",
     "trial_ended": "Votre période d'essai est terminée. Abonnez-vous pour continuer à utiliser {appName}.",
+    "no_subscription": "Choisissez une formule pour activer {appName} : agent IA, automatisations, campagnes et boîte de réception WhatsApp. 7 jours d'essai gratuit.",
     "manage_subscription": "Gérer mon abonnement"
+  },
+  "store_gate": {
+    "title": "Connectez votre boutique Shopify",
+    "description": "{appName} fonctionne à partir de votre boutique : sans elle, les conversations, agents, modèles, automatisations et statistiques sont en pause. Ouvrez {appName} depuis votre admin Shopify pour la relier en un clic.",
+    "cta": "Connecter ma boutique"
   },
   "dashboard": {
     "greeting": "Bonjour !",
