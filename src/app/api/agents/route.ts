@@ -197,7 +197,7 @@ export async function POST(req: Request) {
   }
 
   if (!name?.trim() || !system_prompt?.trim()) {
-    return NextResponse.json({ error: 'Nom et prompt système requis' }, { status: 400 })
+    return NextResponse.json({ error: 'Nom et prompt système requis', code: 'agent_name_prompt_required' }, { status: 400 })
   }
 
   const finalModel = VALID_MODELS.includes(model || '') ? model! : 'gpt-4o'

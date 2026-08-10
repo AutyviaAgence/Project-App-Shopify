@@ -37,7 +37,7 @@ export async function POST() {
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
-  if (!store) return NextResponse.json({ error: 'Aucune boutique connectée' }, { status: 404 })
+  if (!store) return NextResponse.json({ error: 'Aucune boutique connectée', code: 'no_shop_connected' }, { status: 404 })
 
   // Supprimer les 3 documents Shopify (par leurs IDs). Le CASCADE supprime les
   // chunks et les liens agent_knowledge_documents associés.
@@ -82,7 +82,7 @@ export async function POST() {
 
   if (error) {
     console.error('[shopify/disconnect] échec :', error.message)
-    return NextResponse.json({ error: 'Déconnexion impossible' }, { status: 500 })
+    return NextResponse.json({ error: 'Déconnexion impossible', code: 'store_disconnect_failed' }, { status: 500 })
   }
 
   // ⚠️ NETTOYER LE PLAN FANTÔME. La boutique partie, le compte ne doit plus être

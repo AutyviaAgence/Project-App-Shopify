@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle()
   if (!session?.id) {
-    return NextResponse.json({ error: 'Aucune session WhatsApp connectée' }, { status: 400 })
+    return NextResponse.json({ error: 'Aucune session WhatsApp connectée', code: 'wa_not_connected' }, { status: 400 })
   }
 
   // Le template doit appartenir à l'utilisateur (l'envoi vérifie ensuite l'approbation).

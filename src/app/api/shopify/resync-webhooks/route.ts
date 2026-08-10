@@ -29,7 +29,7 @@ export async function POST() {
     .maybeSingle()
 
   if (!store?.access_token) {
-    return NextResponse.json({ error: 'Aucune boutique Shopify liée.' }, { status: 404 })
+    return NextResponse.json({ error: 'Aucune boutique Shopify liée.', code: 'no_shop_connected' }, { status: 404 })
   }
 
   // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou

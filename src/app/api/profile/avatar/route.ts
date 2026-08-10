@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const file = form?.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'Fichier requis' }, { status: 400 })
   if (!file.type.startsWith('image/')) {
-    return NextResponse.json({ error: 'Seules les images sont acceptées' }, { status: 400 })
+    return NextResponse.json({ error: 'Seules les images sont acceptées', code: 'images_only' }, { status: 400 })
   }
   if (file.size > MAX_SIZE) {
     return NextResponse.json({ error: 'Image trop lourde (2 Mo max)' }, { status: 400 })

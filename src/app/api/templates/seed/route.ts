@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
 
   const gate = await canCreateContent(user.id)
-  if (!gate.allowed) return NextResponse.json({ error: 'La création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
+  if (!gate.allowed) return NextResponse.json({ error: 'La création de modèles nécessite un plan payant.', upgrade: true, code: 'templates_plan_required' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const onlyKey = typeof body.key === 'string' ? body.key : null

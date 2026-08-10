@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const { created, skipped } = await translateTemplateRow(supabase, user.id, sourceId)
   if (created.length === 0 && skipped.length === 0) {
-    return NextResponse.json({ error: 'Modèle source introuvable' }, { status: 404 })
+    return NextResponse.json({ error: 'Modèle source introuvable', code: 'template_source_not_found' }, { status: 404 })
   }
 
   // Auto-soumission des variantes si la source est approuvée. `created` contient

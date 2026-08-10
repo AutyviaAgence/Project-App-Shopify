@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
 
   const gate = await canUseAiOrOnboarding(user.id)
   if (!gate.allowed) {
-    return NextResponse.json({ error: 'L’assistant IA de création de workflow nécessite un plan payant.', upgrade: true }, { status: 403 })
+    return NextResponse.json({ error: 'L’assistant IA de création de workflow nécessite un plan payant.', upgrade: true, code: 'workflow_ai_plan_required' }, { status: 403 })
   }
 
   // ⚠️ QUOTA DE TOKENS — protege VOTRE cle OpenAI, qui est mutualisee.

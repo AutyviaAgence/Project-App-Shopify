@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const mime = file.type || ''
   if (!(rule.mimes as readonly string[]).includes(mime)) {
     const labels = { image: 'JPG ou PNG', video: 'MP4', document: 'PDF' }[kind]
-    return NextResponse.json({ error: `Format non supporté. Formats acceptés : ${labels}.` }, { status: 400 })
+    return NextResponse.json({ error: `Format non supporté. Formats acceptés : ${labels}.`, code: 'format_unsupported' }, { status: 400 })
   }
   if (file.size > rule.maxBytes) {
     const mb = Math.round(rule.maxBytes / (1024 * 1024))

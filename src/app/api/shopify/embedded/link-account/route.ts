@@ -78,7 +78,7 @@ async function provisionAndLink(
   supabase: ReturnType<typeof admin>,
   store: { id: string; shop_name: string | null; shop_domain: string },
   staff: { email: string; firstName?: string | null; lastName?: string | null }
-): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+): Promise<{ ok: true } | { ok: false; error: string; code?: string; status: number }> {
   // Un compte porte-t-il déjà cet email ? On le RATTACHE (jamais de doublon).
   const { data: existing } = await supabase
     .from('profiles')
@@ -100,7 +100,7 @@ async function provisionAndLink(
     })
     if (error || !made?.user?.id) {
       console.error('[shopify/link-account] création du compte échouée:', error?.message)
-      return { ok: false, error: 'Création du compte impossible', status: 500 }
+      return { ok: false, error: 'Création du compte impossible', code: 'account_create_failed', status: 500 }
     }
     userId = made.user.id
   }
@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
   // passer par `link` et prouver qui il est en s'authentifiant lui-même.
   if (!staff?.email || !staff.emailVerified) {
     return NextResponse.json(
-      { error: 'Shopify n’a pas pu vérifier votre email. Reliez un compte Xeyo existant.' },
+      { error: 'Shopify n’a pas pu vérifier votre email. Reliez un compte Xeyo existant.', code: 'email_unverified' },
       { status: 403 }
     )
   }
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
     { email: staff.email, firstName: staff.firstName, lastName: staff.lastName }
   )
   if (!res.ok) {
-    return NextResponse.json({ error: res.error }, { status: res.status })
+    return NextResponse.json({ error: res.error, code: res.code }, { status: res.status })
   }
 
   return NextResponse.json({ data: { linked: true } })

@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   if (!file || !ref) return NextResponse.json({ error: 'Fichier et ref requis' }, { status: 400 })
   const rules = MEDIA_RULES[mediaKind]
-  if (!rules) return NextResponse.json({ error: 'Type de média invalide' }, { status: 400 })
+  if (!rules) return NextResponse.json({ error: 'Type de média invalide', code: 'invalid_media_type' }, { status: 400 })
   if (!(rules.mimes as readonly string[]).includes(file.type)) return NextResponse.json({ error: `Format non supporté pour ${mediaKind}, attendu : ${rules.label}` }, { status: 400 })
   if (file.size > rules.maxSize) return NextResponse.json({ error: `Fichier trop volumineux (max ${Math.round(rules.maxSize / 1024 / 1024)} Mo pour ${mediaKind})` }, { status: 400 })
   if (!/^[a-z0-9-_]+$/.test(ref)) return NextResponse.json({ error: 'La ref ne peut contenir que des lettres, chiffres, tirets et underscores' }, { status: 400 })

@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .eq('is_active', true)
     .maybeSingle()
   if (!store?.shop_domain || !store.access_token) {
-    return NextResponse.json({ error: 'Boutique non connectée' }, { status: 400 })
+    return NextResponse.json({ error: 'Boutique non connectée', code: 'store_not_connected' }, { status: 400 })
   }
 
   // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou

@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error('[embedded/unlink] échec pour', session.shop, ':', error.message)
-    return NextResponse.json({ error: 'Déliaison impossible' }, { status: 500 })
+    return NextResponse.json({ error: 'Déliaison impossible', code: 'unlink_failed' }, { status: 500 })
   }
   if (!data || data.length === 0) {
     return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })

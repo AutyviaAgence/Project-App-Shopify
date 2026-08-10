@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Cette étiquette existe déjà' }, { status: 409 })
+      return NextResponse.json({ error: 'Cette étiquette existe déjà', code: 'tag_exists' }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

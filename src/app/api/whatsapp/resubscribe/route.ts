@@ -29,7 +29,7 @@ export async function POST() {
     .maybeSingle()
 
   if (!session?.waba_business_account_id || !session.waba_access_token) {
-    return NextResponse.json({ error: 'Aucun compte WhatsApp connecté.' }, { status: 400 })
+    return NextResponse.json({ error: 'Aucun compte WhatsApp connecté.', code: 'wa_not_connected' }, { status: 400 })
   }
 
   const token = decryptMessage(session.waba_access_token)

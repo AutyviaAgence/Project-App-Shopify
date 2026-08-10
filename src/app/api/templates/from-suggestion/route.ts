@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const gate = await canUseAiOrOnboarding(user.id)
   if (!gate.allowed) {
-    return NextResponse.json({ error: 'La création de modèles par l’IA nécessite un plan payant.', upgrade: true }, { status: 403 })
+    return NextResponse.json({ error: 'La création de modèles par l’IA nécessite un plan payant.', upgrade: true, code: 'templates_plan_required' }, { status: 403 })
   }
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle()
   if (!session?.id) {
-    return NextResponse.json({ error: 'Connectez d’abord WhatsApp pour créer un modèle.' }, { status: 400 })
+    return NextResponse.json({ error: 'Connectez d’abord WhatsApp pour créer un modèle.', code: 'connect_wa_first' }, { status: 400 })
   }
 
   // Contexte boutique + produits réels (mêmes sources que /generate : les liens
@@ -119,11 +119,11 @@ export async function POST(req: NextRequest) {
     })
   } catch (e) {
     console.error('[templates/from-suggestion] génération:', e)
-    return NextResponse.json({ error: 'La génération a échoué. Réessayez.' }, { status: 502 })
+    return NextResponse.json({ error: 'La génération a échoué. Réessayez.', code: 'generation_failed' }, { status: 502 })
   }
   const best = proposals?.[0]
   if (!best?.body_text) {
-    return NextResponse.json({ error: 'Aucun message exploitable n’a pu être généré.' }, { status: 502 })
+    return NextResponse.json({ error: 'Aucun message exploitable n’a pu être généré.', code: 'no_usable_message' }, { status: 502 })
   }
 
   // Échantillons Meta : une valeur par variable, dans l'ordre du corps.

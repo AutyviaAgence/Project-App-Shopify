@@ -30,7 +30,7 @@ export async function POST() {
     .maybeSingle()
 
   if (!store?.shop_domain || !store.access_token) {
-    return NextResponse.json({ error: 'Aucune boutique Shopify connectée.' }, { status: 400 })
+    return NextResponse.json({ error: 'Aucune boutique Shopify connectée.', code: 'no_shop_connected' }, { status: 400 })
   }
 
   // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
@@ -44,7 +44,7 @@ export async function POST() {
   }
   const result = await listAllOrders(store.shop_domain, token)
   if (!result.ok) {
-    return NextResponse.json({ error: `Récupération Shopify échouée : ${result.error}` }, { status: 502 })
+    return NextResponse.json({ error: `Récupération Shopify échouée : ${result.error}`, code: 'shopify_fetch_failed' }, { status: 502 })
   }
 
   let saved = 0

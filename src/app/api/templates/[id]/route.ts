@@ -105,11 +105,11 @@ export async function PUT(
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!tpl) return NextResponse.json({ error: 'Modèle introuvable' }, { status: 404 })
+  if (!tpl) return NextResponse.json({ error: 'Modèle introuvable', code: 'template_not_found' }, { status: 404 })
   // Une "version validée" n'existe que si le modèle a réellement été approuvé
   // chez Meta (meta_id présent) ET qu'on en a un snapshot.
   if (!tpl.meta_id || !tpl.approved_body_text) {
-    return NextResponse.json({ error: "Aucune version validée à restaurer (ce modèle n'a jamais été approuvé)." }, { status: 422 })
+    return NextResponse.json({ error: "Aucune version validée à restaurer (ce modèle n'a jamais été approuvé).", code: 'template_no_approved_version' }, { status: 422 })
   }
 
   const restored = (tpl.approved_body_text || '')

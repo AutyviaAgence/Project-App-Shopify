@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
   // Un template Meta approuvé (ou un message) est requis pour créer une campagne.
   if (!template_id && !message_template) {
     return NextResponse.json(
-      { error: 'Un modèle WhatsApp approuvé est requis' },
+      { error: 'Un modèle WhatsApp approuvé est requis', code: 'campaign_template_required' },
       { status: 400 }
     )
   }

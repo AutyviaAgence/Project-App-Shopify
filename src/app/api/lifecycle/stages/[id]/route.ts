@@ -37,7 +37,7 @@ export async function PATCH(
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Ce nom de stage existe déjà' }, { status: 409 })
+      return NextResponse.json({ error: 'Ce nom de stage existe déjà', code: 'stage_exists' }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

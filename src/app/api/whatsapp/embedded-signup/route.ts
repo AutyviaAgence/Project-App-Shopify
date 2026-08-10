@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
   if (!code || !waba_id || !phone_number_id) {
     return NextResponse.json(
-      { error: 'Réponse Meta incomplète (code, waba_id ou phone_number_id manquant).' },
+      { error: 'Réponse Meta incomplète (code, waba_id ou phone_number_id manquant).', code: 'wa_meta_incomplete' },
       { status: 400 }
     )
   }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
   if (!quota.allowed) {
     return NextResponse.json(
-      { error: 'Votre plan ne permet pas de connecter une session WhatsApp supplémentaire.', quota_exceeded: true },
+      { error: 'Votre plan ne permet pas de connecter une session WhatsApp supplémentaire.', quota_exceeded: true, code: 'wa_quota_exceeded' },
       { status: 403 }
     )
   }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
   })
   if (!wabaRes.ok) {
     return NextResponse.json(
-      { error: 'Ce compte WhatsApp Business n’est pas accessible avec l’autorisation accordée.' },
+      { error: 'Ce compte WhatsApp Business n’est pas accessible avec l’autorisation accordée.', code: 'wa_business_not_accessible' },
       { status: 403 }
     )
   }
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   })
   if (!phoneRes.ok) {
     return NextResponse.json(
-      { error: 'Ce numéro WhatsApp n’est pas accessible avec l’autorisation accordée.' },
+      { error: 'Ce numéro WhatsApp n’est pas accessible avec l’autorisation accordée.', code: 'wa_number_not_accessible' },
       { status: 403 }
     )
   }

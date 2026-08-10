@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!file.name.endsWith('.pdf') || file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'Seuls les fichiers PDF sont acceptés' }, { status: 400 })
+      return NextResponse.json({ error: 'Seuls les fichiers PDF sont acceptés', code: 'pdf_only' }, { status: 400 })
     }
 
     if (file.size > 10 * 1024 * 1024) {

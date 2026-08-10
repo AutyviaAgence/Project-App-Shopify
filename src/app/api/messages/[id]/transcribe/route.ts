@@ -70,7 +70,7 @@ export async function POST(
   // et brûler le budget OpenAI, qui est mutualisé entre tous les marchands.
   const tokenCheck = await checkTokenLimit(user.id)
   if (!tokenCheck.allowed) {
-    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.', code: 'ai_tokens_exhausted' }, { status: 429 })
   }
 
   // Télécharger le média depuis Supabase Storage

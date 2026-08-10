@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const gate = await canUseAiOrOnboarding(user.id)
-  if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA nécessite un plan payant.', upgrade: true }, { status: 403 })
+  if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA nécessite un plan payant.', upgrade: true, code: 'plan_required' }, { status: 403 })
 
   // ⚠️ QUOTA DE TOKENS — protege VOTRE cle OpenAI, qui est mutualisee.
   //

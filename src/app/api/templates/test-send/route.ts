@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const phone = String(body.phone || '').replace(/[^0-9]/g, '')
   const templateName = String(body.template || 'confirmation_commande')
   if (!phone || phone.length < 8) {
-    return NextResponse.json({ error: 'Numéro invalide (format E.164 sans +, ex: 33612345678)' }, { status: 400 })
+    return NextResponse.json({ error: 'Numéro invalide (format E.164 sans +, ex: 33612345678)', code: 'invalid_phone_e164' }, { status: 400 })
   }
 
   // Session WABA connectée

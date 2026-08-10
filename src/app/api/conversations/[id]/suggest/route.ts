@@ -22,7 +22,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const gate = await canUseAi(user.id)
   if (!gate.allowed) {
     return NextResponse.json(
-      { error: "Cette fonctionnalité IA nécessite un plan payant." },
+      { error: "Cette fonctionnalité IA nécessite un plan payant.", code: 'plan_required' },
       { status: 403 }
     )
   }
@@ -31,7 +31,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   // contrôle, un compte pouvait boucler sur la suggestion et brûler le budget API.
   const tokenCheck = await checkTokenLimit(user.id)
   if (!tokenCheck.allowed) {
-    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.', code: 'ai_tokens_exhausted' }, { status: 429 })
   }
 
   const admin = createAdminClient(
@@ -73,7 +73,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const { data: a } = await admin.from('ai_agents').select('id').eq('user_id', user.id).limit(1).maybeSingle()
     agentId = a?.id ?? null
   }
-  if (!agentId) return NextResponse.json({ error: 'Aucun agent IA configuré' }, { status: 400 })
+  if (!agentId) return NextResponse.json({ error: 'Aucun agent IA configuré', code: 'no_agent_configured' }, { status: 400 })
 
   const { data: agent } = await admin
     .from('ai_agents')
@@ -81,7 +81,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .eq('id', agentId)
     .eq('user_id', user.id)
     .maybeSingle()
-  if (!agent) return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
+  if (!agent) return NextResponse.json({ error: 'Agent introuvable', code: 'agent_not_found' }, { status: 404 })
 
   // Historique (30 derniers messages)
   const { data: messages } = await admin

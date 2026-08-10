@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: auto } = await (supabase as any)
     .from('automations').select('id, name, graph').eq('id', id).eq('user_id', user.id).maybeSingle()
-  if (!auto) return NextResponse.json({ error: 'Automatisation introuvable' }, { status: 404 })
+  if (!auto) return NextResponse.json({ error: 'Automatisation introuvable', code: 'automation_not_found' }, { status: 404 })
 
   // Étiquettes des nœuds A/B (label du nœud + libellé de chaque variante) pour un
   // affichage lisible quand il y a PLUSIEURS tests A/B dans le même workflow.

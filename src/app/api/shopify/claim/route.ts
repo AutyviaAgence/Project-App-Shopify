@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const shop = verifyLinkToken(token)
   if (!shop) {
     return NextResponse.json(
-      { error: 'Lien de liaison invalide ou expiré. Rouvrez Xeyo depuis votre admin Shopify.' },
+      { error: 'Lien de liaison invalide ou expiré. Rouvrez Xeyo depuis votre admin Shopify.', code: 'link_token_invalid' },
       { status: 403 }
     )
   }
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (!store) {
-    return NextResponse.json({ error: 'Boutique introuvable ou désinstallée' }, { status: 404 })
+    return NextResponse.json({ error: 'Boutique introuvable ou désinstallée', code: 'store_not_found' }, { status: 404 })
   }
 
   // Déjà à moi : idempotent (double-clic, retour arrière).

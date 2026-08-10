@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const gate = await canUseAiOrOnboarding(user.id)
-  if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA de création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
+  if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA de création de modèles nécessite un plan payant.', upgrade: true, code: 'template_ai_plan_required' }, { status: 403 })
 
   // ⚠️ QUOTA DE TOKENS — protege VOTRE cle OpenAI, qui est mutualisee.
   //
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   // refine-prompt) verifiaient deja le quota — c'etait un oubli, pas un choix.
   const tokenCheck = await checkTokenLimit(user.id)
   if (!tokenCheck.allowed) {
-    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.', code: 'ai_tokens_exhausted' }, { status: 429 })
   }
 
   const body = (await req.json().catch(() => ({}))) as { messages?: Msg[]; locale?: string }
@@ -223,7 +223,7 @@ La première fois (aucune réponse encore), pose une question d'ouverture simple
     })
     decision = JSON.parse(res.choices[0]?.message?.content || '{}')
   } catch {
-    return NextResponse.json({ error: 'Échec de l’assistant. Réessayez.' }, { status: 502 })
+    return NextResponse.json({ error: 'Échec de l’assistant. Réessayez.', code: 'assistant_failed' }, { status: 502 })
   }
 
   // ⚠️ PLAFOND DUR DE QUESTIONS.

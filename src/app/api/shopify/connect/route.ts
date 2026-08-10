@@ -35,12 +35,13 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (!store || !store.is_active) {
-    return NextResponse.json({ error: 'Boutique introuvable ou non installée' }, { status: 404 })
+    // `code` : traduit au frontend via t(`api_errors.${code}`). `error` reste pour les logs.
+    return NextResponse.json({ error: 'Boutique introuvable ou non installée', code: 'store_not_installed' }, { status: 404 })
   }
 
   // Si déjà associée à un autre utilisateur, refuser
   if (store.user_id && store.user_id !== user.id) {
-    return NextResponse.json({ error: 'Cette boutique est déjà liée à un autre compte' }, { status: 409 })
+    return NextResponse.json({ error: 'Cette boutique est déjà liée à un autre compte', code: 'store_already_linked' }, { status: 409 })
   }
 
   // ⚠️ PREUVE DE PROPRIÉTÉ — OBLIGATOIRE, NE JAMAIS RETIRER.

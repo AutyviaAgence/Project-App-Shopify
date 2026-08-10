@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest) {
   if (error || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const s = await loadSession(user.id)
-  if (!s) return NextResponse.json({ error: 'Aucun WhatsApp connecté' }, { status: 400 })
+  if (!s) return NextResponse.json({ error: 'Aucun WhatsApp connecté', code: 'wa_not_connected' }, { status: 400 })
 
   const body = (await req.json().catch(() => ({}))) as {
     about?: string; description?: string; address?: string; email?: string
@@ -81,7 +81,7 @@ export async function PATCH(req: NextRequest) {
     const appId = process.env.META_APP_ID
     if (!appId) return NextResponse.json({ error: 'META_APP_ID non configuré côté serveur.' }, { status: 500 })
     const m = body.photo_data_url.match(/^data:([^;]+);base64,(.+)$/)
-    if (!m) return NextResponse.json({ error: 'Format d’image invalide' }, { status: 400 })
+    if (!m) return NextResponse.json({ error: 'Format d’image invalide', code: 'wa_invalid_image' }, { status: 400 })
     const mimeType = m[1]
     const buffer = Buffer.from(m[2], 'base64')
     if (buffer.length > 5 * 1024 * 1024) return NextResponse.json({ error: 'Image trop lourde (max 5 Mo)' }, { status: 400 })

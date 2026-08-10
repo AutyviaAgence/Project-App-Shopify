@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   // Création de modèles : plan payant (offerte pendant l'onboarding).
   const gate = await canCreateContent(user.id)
-  if (!gate.allowed) return NextResponse.json({ error: 'La création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
+  if (!gate.allowed) return NextResponse.json({ error: 'La création de modèles nécessite un plan payant.', upgrade: true, code: 'templates_plan_required' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const { session_id, name, language, category, use_case, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys, template_type, carousel_cards, lto_title, lto_default_hours } = body as {
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Un modèle avec ce nom et cette langue existe déjà' }, { status: 409 })
+      return NextResponse.json({ error: 'Un modèle avec ce nom et cette langue existe déjà', code: 'template_duplicate' }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   }
 
   if (!name || !session_id) {
-    return NextResponse.json({ error: 'Nom et session requis' }, { status: 400 })
+    return NextResponse.json({ error: 'Nom et session requis', code: 'link_name_session_required' }, { status: 400 })
   }
 
   // Vérifier le quota de liens selon le plan
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     .single()
 
   if (!session) {
-    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+    return NextResponse.json({ error: 'Session introuvable', code: 'session_not_found' }, { status: 404 })
   }
 
   // Générer un slug si non fourni
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Ce slug est déjà utilisé' }, { status: 409 })
+      return NextResponse.json({ error: 'Ce slug est déjà utilisé', code: 'slug_taken' }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

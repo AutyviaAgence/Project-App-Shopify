@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   if (newPassword.length < 8) {
     return NextResponse.json(
-      { error: 'Le nouveau mot de passe doit contenir au moins 8 caractères' },
+      { error: 'Le nouveau mot de passe doit contenir au moins 8 caractères', code: 'password_min_8' },
       { status: 400 }
     )
   }

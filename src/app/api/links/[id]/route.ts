@@ -22,7 +22,7 @@ export async function PATCH(
     .single()
 
   if (!existingLink) {
-    return NextResponse.json({ error: 'Lien introuvable' }, { status: 404 })
+    return NextResponse.json({ error: 'Lien introuvable', code: 'link_not_found' }, { status: 404 })
   }
 
   // Vérifier l'accès au lien (propriétaire uniquement)
@@ -66,7 +66,7 @@ export async function PATCH(
     }
 
     if (!updatedLink) {
-      return NextResponse.json({ error: 'Lien introuvable' }, { status: 404 })
+      return NextResponse.json({ error: 'Lien introuvable', code: 'link_not_found' }, { status: 404 })
     }
     link = updatedLink
   }

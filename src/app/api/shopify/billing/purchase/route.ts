@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   if (!shop || !isValidShopDomain(shop)) {
     return NextResponse.json(
-      { error: 'Aucune boutique Shopify liée à votre compte.' },
+      { error: 'Aucune boutique Shopify liée à votre compte.', code: 'no_shop_linked' },
       { status: 400 }
     )
   }
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   const token = await getValidAccessToken(shop)
   if (!token) {
     return NextResponse.json(
-      { error: 'Jeton Shopify invalide — rouvrez l’application depuis l’admin Shopify, puis réessayez.' },
+      { error: 'Jeton Shopify invalide — rouvrez l’application depuis l’admin Shopify, puis réessayez.', code: 'shopify_token_invalid' },
       { status: 502 }
     )
   }

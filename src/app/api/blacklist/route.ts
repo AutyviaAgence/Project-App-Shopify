@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (contactError || !contact) {
-    return NextResponse.json({ error: 'Contact non trouvé' }, { status: 404 })
+    return NextResponse.json({ error: 'Contact non trouvé', code: 'contact_not_found' }, { status: 404 })
   }
 
   // Vérifier que la session appartient à l'utilisateur

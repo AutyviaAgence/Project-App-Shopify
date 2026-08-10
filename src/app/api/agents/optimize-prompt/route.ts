@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const gate = await canUseAi(user.id)
     if (!gate.allowed) {
       return NextResponse.json(
-        { error: "Cette fonctionnalité IA nécessite un plan payant." },
+        { error: "Cette fonctionnalité IA nécessite un plan payant.", code: 'plan_required' },
         { status: 403 }
       )
     }
@@ -54,12 +54,12 @@ export async function POST(request: Request) {
     // Vérifier la limite de tokens
     const tokenCheck = await checkTokenLimit(user.id)
     if (!tokenCheck.allowed) {
-      return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
+      return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.', code: 'ai_tokens_exhausted' }, { status: 429 })
     }
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
       return NextResponse.json(
-        { error: 'Le prompt doit contenir au moins 10 caractères' },
+        { error: 'Le prompt doit contenir au moins 10 caractères', code: 'prompt_min_10' },
         { status: 400 }
       )
     }

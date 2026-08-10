@@ -29,7 +29,7 @@ export async function GET(
     .single()
 
   if (agentError || !agent) {
-    return NextResponse.json({ error: 'Agent non trouvé' }, { status: 404 })
+    return NextResponse.json({ error: 'Agent non trouvé', code: 'agent_not_found' }, { status: 404 })
   }
 
   if (agent.user_id !== user.id) {

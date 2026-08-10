@@ -24,7 +24,7 @@ export async function POST(
   const validActions: CampaignAction[] = ['start', 'pause', 'resume', 'cancel']
   if (!validActions.includes(action)) {
     return NextResponse.json(
-      { error: 'Action invalide. Valeurs acceptées: start, pause, resume, cancel' },
+      { error: 'Action invalide. Valeurs acceptées: start, pause, resume, cancel', code: 'campaign_invalid_action' },
       { status: 400 }
     )
   }

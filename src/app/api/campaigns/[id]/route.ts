@@ -22,7 +22,7 @@ export async function GET(
     .single()
 
   if (error || !campaign) {
-    return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
+    return NextResponse.json({ error: 'Campagne non trouvée', code: 'campaign_not_found' }, { status: 404 })
   }
 
   // Récupérer les destinataires
@@ -62,13 +62,13 @@ export async function PATCH(
     .single()
 
   if (fetchError || !existing) {
-    return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
+    return NextResponse.json({ error: 'Campagne non trouvée', code: 'campaign_not_found' }, { status: 404 })
   }
 
   // Vérifier que la campagne est en brouillon ou programmée
   if (existing.status !== 'draft' && existing.status !== 'scheduled') {
     return NextResponse.json(
-      { error: 'Seules les campagnes en brouillon ou programmées peuvent être modifiées' },
+      { error: 'Seules les campagnes en brouillon ou programmées peuvent être modifiées', code: 'campaign_only_draft_editable' },
       { status: 400 }
     )
   }
@@ -156,7 +156,7 @@ export async function DELETE(
     .single()
 
   if (fetchError || !existing) {
-    return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
+    return NextResponse.json({ error: 'Campagne non trouvée', code: 'campaign_not_found' }, { status: 404 })
   }
 
   // Empêcher la suppression si en cours

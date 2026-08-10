@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   // Génération IA de modèles : réservée aux plans payants (offerte pendant l'onboarding).
   const gate = await canUseAiOrOnboarding(user.id)
-  if (!gate.allowed) return NextResponse.json({ error: 'La génération IA de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
+  if (!gate.allowed) return NextResponse.json({ error: 'La génération IA de modèles nécessite un plan payant.', upgrade: true, code: 'template_generation_plan_required' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const useCase = body.use_case as UseCaseKey
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const language: 'fr' | 'en' = body.locale === 'en' || body.language === 'en' ? 'en' : 'fr'
 
   if (!useCase || !objective) {
-    return NextResponse.json({ error: 'Catégorie et objectif requis' }, { status: 400 })
+    return NextResponse.json({ error: 'Catégorie et objectif requis', code: 'category_goal_required' }, { status: 400 })
   }
 
   // Contexte boutique Shopify (optionnel) → texte injecté au prompt.

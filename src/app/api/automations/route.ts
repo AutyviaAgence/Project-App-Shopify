@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   if (!body.name?.trim() || !body.trigger_event) {
-    return NextResponse.json({ error: 'Nom et événement requis' }, { status: 400 })
+    return NextResponse.json({ error: 'Nom et événement requis', code: 'automation_name_event_required' }, { status: 400 })
   }
 
   // ── QUOTA D'AUTOMATISATIONS (15 / 50 / 200 selon le plan) ─────────────────

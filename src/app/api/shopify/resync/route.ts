@@ -18,7 +18,7 @@ export async function POST() {
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
-  if (!store) return NextResponse.json({ error: 'Aucune boutique connectée' }, { status: 404 })
+  if (!store) return NextResponse.json({ error: 'Aucune boutique connectée', code: 'no_shop_connected' }, { status: 404 })
 
   const { syncShopToKnowledge } = await import('@/lib/shopify/sync')
   const r = await syncShopToKnowledge(store.id, { scope: 'all' })
