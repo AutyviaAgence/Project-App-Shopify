@@ -248,8 +248,11 @@ Exemples :
 
           if (session) {
             await supabase.from('user_alerts').insert({
+              // `alert_type` SPÉCIFIQUE (pas 'info') → la cloche/dashboard le traduit
+              // via resolveAlertText (clé alerts.escalation) + metadata.reason. Le
+              // title/message FR restent en repli (anciennes alertes / lisibilité base).
               user_id: session.user_id,
-              alert_type: 'info',
+              alert_type: 'escalation',
               title: 'Escalation automatique',
               message: `Une conversation a été automatiquement transférée. Raison : ${escalationReason}. L'IA a été désactivée.`,
               metadata: {

@@ -127,10 +127,13 @@ export async function POST(req: NextRequest) {
 
   await adminSupabase.from('user_alerts').insert({
     user_id,
-    alert_type: 'info',
+    // `alert_type` SPÉCIFIQUE (pas 'info') → la cloche/dashboard le traduit via
+    // resolveAlertText (clé alerts.subscription_activated) + metadata (plan, app_name).
+    // Le title/message FR restent en repli.
+    alert_type: 'subscription_activated',
     title: 'Abonnement activé',
     message: `Votre abonnement ${plan} a été activé manuellement. Bienvenue sur ${appName} !`,
-    metadata: { type: 'manual_activation', plan },
+    metadata: { type: 'manual_activation', plan, app_name: appName },
   })
 
   return NextResponse.json({ success: true, plan, tokens_limit: PLAN_TOKEN_LIMITS[plan as PlanId] })

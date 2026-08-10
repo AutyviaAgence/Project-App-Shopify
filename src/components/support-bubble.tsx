@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { MessageCircleQuestion, X, Send, Loader2, ArrowRight } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 
 /**
  * ASSISTANT D'AIDE — il répond, et il MONTRE.
@@ -31,11 +33,17 @@ type Msg = {
   whatsapp?: string
 }
 
-/** Ce que l'assistant sait faire — proposé d'emblée, pour amorcer. */
-const SUGGESTIONS = [
-  'Comment connecter WhatsApp ?',
-  'Comment changer de plan ?',
-  'Mon agent ne répond pas',
+/**
+ * Ce que l'assistant sait faire — proposé d'emblée, pour amorcer.
+ *
+ * On ne stocke que les CLÉS i18n : le libellé traduit est résolu au rendu via
+ * t(), et c'est ce libellé (dans la langue du marchand) qui est envoyé comme
+ * question — l'assistant doit recevoir la phrase, pas la clé.
+ */
+const SUGGESTION_KEYS = [
+  'support.suggestion_connect_whatsapp',
+  'support.suggestion_change_plan',
+  'support.suggestion_agent_not_replying',
 ]
 
 /**
@@ -54,6 +62,8 @@ const MAX_QUESTIONS = 5
 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '33636006808'
 
 export function SupportBubble() {
+  const { t } = useTranslation()
+  const tenant = useTenant()
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -142,7 +152,7 @@ export function SupportBubble() {
         ...m,
         {
           role: 'assistant',
-          content: d?.answer || 'Je n’ai pas la réponse à cette question.',
+          content: d?.answer || t('support.fallback_no_answer'),
           note: d?.note,
           page: d?.page,
           target: d?.target,
@@ -155,7 +165,7 @@ export function SupportBubble() {
         ...m,
         {
           role: 'assistant',
-          content: 'Je n’arrive pas à répondre pour le moment. Voulez-vous en parler à notre équipe ?',
+          content: t('support.error_reply'),
           escalate: true,
           whatsapp: '33636006808',
         },
@@ -177,12 +187,14 @@ export function SupportBubble() {
 
     const recap = asked.length
       ? asked.map((m, i) => `${i + 1}. ${m.content}`).join('\n')
-      : '(aucune question posée)'
+      : t('support.wa_no_question')
+
+    const askedLine = asked.length > 1 ? t('support.wa_asked_many') : t('support.wa_asked_one')
 
     const text = encodeURIComponent(
-      `Bonjour, j'ai besoin d'aide sur Xeyo.\n\n` +
-        `J'ai posé ${asked.length > 1 ? 'ces questions' : 'cette question'} à l'assistant :\n${recap}\n\n` +
-        `Mais je n'ai pas trouvé de solution.`
+      `${t('support.wa_intro', { appName: tenant.appName })}\n\n` +
+        `${askedLine}\n${recap}\n\n` +
+        `${t('support.wa_no_solution')}`
     )
     window.open(`https://wa.me/${number}?text=${text}`, '_blank', 'noopener,noreferrer')
   }
@@ -217,14 +229,14 @@ export function SupportBubble() {
         <div className="fixed bottom-36 right-4 z-50 flex h-[min(460px,calc(100vh-12rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl md:bottom-20">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>
-              <p className="text-sm font-semibold">Besoin d’aide ?</p>
-              <p className="text-xs text-muted-foreground">Je vous montre où aller.</p>
+              <p className="text-sm font-semibold">{t('support.title')}</p>
+              <p className="text-xs text-muted-foreground">{t('support.subtitle')}</p>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="text-muted-foreground transition-colors hover:text-foreground"
-              aria-label="Fermer"
+              aria-label={t('support.close')}
             >
               <X className="h-4 w-4" />
             </button>
@@ -234,20 +246,22 @@ export function SupportBubble() {
             {messages.length === 0 && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Posez votre question. Si la réponse se trouve quelque part dans l’app, je vous y
-                  emmène directement.
+                  {t('support.intro')}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => ask(s)}
-                      className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary/10"
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {SUGGESTION_KEYS.map((key) => {
+                    const label = t(key)
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => ask(label)}
+                        className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary/10"
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -285,7 +299,7 @@ export function SupportBubble() {
                           onClick={() => showMe(m.page, m.target)}
                           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
                         >
-                          Montrez-moi <ArrowRight className="h-3.5 w-3.5" />
+                          {t('support.show_me')} <ArrowRight className="h-3.5 w-3.5" />
                         </button>
                       )}
 
@@ -296,7 +310,7 @@ export function SupportBubble() {
                           onClick={() => openWhatsApp(m.whatsapp!)}
                           className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
                         >
-                          Parler à un humain sur WhatsApp
+                          {t('support.talk_to_human')}
                         </button>
                       )}
                     </>
@@ -322,15 +336,14 @@ export function SupportBubble() {
           {limitReached ? (
             <div className="space-y-2 border-t bg-muted/30 p-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Je n’ai pas réussi à vous aider. Notre équipe prend le relais — elle
-                aura tout le contexte de vos questions.
+                {t('support.limit_reached')}
               </p>
               <button
                 type="button"
                 onClick={() => openWhatsApp(SUPPORT_WHATSAPP)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
               >
-                Parler à un humain sur WhatsApp
+                {t('support.talk_to_human')}
               </button>
             </div>
           ) : (
@@ -340,7 +353,7 @@ export function SupportBubble() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') ask(input) }}
-                  placeholder="Votre question…"
+                  placeholder={t('support.input_placeholder')}
                   disabled={sending}
                   className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
                 />
@@ -349,7 +362,7 @@ export function SupportBubble() {
                   onClick={() => ask(input)}
                   disabled={sending || !input.trim()}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-                  aria-label="Envoyer"
+                  aria-label={t('support.send')}
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -359,8 +372,10 @@ export function SupportBubble() {
                   d'emblée donnerait l'impression d'être rationné. */}
               {asked >= MAX_QUESTIONS - 2 && (
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  {MAX_QUESTIONS - asked} question{MAX_QUESTIONS - asked > 1 ? 's' : ''} restante
-                  {MAX_QUESTIONS - asked > 1 ? 's' : ''}, puis notre équipe prend le relais.
+                  {t(
+                    MAX_QUESTIONS - asked > 1 ? 'support.remaining_many' : 'support.remaining_one',
+                    { count: MAX_QUESTIONS - asked }
+                  )}
                 </p>
               )}
             </div>
@@ -375,7 +390,7 @@ export function SupportBubble() {
         // `bottom-20` sur mobile : la navigation du bas occupe déjà les 4 rem
         // inférieures — la bulle la recouvrirait.
         className="fixed bottom-20 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 md:bottom-4"
-        aria-label={open ? 'Fermer l’aide' : 'Ouvrir l’aide'}
+        aria-label={open ? t('support.close_help') : t('support.open_help')}
       >
         {open ? <X className="h-5 w-5" /> : <MessageCircleQuestion className="h-5 w-5" />}
       </button>

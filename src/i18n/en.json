@@ -3470,6 +3470,21 @@
       "title": "Agent stopped automatically",
       "message": "The “{name}” agent stopped because its condition was met: “{condition}”"
     },
+    "escalation": {
+      "title": "Automatic escalation",
+      "message": "A conversation was automatically handed off to a human. The AI was turned off.",
+      "message_reason": "A conversation was automatically handed off to a human. Reason: {reason}. The AI was turned off."
+    },
+    "subscription_activated": {
+      "title": "Subscription activated",
+      "message": "Your {plan} subscription was activated manually. Welcome to {appName}!"
+    },
+    "purchase_confirmed": {
+      "title": "Purchase confirmed",
+      "message": "{pack}: it's been added to your account.",
+      "message_tokens": "500,000 AI tokens: they've been added to your account.",
+      "message_ai_credits": "500 AI conversations: they've been added to your account."
+    },
     "ai_credits_low": {
       "title": "AI credits running low",
       "message": "You have {remaining} AI conversations left this month ({used}/{limit}). Top up now to avoid an interruption."
@@ -3533,6 +3548,31 @@
     "resume_ok": "Assistant reactivated on this conversation.",
     "resume_ko": "Couldn’t reactivate the assistant.",
     "mark_read_error": "Couldn’t mark as read"
+  },
+  "support": {
+    "title": "Need help?",
+    "subtitle": "I’ll show you where to go.",
+    "intro": "Ask your question. If the answer is somewhere in the app, I’ll take you straight there.",
+    "suggestion_connect_whatsapp": "How do I connect WhatsApp?",
+    "suggestion_change_plan": "How do I change my plan?",
+    "suggestion_agent_not_replying": "My agent isn’t replying",
+    "input_placeholder": "Your question…",
+    "fallback_no_answer": "I don’t have the answer to this question.",
+    "error_reply": "I can’t reply right now. Would you like to talk to our team?",
+    "limit_reached": "I couldn’t help you. Our team is taking over — they’ll have the full context of your questions.",
+    "remaining_one": "{count} question left, then our team takes over.",
+    "remaining_many": "{count} questions left, then our team takes over.",
+    "show_me": "Show me",
+    "talk_to_human": "Talk to a human on WhatsApp",
+    "close": "Close",
+    "open_help": "Open help",
+    "close_help": "Close help",
+    "send": "Send",
+    "wa_intro": "Hi, I need help with {appName}.",
+    "wa_asked_one": "I asked the assistant this question:",
+    "wa_asked_many": "I asked the assistant these questions:",
+    "wa_no_question": "(no question asked)",
+    "wa_no_solution": "But I couldn’t find a solution."
   },
   "api_errors": {
     "generic": "Something went wrong. Please try again.",

@@ -128,6 +128,9 @@ type ActivityItem = {
   /** Clé i18n + paramètres : le client rend dans la langue du marchand. */
   labelKey?: string
   labelParams?: Record<string, string | number>
+  /** Alerte : le client traduit via resolveAlertText(alert_type, metadata). */
+  alertType?: string
+  alertMetadata?: Record<string, unknown>
 }
 
 /**
@@ -169,7 +172,7 @@ async function recentActivity(
 
     // Les alertes portent déjà un titre rédigé : la source la plus directe.
     db.from('user_alerts')
-      .select('title, alert_type, created_at')
+      .select('title, alert_type, metadata, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }).limit(3),
   ])
@@ -240,7 +243,15 @@ async function recentActivity(
   }
 
   for (const a of alerts.data || []) {
-    items.push({ kind: a.alert_type || 'info', label: a.title, at: a.created_at })
+    // On renvoie `alert_type` + `metadata` : le client dashboard traduit via la même
+    // logique que la cloche (resolveAlertText), avec repli sur le `title` stocké.
+    items.push({
+      kind: a.alert_type || 'info',
+      alertType: a.alert_type || 'info',
+      alertMetadata: (a.metadata as Record<string, unknown>) || {},
+      label: a.title, // repli FR (et pour les types non couverts)
+      at: a.created_at,
+    })
   }
 
   return items

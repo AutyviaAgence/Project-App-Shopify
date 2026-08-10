@@ -9,6 +9,8 @@ import { useTenant } from '@/lib/tenant/context'
 import { Meteors } from '@/components/ui/meteors'
 import { TypingAnimation } from '@/components/ui/typing-animation'
 import { Activity, ArrowRight, Store, ShoppingCart, UserPlus, Megaphone, Bell, Zap } from 'lucide-react'
+import { resolveAlertText } from '@/components/alerts-dropdown'
+import type { UserAlert } from '@/types/database'
 
 /**
  * ── ACCUEIL ──────────────────────────────────────────────────────────────────
@@ -34,7 +36,16 @@ type DashboardData = {
     whatsappRevenueCents: number
     currency: string
   }
-  activity: Array<{ kind: string; label: string; at: string; labelKey?: string; labelParams?: Record<string, string | number> }>
+  activity: Array<{
+    kind: string
+    label: string
+    at: string
+    labelKey?: string
+    labelParams?: Record<string, string | number>
+    // Alerte : traduite via resolveAlertText (même logique que la cloche), repli sur `label`.
+    alertType?: string
+    alertMetadata?: Record<string, unknown>
+  }>
 }
 
 // Les articles pointeront vers le blog. Pas de lien pour l'instant : l'utilisateur
@@ -149,14 +160,25 @@ function DashboardHome() {
             <ul className="mt-4 space-y-2.5">
               {activity.map((item, i) => {
                 const Icon = ICONS[item.kind] ?? Bell
+                // Traduction du libellé, par ordre de priorité :
+                //  1. alerte → resolveAlertText (même logique que la cloche) ;
+                //  2. labelKey fourni par le serveur (store/sync/order/optin/campaign) ;
+                //  3. `label` FR stocké, en dernier repli (type d'alerte non couvert).
+                let text = item.label
+                if (item.alertType) {
+                  const resolved = resolveAlertText({
+                    alert_type: item.alertType,
+                    metadata: item.alertMetadata,
+                  } as UserAlert)
+                  if (resolved) text = t(resolved.titleKey, resolved.params)
+                } else if (item.labelKey) {
+                  text = t(item.labelKey, item.labelParams)
+                }
                 return (
                   <li key={i} className="flex items-center gap-2.5">
                     <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    {/* `labelKey` quand le serveur l'a fourni (il ignore la
-                        langue du marchand) ; `label` en repli pour les alertes
-                        dont le titre est stocké tel quel en base. */}
                     <span className="min-w-0 flex-1 truncate text-sm">
-                      {item.labelKey ? t(item.labelKey, item.labelParams) : item.label}
+                      {text}
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(item.at, t, locale)}</span>
                   </li>

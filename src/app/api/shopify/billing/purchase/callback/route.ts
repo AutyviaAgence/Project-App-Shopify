@@ -117,10 +117,13 @@ export async function GET(req: NextRequest) {
   try {
     await admin.from('user_alerts').insert({
       user_id: purchase.user_id,
-      alert_type: 'info',
+      // `alert_type` SPÉCIFIQUE (pas 'info') → la cloche/dashboard le traduit via
+      // resolveAlertText (clé alerts.purchase_confirmed) + metadata (pack slug →
+      // libellé traduit). Le title/message FR restent en repli.
+      alert_type: 'purchase_confirmed',
       title: 'Achat confirmé',
       message: `${pack.label} : c’est ajouté à votre compte.`,
-      metadata: { type: 'one_time_purchase', pack: purchase.pack, amount: credited.amount },
+      metadata: { type: 'one_time_purchase', pack: purchase.pack, pack_label: pack.label, amount: credited.amount },
     })
   } catch (e) {
     console.error('[billing/purchase/callback] alerte non créée (non bloquant):', e)

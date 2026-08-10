@@ -59,7 +59,7 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined
 }
 
-function resolveAlertText(alert: UserAlert): AlertText | null {
+export function resolveAlertText(alert: UserAlert): AlertText | null {
   const m = (alert.metadata || {}) as Record<string, unknown>
 
   // L'union de `UserAlert` est en retard sur les types réellement insérés
@@ -165,8 +165,42 @@ function resolveAlertText(alert: UserAlert): AlertText | null {
         params: reason ? { name, reason } : { name },
       }
     }
-    // `info` couvre des événements hétérogènes (activation, achat, parrainage,
-    // escalation) qui partagent le même type : on garde le texte stocké.
+    case 'escalation': {
+      const reason = str(m.reason)
+      return reason
+        ? { titleKey: 'alerts.escalation.title', messageKey: 'alerts.escalation.message_reason', params: { reason } }
+        : { titleKey: 'alerts.escalation.title', messageKey: 'alerts.escalation.message', params: {} }
+    }
+    case 'subscription_activated': {
+      const plan = str(m.plan)
+      const appName = str(m.app_name)
+      if (!plan || !appName) return null
+      return {
+        titleKey: 'alerts.subscription_activated.title',
+        messageKey: 'alerts.subscription_activated.message',
+        params: { plan, appName },
+      }
+    }
+    case 'purchase_confirmed': {
+      // Le libellé du pack ('500 000 tokens IA', '500 conversations IA') est un
+      // nom de produit : on le réinjecte tel quel comme paramètre, seule la
+      // phrase autour est traduite. On préfère le slug pour un rendu bilingue,
+      // avec repli sur le libellé FR stocké.
+      const slug = str(m.pack)
+      const messageKey = slug === 'tokens' ? 'alerts.purchase_confirmed.message_tokens'
+        : slug === 'ai_credits' ? 'alerts.purchase_confirmed.message_ai_credits'
+        : 'alerts.purchase_confirmed.message'
+      const packLabel = str(m.pack_label)
+      // Pour le repli générique, le libellé FR stocké est requis comme paramètre.
+      if (messageKey === 'alerts.purchase_confirmed.message' && !packLabel) return null
+      return {
+        titleKey: 'alerts.purchase_confirmed.title',
+        messageKey,
+        params: packLabel ? { pack: packLabel } : {},
+      }
+    }
+    // Types encore génériques ('info'/'warning' : parrainage…) : pas de clé
+    // dédiée → repli sur le texte stocké (title/message).
     default:
       return null
   }

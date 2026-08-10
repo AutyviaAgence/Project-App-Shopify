@@ -3470,6 +3470,21 @@
       "title": "Agent arrêté automatiquement",
       "message": "L'agent « {name} » s'est arrêté car la condition a été remplie : « {condition} »"
     },
+    "escalation": {
+      "title": "Escalade automatique",
+      "message": "Une conversation a été automatiquement transférée à un humain. L'IA a été désactivée.",
+      "message_reason": "Une conversation a été automatiquement transférée à un humain. Raison : {reason}. L'IA a été désactivée."
+    },
+    "subscription_activated": {
+      "title": "Abonnement activé",
+      "message": "Votre abonnement {plan} a été activé manuellement. Bienvenue sur {appName} !"
+    },
+    "purchase_confirmed": {
+      "title": "Achat confirmé",
+      "message": "{pack} : c'est ajouté à votre compte.",
+      "message_tokens": "500 000 tokens IA : c'est ajouté à votre compte.",
+      "message_ai_credits": "500 conversations IA : c'est ajouté à votre compte."
+    },
     "ai_credits_low": {
       "title": "Crédits IA bientôt épuisés",
       "message": "Il vous reste {remaining} conversations IA ce mois-ci ({used}/{limit}). Pensez à recharger pour éviter une interruption."
@@ -3533,6 +3548,31 @@
     "resume_ok": "Assistant réactivé sur cette conversation.",
     "resume_ko": "Impossible de réactiver l’assistant.",
     "mark_read_error": "Erreur lors du marquage"
+  },
+  "support": {
+    "title": "Besoin d’aide ?",
+    "subtitle": "Je vous montre où aller.",
+    "intro": "Posez votre question. Si la réponse se trouve quelque part dans l’app, je vous y emmène directement.",
+    "suggestion_connect_whatsapp": "Comment connecter WhatsApp ?",
+    "suggestion_change_plan": "Comment changer de plan ?",
+    "suggestion_agent_not_replying": "Mon agent ne répond pas",
+    "input_placeholder": "Votre question…",
+    "fallback_no_answer": "Je n’ai pas la réponse à cette question.",
+    "error_reply": "Je n’arrive pas à répondre pour le moment. Voulez-vous en parler à notre équipe ?",
+    "limit_reached": "Je n’ai pas réussi à vous aider. Notre équipe prend le relais — elle aura tout le contexte de vos questions.",
+    "remaining_one": "{count} question restante, puis notre équipe prend le relais.",
+    "remaining_many": "{count} questions restantes, puis notre équipe prend le relais.",
+    "show_me": "Montrez-moi",
+    "talk_to_human": "Parler à un humain sur WhatsApp",
+    "close": "Fermer",
+    "open_help": "Ouvrir l’aide",
+    "close_help": "Fermer l’aide",
+    "send": "Envoyer",
+    "wa_intro": "Bonjour, j’ai besoin d’aide sur {appName}.",
+    "wa_asked_one": "J’ai posé cette question à l’assistant :",
+    "wa_asked_many": "J’ai posé ces questions à l’assistant :",
+    "wa_no_question": "(aucune question posée)",
+    "wa_no_solution": "Mais je n’ai pas trouvé de solution."
   },
   "api_errors": {
     "generic": "Une erreur est survenue. Réessayez.",
