@@ -25,6 +25,8 @@
     "referral": "Parrainage"
   },
   "common": {
+    "paid_plan": "Plan payant",
+    "paid_plan_tooltip": "Cette fonctionnalité IA nécessite un plan payant, cliquez pour changer de formule.",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "delete": "Supprimer",

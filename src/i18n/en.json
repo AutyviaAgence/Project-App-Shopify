@@ -25,6 +25,8 @@
     "referral": "Referral"
   },
   "common": {
+    "paid_plan": "Paid plan",
+    "paid_plan_tooltip": "This AI feature requires a paid plan — click to change plan.",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
