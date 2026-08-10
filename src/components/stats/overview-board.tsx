@@ -321,10 +321,11 @@ function MessageChart({
   }
 
   return (
-    // `flex-1 min-h-0` : le graphe occupe la hauteur que la carte lui laisse, au
-    // lieu d'une hauteur fixe qui débordait. `min-h-[6rem]` garde un plancher
-    // lisible sur petit écran.
-    <div className="mt-4 flex min-h-[6rem] flex-1 flex-col">
+    // ⚠️ Hauteur EXPLICITE, pas `flex-1`. `flex-1` compte sur un parent dimensionné
+    // pour se calculer ; quand la carte n'a pas de hauteur fixe (cas du dashboard),
+    // le graphe débordait SOUS le cadre noir de la carte (barres + dates dépassaient).
+    // Une hauteur fixe garantit que la carte englobe toujours le graphe entier.
+    <div className="mt-4 flex h-40 flex-col">
       <div className="flex min-h-0 flex-1 items-end gap-[3px]">
         {shown.map((d, i) => {
           const empty = d.value === 0
