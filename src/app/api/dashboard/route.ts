@@ -176,9 +176,13 @@ async function recentActivity(
 
   const store = stores.data?.[0]
   if (store?.installed_at) {
+    const shopLabel = store.shop_name || store.shop_domain
     items.push({
       kind: 'store',
-      label: `Boutique ${store.shop_name || store.shop_domain} connectée`,
+      // Clé + params : le serveur ignore la langue du marchand, le client rend via t().
+      labelKey: 'activity.store',
+      labelParams: { shop: shopLabel },
+      label: `Boutique ${shopLabel} connectée`, // repli
       at: store.installed_at,
     })
   }
@@ -186,7 +190,9 @@ async function recentActivity(
     const n = store.last_sync_summary?.products
     items.push({
       kind: 'sync',
-      label: n ? `${n} produits synchronisés` : 'Boutique synchronisée',
+      labelKey: n ? 'activity.sync' : 'activity.sync_generic',
+      labelParams: n ? { count: n } : {},
+      label: n ? `${n} produits synchronisés` : 'Boutique synchronisée', // repli
       at: store.last_synced_at,
     })
   }

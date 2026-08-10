@@ -3434,7 +3434,10 @@
     "order": "Commande {num} — {amount} {currency}",
     "optin": "{name} s’est abonné à WhatsApp",
     "optin_anonymous": "Un client s’est abonné à WhatsApp",
-    "campaign": "Campagne « {name} » envoyée à {count} contacts"
+    "campaign": "Campagne « {name} » envoyée à {count} contacts",
+    "store": "Boutique {shop} connectée",
+    "sync": "{count} produits synchronisés",
+    "sync_generic": "Boutique synchronisée"
   },
   "whatsapp_profile": {
     "title": "Profil WhatsApp",

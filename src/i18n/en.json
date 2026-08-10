@@ -3434,7 +3434,10 @@
     "order": "Order {num} — {amount} {currency}",
     "optin": "{name} subscribed to WhatsApp",
     "optin_anonymous": "A customer subscribed to WhatsApp",
-    "campaign": "Campaign \"{name}\" sent to {count} contacts"
+    "campaign": "Campaign \"{name}\" sent to {count} contacts",
+    "store": "Store {shop} connected",
+    "sync": "{count} products synced",
+    "sync_generic": "Store synced"
   },
   "whatsapp_profile": {
     "title": "WhatsApp profile",
