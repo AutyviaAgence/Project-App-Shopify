@@ -240,9 +240,10 @@ export function WhatsAppConnect() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/5">
-              {/* Logo agrandi (scale) : il a beaucoup de marge transparente, il
-                  paraissait petit dans le cercle. Le cercle, lui, ne change pas. */}
-              <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-10 w-10 scale-125" />
+              {/* Logo PLUS PETIT que le cercle (h-7 dans un cercle h-10) pour laisser
+                  une marge propre. L'ancien `h-10 w-10 scale-125` remplissait le cercle
+                  puis débordait (coupé par overflow-hidden) → logo mal centré/trop gros. */}
+              <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-7 w-7 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -422,7 +423,7 @@ export function WhatsAppConnect() {
     <div className="flex h-full flex-col rounded-xl border p-5 space-y-4">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/5">
-          <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-10 w-10 scale-125" />
+          <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-7 w-7 object-contain" />
         </div>
         <div>
           <p className="font-medium">{t('components.whatsapp_connect_title')}</p>
