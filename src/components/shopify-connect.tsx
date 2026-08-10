@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { SHOPIFY_APP_STORE_URL, IS_APP_STORE_PUBLISHED } from '@/lib/shopify/app-store'
+import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink, AlertTriangle } from 'lucide-react'
 import { track } from '@/lib/posthog/events'
@@ -360,32 +360,18 @@ export function ShopifyConnect() {
           marchand) → cul-de-sac / rejet 2.1.1. On affiche alors un MESSAGE plutôt
           qu'un bouton mort : « Ouvrez Xeyo depuis votre admin Shopify ». */}
       <div className="mt-auto space-y-2">
-        {IS_APP_STORE_PUBLISHED ? (
-          <>
-            <a
-              href={SHOPIFY_APP_STORE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              <Store className="h-4 w-4" />
-              {t('components.shopify_install_btn')}
-            </a>
-            <p className="text-[11px] text-muted-foreground">
-              {t('components.shopify_install_hint')}
-            </p>
-          </>
-        ) : (
-          <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-center">
-            <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-foreground">
-              <Store className="h-4 w-4 text-primary" />
-              {t('components.shopify_open_from_admin_title')}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {t('components.shopify_open_from_admin_hint')}
-            </p>
-          </div>
-        )}
+        <a
+          href={SHOPIFY_APP_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Store className="h-4 w-4" />
+          {t('components.shopify_install_btn')}
+        </a>
+        <p className="text-[11px] text-muted-foreground">
+          {t('components.shopify_install_hint')}
+        </p>
       </div>
     </div>
   )

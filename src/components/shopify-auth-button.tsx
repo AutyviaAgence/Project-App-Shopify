@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { SHOPIFY_APP_STORE_URL, IS_APP_STORE_PUBLISHED } from '@/lib/shopify/app-store'
+import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 
 /**
  * Bouton « Continuer avec Shopify » (connexion + inscription).
@@ -37,15 +37,6 @@ export function ShopifyAuthButton({
     <Image src="/brand/shopify-logo.png" alt="" width={18} height={18} className="h-[18px] w-[18px]" aria-hidden="true" />
   )
 
-  // ⚠️ Fiche App Store NON publiée → `SHOPIFY_APP_STORE_URL` pointe vers le Dev
-  // Dashboard de NOTRE org, inutilisable par un tiers (reviewer, marchand) = cul-de-sac
-  // / rejet 2.1.1. On RETIRE simplement le bouton tant que la fiche n'est pas publiée :
-  // plus propre qu'un bouton grisé sans action (le reviewer ne se demande pas pourquoi
-  // il est là). Le bouton réapparaît dès que NEXT_PUBLIC_SHOPIFY_APP_STORE_URL est défini.
-  if (!IS_APP_STORE_PUBLISHED) return null
-
-  // `disabled` = inscription où les CGU ne sont pas encore acceptées (cas légitime,
-  // distinct de la fiche non publiée) : on garde le bouton grisé avec l'explication.
   if (disabled) {
     return (
       <button
