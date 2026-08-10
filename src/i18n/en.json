@@ -2312,6 +2312,8 @@
     "or": "or",
     "google_login": "Sign in with Google",
     "google_signup": "Sign up with Google",
+    "continue_with_shopify": "Continue with Shopify",
+    "legal_pages": "Legal pages",
     "new_password": "New password",
     "new_password_desc": "Choose a new password for your account.",
     "new_password_label": "New password",

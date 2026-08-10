@@ -312,7 +312,7 @@ function RegisterForm() {
             {googleLoading ? t('auth.signing_in') : t('auth.google_signup')}
           </Button>
 
-          <ShopifyAuthButton label="Continuer avec Shopify" />
+          <ShopifyAuthButton label={t('auth.continue_with_shopify')} />
 
           <Link href="/login" className="text-sm text-muted-foreground hover:underline">
             {t('auth.already_account')}

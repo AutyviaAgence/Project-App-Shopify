@@ -183,7 +183,7 @@ function LoginForm() {
             {googleLoading ? t('auth.signing_in') : t('auth.google_login')}
           </Button>
 
-          <ShopifyAuthButton label="Continuer avec Shopify" />
+          <ShopifyAuthButton label={t('auth.continue_with_shopify')} />
 
           <div className="flex justify-between text-sm w-full">
             <Link href="/forgot-password" className="text-muted-foreground hover:underline">
