@@ -72,6 +72,7 @@
     "expired": "Votre abonnement a expiré. Renouvelez-le pour continuer à utiliser {appName}.",
     "trial_ended": "Votre période d'essai est terminée. Abonnez-vous pour continuer à utiliser {appName}.",
     "no_subscription": "Choisissez une formule pour activer {appName} : agent IA, automatisations, campagnes et boîte de réception WhatsApp. 7 jours d'essai gratuit.",
+    "no_store": "Connectez d'abord votre boutique Shopify : c'est depuis elle que vous choisissez votre formule et activez {appName}.",
     "manage_subscription": "Gérer mon abonnement"
   },
   "store_gate": {

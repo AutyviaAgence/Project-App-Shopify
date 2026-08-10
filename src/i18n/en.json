@@ -72,6 +72,7 @@
     "expired": "Your subscription has expired. Renew it to continue using {appName}.",
     "trial_ended": "Your trial period has ended. Subscribe to continue using {appName}.",
     "no_subscription": "Choose a plan to activate {appName}: AI agent, automations, campaigns and WhatsApp inbox. 7-day free trial.",
+    "no_store": "Connect your Shopify store first: that's where you choose your plan and activate {appName}.",
     "manage_subscription": "Manage my subscription"
   },
   "store_gate": {

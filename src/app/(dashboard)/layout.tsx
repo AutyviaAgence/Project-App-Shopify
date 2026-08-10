@@ -93,11 +93,13 @@ const BOTTOM_NAV_KEYS = [
 
 // Pages accessibles même sans abonnement actif.
 //
-// ⚠️ `/` (le dashboard) EN FAIT PARTIE — il manquait, alors que le commentaire
-// plus bas affirmait le contraire. Sans lui, un marchand sans abonnement était
-// bloqué sur sa page d'accueil : il ne voyait plus l'état de sa boutique ni sa
-// connexion WhatsApp, et ne comprenait pas ce qui se passait.
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/', '/subscription', '/settings', '/admin', '/help']
+// ⚠️ `/dashboard` EN FAIT PARTIE — la vraie route de l'accueil est `/dashboard`
+// (le segment de groupe `(dashboard)` n'apparaît PAS dans l'URL), PAS `/`. Sans lui,
+// un marchand sans abonnement ni boutique était muré sur « Access suspended » et ne
+// voyait JAMAIS son dashboard — donc jamais la carte « Connecter votre boutique »,
+// seul endroit d'où il peut relier une boutique et sortir de l'impasse. On garde `/`
+// par sécurité (redirections éventuelles).
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/', '/dashboard', '/subscription', '/settings', '/admin', '/help']
 
 // Pages BLOQUÉES tant qu'aucune boutique Shopify n'est connectée : toutes les
 // données de l'app en découlent (conversations, agents, modèles, stats…).
@@ -554,9 +556,15 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   {/* Le cas « jamais souscrit » n'était pas couvert : les trois
                       messages parlaient d'annulation, d'expiration ou de fin
                       d'essai. Un marchand sans abonnement lisait donc « votre
-                      essai est terminé » alors qu'il n'en avait jamais eu. */}
+                      essai est terminé » alors qu'il n'en avait jamais eu.
+                      ⚠️ SANS BOUTIQUE : l'abonnement se souscrit DEPUIS la boutique
+                      Shopify. Un compte sans boutique ne peut donc pas « gérer son
+                      abonnement » — il doit d'abord CONNECTER une boutique. On l'y
+                      envoie au lieu de le laisser dans l'impasse « Manage subscription ». */}
                   <p className="text-muted-foreground">
-                    {subscription?.status === 'canceled'
+                    {!subscription?.shopifyBilled
+                      ? t('blocked.no_store', { appName: tenant.appName })
+                      : subscription?.status === 'canceled'
                       ? t('blocked.cancelled')
                       : subscription?.status === 'past_due'
                         ? t('blocked.expired', { appName: tenant.appName })
@@ -565,13 +573,23 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                           : t('blocked.no_subscription', { appName: tenant.appName })}
                   </p>
                 </div>
-                <Link
-                  href="/settings?tab=abonnement"
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-                >
-                  <CreditCard className="h-5 w-5" />
-                  {t('blocked.manage_subscription')}
-                </Link>
+                {!subscription?.shopifyBilled ? (
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    <Store className="h-5 w-5" />
+                    {t('store_gate.cta')}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/settings?tab=abonnement"
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    {t('blocked.manage_subscription')}
+                  </Link>
+                )}
               </div>
             </div>
           ) : (
