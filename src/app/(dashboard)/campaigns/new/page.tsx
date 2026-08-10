@@ -221,7 +221,7 @@ export default function NewCampaignPage() {
     }
 
     if (!templateId) {
-      toast.error('Sélectionnez un modèle WhatsApp approuvé')
+      toast.error(t('campaign_new.select_template_toast'))
       return
     }
 
@@ -359,7 +359,7 @@ export default function NewCampaignPage() {
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Modèle WhatsApp à envoyer
+                {t('campaign_new.template_label')}
               </Label>
             </div>
 
@@ -369,17 +369,17 @@ export default function NewCampaignPage() {
                 <div className="p-4 bg-muted rounded-lg text-center">
                   <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
                   <p className="text-sm text-muted-foreground">
-                    Aucun modèle approuvé par Meta
+                    {t('campaign_new.no_approved_template')}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Créez et faites approuver un modèle dans Modèles avant de lancer une campagne.
+                    {t('campaign_new.create_template_first')}
                   </p>
                 </div>
               ) : (
                 <>
                   <Select value={templateId} onValueChange={setTemplateId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Choisir un modèle approuvé" />
+                      <SelectValue placeholder={t('campaign_new.choose_template_ph')} />
                     </SelectTrigger>
                     <SelectContent>
                       {approvedTemplates.map((tpl) => (
@@ -390,7 +390,7 @@ export default function NewCampaignPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Seuls les modèles approuvés par Meta peuvent être envoyés en campagne (hors fenêtre 24h).
+                    {t('campaign_new.approved_only_hint')}
                   </p>
                 </>
               )}
@@ -400,7 +400,7 @@ export default function NewCampaignPage() {
             <div className="space-y-3 pt-4 border-t">
               <Label className="flex items-center gap-2">
                 <Workflow className="h-4 w-4" />
-                Déclenchement
+                {t('campaign_new.trigger_label')}
               </Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -408,50 +408,50 @@ export default function NewCampaignPage() {
                   onClick={() => setCampaignMode('manual')}
                   className={`rounded-lg border p-3 text-left text-sm ${campaignMode === 'manual' ? 'border-primary bg-primary/5' : 'border-border'}`}
                 >
-                  <div className="font-medium">Manuel</div>
-                  <div className="text-xs text-muted-foreground">Vous lancez la campagne vous-même</div>
+                  <div className="font-medium">{t('campaign_new.manual')}</div>
+                  <div className="text-xs text-muted-foreground">{t('campaign_new.manual_desc')}</div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setCampaignMode('auto')}
                   className={`rounded-lg border p-3 text-left text-sm ${campaignMode === 'auto' ? 'border-primary bg-primary/5' : 'border-border'}`}
                 >
-                  <div className="font-medium">Automatique</div>
-                  <div className="text-xs text-muted-foreground">Déclenchée selon une règle</div>
+                  <div className="font-medium">{t('campaign_new.automatic')}</div>
+                  <div className="text-xs text-muted-foreground">{t('campaign_new.automatic_desc')}</div>
                 </button>
               </div>
 
               {campaignMode === 'auto' && (
                 <div className="space-y-2">
-                  <Label className="text-xs">Règle de déclenchement</Label>
+                  <Label className="text-xs">{t('campaign_new.trigger_rule_label')}</Label>
                   <Select value={triggerType} onValueChange={(v) => setTriggerType(v as typeof triggerType)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="inactivity">Inactivité (X jours sans réponse)</SelectItem>
-                      <SelectItem value="shopify_event">Événement Shopify</SelectItem>
-                      <SelectItem value="scheduled">Date / horaire planifié</SelectItem>
-                      <SelectItem value="tag">Tag ajouté à un contact</SelectItem>
+                      <SelectItem value="inactivity">{t('campaign_new.rule_inactivity')}</SelectItem>
+                      <SelectItem value="shopify_event">{t('campaign_new.rule_shopify_event')}</SelectItem>
+                      <SelectItem value="scheduled">{t('campaign_new.rule_scheduled')}</SelectItem>
+                      <SelectItem value="tag">{t('campaign_new.rule_tag_added')}</SelectItem>
                     </SelectContent>
                   </Select>
 
                   {triggerType === 'shopify_event' && (
                     <Select value={triggerEvent} onValueChange={setTriggerEvent}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Événement" />
+                        <SelectValue placeholder={t('campaign_new.event_ph')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="order_fulfilled">Commande expédiée</SelectItem>
-                        <SelectItem value="order_delivered">Commande livrée</SelectItem>
+                        <SelectItem value="order_fulfilled">{t('campaign_new.event_shipped')}</SelectItem>
+                        <SelectItem value="order_delivered">{t('campaign_new.event_delivered')}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {triggerType === 'inactivity' && 'Relance les contacts inactifs selon le nombre de jours défini plus bas (filtres).'}
-                    {triggerType === 'shopify_event' && 'Envoie le modèle automatiquement quand l\'événement Shopify se produit.'}
-                    {triggerType === 'scheduled' && 'La campagne partira à la date planifiée (filtres ci-dessous).'}
-                    {triggerType === 'tag' && 'Quand un contact reçoit le tag sélectionné dans les filtres, il entre dans la campagne.'}
+                    {triggerType === 'inactivity' && t('campaign_new.help_inactivity')}
+                    {triggerType === 'shopify_event' && t('campaign_new.help_shopify')}
+                    {triggerType === 'scheduled' && t('campaign_new.help_scheduled')}
+                    {triggerType === 'tag' && t('campaign_new.help_tag')}
                   </p>
                 </div>
               )}

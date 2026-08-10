@@ -367,7 +367,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     } finally { setLinkSaving(false) }
   }
 
-  const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+  const DAYS = t('agents.day_initials').split(',')
   const toneLabel = tone === 'professional' ? t('agents.tone_professional_full') : tone === 'friendly' ? t('agents.tone_friendly') : t('agents.tone_casual_full')
   const channelCount = sessions.length
 

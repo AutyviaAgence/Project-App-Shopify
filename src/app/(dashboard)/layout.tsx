@@ -71,12 +71,12 @@ const NAV_ITEMS_KEYS = [
   // Groupe accordéon : ouvre 2 sous-entrées dans la sidebar (pas des onglets
   // en haut de page). Le href du parent sert d'ancre de route active.
   {
-    href: '/automations', labelKey: 'nav.automations', label: 'Automatisations', icon: Workflow,
+    href: '/automations', labelKey: 'nav.automations', icon: Workflow,
     children: [
-      { href: '/automations?tab=marketing', label: 'Campagnes', icon: Megaphone },
+      { href: '/automations?tab=marketing', labelKey: 'nav.campaigns', icon: Megaphone },
       // « Transactionnel » et non « Automatisations » : sinon le libellé se
       // répète avec l'entrée parente, c'est déroutant.
-      { href: '/automations?tab=transactional', label: 'Transactionnel', icon: Workflow },
+      { href: '/automations?tab=transactional', labelKey: 'nav.transactional', icon: Workflow },
     ],
   },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
@@ -269,7 +269,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
     const locked = storeLinked === false && STORE_REQUIRED_PATHS.includes(item.href)
     // Sous-entrées (accordéon) : déployées quand la route parente est active
     // ET la sidebar élargie. `tab` courant lu dans l'URL pour surligner.
-    const children = (item as { children?: { href: string; label: string; icon: typeof item.icon }[] }).children
+    const children = (item as { children?: { href: string; labelKey: string; icon: typeof item.icon }[] }).children
     // Un menu à sous-entrées est déplié s'il a été ouvert manuellement OU si sa
     // route est active (on arrive dessus par lien direct → sous-menu visible).
     const menuOpen = !!children && (openMenus.has(item.href) || isActive)
@@ -323,7 +323,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
         ) : (
           <Link
             href={item.href}
-            title={!expanded ? item.label : locked ? 'Connectez votre boutique pour y accéder' : undefined}
+            title={!expanded ? item.label : locked ? t('nav.locked_tooltip') : undefined}
             className={rowClass}
           >
             {inner}
@@ -349,7 +349,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   )}
                 >
                   <c.icon className="h-4 w-4 shrink-0" />
-                  {c.label}
+                  {t(c.labelKey)}
                 </Link>
               )
             })}
@@ -415,7 +415,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
           {/* Desktop : flèche pour épingler/ouvrir la sidebar */}
           <button
             onClick={() => setPinned(p => !p)}
-            title={pinned ? 'Réduire le menu' : 'Agrandir le menu'}
+            title={pinned ? t('nav.collapse_menu') : t('nav.expand_menu')}
             className={cn(
               'hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition-all hover:bg-white/15 hover:text-white md:flex',
               expanded ? '' : 'md:absolute md:-right-1 md:top-1/2 md:-translate-y-1/2 md:opacity-0 md:group-hover/sidebar:opacity-100'
@@ -460,19 +460,19 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
           {/* Avatar */}
           <Link
             href="/settings"
-            title={profile?.full_name || 'Profil'}
+            title={profile?.full_name || t('nav.profile')}
             className={cn(
               'mt-1 flex items-center gap-3 rounded-xl px-3 py-2',
               expanded ? 'md:justify-start md:px-3' : 'md:justify-center md:px-0'
             )}
           >
             <Avatar size="default" className="ring-1 ring-white/15">
-              {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'Profil'} />}
+              {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || t('nav.profile')} />}
               <AvatarFallback className="bg-white/10 text-[11px] font-semibold text-white">
                 {(profile?.full_name || '').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'}
               </AvatarFallback>
             </Avatar>
-            <span className={cn('text-sm font-medium text-white/80', expanded ? 'md:inline' : 'md:hidden')}>{profile?.full_name || 'Profil'}</span>
+            <span className={cn('text-sm font-medium text-white/80', expanded ? 'md:inline' : 'md:hidden')}>{profile?.full_name || t('nav.profile')}</span>
           </Link>
         </div>
       </aside>
@@ -506,11 +506,11 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   <CreditCard className="h-8 w-8 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">Upgrade requis</h2>
+                  <h2 className="text-2xl font-bold text-foreground">{t('nav.upgrade_required')}</h2>
                   <p className="text-muted-foreground">
                     {pathname.startsWith('/campaigns')
-                      ? 'Les campagnes broadcast sont disponibles uniquement avec le plan Scale.'
-                      : 'Le module Lifecycle est disponible à partir du plan Pro.'}
+                      ? t('nav.upgrade_campaigns')
+                      : t('nav.upgrade_lifecycle')}
                   </p>
                 </div>
                 <Link
@@ -518,7 +518,7 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <CreditCard className="h-5 w-5" />
-                  Voir les plans
+                  {t('nav.view_plans')}
                 </Link>
               </div>
             </div>

@@ -21,13 +21,13 @@ export default function DashboardError({
         <AlertTriangle className="h-8 w-8 text-destructive" />
       </div>
       <div className="text-center">
-        <h2 className="text-lg font-semibold">Une erreur est survenue</h2>
+        <h2 className="text-lg font-semibold">Something went wrong</h2>
         <p className="mt-1 text-sm text-muted-foreground max-w-md">
-          {error.message || 'Une erreur inattendue s\'est produite. Veuillez réessayer.'}
+          {error.message || 'An unexpected error occurred. Please try again.'}
         </p>
       </div>
       <Button onClick={reset} variant="outline">
-        Réessayer
+        Try again
       </Button>
     </div>
   )
