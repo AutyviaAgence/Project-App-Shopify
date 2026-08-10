@@ -155,10 +155,26 @@ export async function getUserPlan(userId: string): Promise<PlanDef> {
     return GRID.free
   }
 
-  // Aucune boutique Shopify active → aucun abonnement. Le plan vient EXCLUSIVEMENT
-  // de la boutique (billing Shopify) ou du rôle admin (géré plus haut). On NE lit
-  // plus `profiles.plan` : c'était l'ancien fallback Stripe qui laissait un plan
-  // fantôme survivre à la perte de la boutique.
+  // Aucune boutique Shopify active. Reste UN cas légitime de plan sans boutique :
+  // l'OCTROI MANUEL par un admin (démo, partenaire, compte offert) via
+  // /api/admin/activate, qui pose `profiles.subscription_status='active'` + `plan`.
+  //
+  // ⚠️ On exige `subscription_status='active'` — signal EXPLICITE d'octroi — et NON
+  // `profiles.plan` seul. C'est la différence avec l'ancien fallback Stripe qui
+  // rendait payant tout `plan` résiduel : un plan fantôme laissé par une déliaison a
+  // `subscription_status` remis à 'none'/null (cf. disconnect/unlink), donc il ne
+  // compte pas. Seul un octroi admin actif accorde le plan.
+  const { data: granted } = await supabase
+    .from('profiles')
+    .select('plan, subscription_status')
+    .eq('id', userId)
+    .maybeSingle()
+  const g = granted as { plan?: string | null; subscription_status?: string | null } | null
+  if (g?.subscription_status === 'active' && g.plan) {
+    return GRID[resolvePlan(g.plan)]
+  }
+
+  // Sinon : aucun abonnement → free (IA off).
   return GRID.free
 }
 

@@ -92,9 +92,14 @@ export async function POST() {
   // profiles.plan, mais on nettoie la donnée pour ne pas laisser d'état trompeur.)
   // `plan = null` (PAS 'free' : la contrainte profiles_plan_check rejette 'free' ;
   // l'absence de plan est représentée par NULL en base).
+  //
+  // ⚠️ On remet AUSSI `subscription_status='none'`. getUserPlan honore un octroi
+  // manuel admin quand `subscription_status='active'` sans boutique — sans ce reset,
+  // une déliaison laisserait un 'active' résiduel qui rendrait le compte payant à
+  // tort (plan fantôme). On coupe les deux.
   const { error: planErr } = await admin
     .from('profiles')
-    .update({ plan: null })
+    .update({ plan: null, subscription_status: 'none' })
     .eq('id', user.id)
   if (planErr) console.error('[shopify/disconnect] reset plan échec (non bloquant):', planErr.message)
 

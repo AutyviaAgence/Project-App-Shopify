@@ -70,10 +70,15 @@ export async function POST(req: NextRequest) {
   // ⚠️ NETTOYER LE PLAN FANTÔME de l'ancien propriétaire : sans boutique, aucun
   // abonnement. Sinon il reste 'pro'/'scale' alors qu'il n'a plus de boutique ni de
   // paiement. Best-effort (ne bloque pas la déliaison).
-  // `plan = null` (PAS 'free' : la contrainte profiles_plan_check rejette 'free').
+  // `plan = null` (PAS 'free' : contrainte profiles_plan_check) + subscription_status
+  // remis à 'none' : sinon un 'active' résiduel rendrait l'ancien compte payant sans
+  // boutique (getUserPlan honore l'octroi manuel actif). On coupe les deux.
   const prevUserId = (before as { user_id?: string | null } | null)?.user_id
   if (prevUserId) {
-    const { error: planErr } = await admin.from('profiles').update({ plan: null }).eq('id', prevUserId)
+    const { error: planErr } = await admin
+      .from('profiles')
+      .update({ plan: null, subscription_status: 'none' })
+      .eq('id', prevUserId)
     if (planErr) console.error('[embedded/unlink] reset plan échec (non bloquant):', planErr.message)
   }
 

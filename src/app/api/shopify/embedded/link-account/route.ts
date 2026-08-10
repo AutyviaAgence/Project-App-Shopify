@@ -166,49 +166,16 @@ export async function GET(req: NextRequest) {
 
   // Pas encore liée : QUI est devant l'écran ? C'est ce qui permet de lui proposer
   // « Continuer en tant que jean@gmail.com » plutôt que de lui imposer un compte.
+  //
+  // ⚠️ PAS D'AUTO-LIAISON SILENCIEUSE. On a essayé (créer+lier le compte de
+  // l'identité Shopify au 1er chargement) : ça introduisait deux failles graves —
+  //   1. le PREMIER staff à ouvrir l'app captait la boutique (un employé pouvait
+  //      devenir propriétaire du compte Xeyo avant le patron) ;
+  //   2. le compte créé n'acceptait jamais les CGV.
+  // Et ça ne réglait même pas le cas du marchand qui a un compte web séparé. On
+  // laisse donc le marchand CHOISIR explicitement (les deux portes ci-dessous),
+  // conformément au modèle voulu (resolveXeyoUser ne devine jamais l'identité).
   const staff = await fetchStaffUser(session.shop, token)
-
-  // ── AUTO-LIAISON SILENCIEUSE (le fix du rejet 2.1.1) ────────────────────────
-  //
-  // LE PROBLÈME : en managed install, la boutique est provisionnée SANS user_id
-  // (orpheline). Le seul rattachement automatique (adoption par email dans
-  // store-status) exige `shop_email`, une donnée client PROTÉGÉE, VIDE tant que
-  // *Protected Customer Data* n'est pas approuvé. Résultat : la boutique est
-  // installée + active côté Shopify mais reste orpheline → sur app.xeyo.io le
-  // dashboard filtre `.eq('user_id', user.id)`, ne la trouve pas → « Reconnectez
-  // votre boutique », sans issue (le reviewer App Store est resté coincé là-dessus).
-  //
-  // LA SOLUTION : dans l'embedded, l'identité NE dépend PAS de shop_email — elle
-  // vient de `associated_user` (le staff connecté à l'admin), dont Shopify garantit
-  // l'email vérifié. On peut donc créer+lier le compte AUTOMATIQUEMENT dès la 1ʳᵉ
-  // ouverture, sans clic ni Protected Customer Data. Mêmes garde-fous que la porte 1
-  // manuelle : email vérifié + PAS collaborateur (une agence ne doit pas capter la
-  // boutique sur son compte perso).
-  //
-  // ⚠️ On NE ré-adopte JAMAIS une boutique déliée VOLONTAIREMENT (`unlinked_at`) :
-  // le marchand a choisi de la détacher, on respecte ce choix (il repassera par une
-  // liaison explicite).
-  const eligibleAutoLink =
-    !!store &&
-    !store.unlinked_at &&
-    !!staff?.email &&
-    staff.emailVerified === true &&
-    staff.collaborator !== true
-
-  if (eligibleAutoLink && store) {
-    const res = await provisionAndLink(
-      admin(),
-      { id: store.id, shop_name: store.shop_name, shop_domain: store.shop_domain },
-      { email: staff!.email, firstName: staff!.firstName, lastName: staff!.lastName }
-    )
-    if (res.ok) {
-      return NextResponse.json({
-        data: { installed: true, linked: true, shopName: store.shop_name ?? null, autoLinked: true },
-      })
-    }
-    // Échec best-effort : on retombe sur l'écran de liaison manuelle ci-dessous.
-    console.error('[shopify/link-account] auto-liaison échouée, fallback manuel:', res.error)
-  }
 
   // A-t-il déjà un compte Xeyo sous cet email ? → « c'est bien moi » au lieu de « créer ».
   let hasAccount = false
