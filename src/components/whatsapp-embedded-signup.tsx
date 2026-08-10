@@ -93,7 +93,7 @@ export function WhatsAppEmbeddedSignup({
   }, [configured])
 
   const launch = useCallback(() => {
-    if (!window.FB) { toast.error('La connexion WhatsApp n’est pas encore prête, réessayez dans un instant.'); return }
+    if (!window.FB) { toast.error(t('ui4.wa_not_ready')); return }
     setBusy(true)
     signupData.current = {}
 
@@ -111,13 +111,13 @@ export function WhatsAppEmbeddedSignup({
         if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('api_errors.generic')))
 
         const n = json.imported_templates ?? 0
-        toast.success(n > 0 ? `WhatsApp connecté ✓, ${n} modèle(s) importé(s)` : 'WhatsApp connecté ✓')
+        toast.success(n > 0 ? t('ui4.wa_connected', { count: n }) : t('ui4.wa_connected_no_templates'))
         if (json.webhooks_subscribed === false) {
-          toast.warning('Connecté, mais l’abonnement aux notifications a échoué. Les messages entrants peuvent ne pas arriver.')
+          toast.warning(t('ui4.wa_connected_sub_failed'))
         }
         onConnected?.()
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Erreur')
+        toast.error(e instanceof Error ? e.message : t('ui4.error'))
       } finally {
         setBusy(false)
       }
@@ -130,14 +130,14 @@ export function WhatsAppEmbeddedSignup({
         if (!code) {
           setBusy(false)
           // Fermeture volontaire de la popup : pas d'erreur bruyante.
-          if (response?.status !== 'unknown') toast.error('Connexion WhatsApp annulée.')
+          if (response?.status !== 'unknown') toast.error(t('ui4.wa_cancelled'))
           return
         }
 
         const { waba_id, phone_number_id } = signupData.current
         if (!waba_id || !phone_number_id) {
           setBusy(false)
-          toast.error('Meta n’a pas renvoyé le compte WhatsApp. Réessayez ou utilisez la saisie manuelle.')
+          toast.error(t('ui4.wa_meta_no_account'))
           return
         }
 
@@ -159,7 +159,7 @@ export function WhatsAppEmbeddedSignup({
       {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
       {/* On nomme le RÉSULTAT (connecter WhatsApp), pas le fournisseur d'identité :
           le marchand vient connecter WhatsApp, Meta n'est que le passage obligé. */}
-      {busy ? 'Connexion…' : !sdkReady ? 'Chargement…' : 'Connecter mon WhatsApp'}
+      {busy ? t('ui4.connecting') : !sdkReady ? t('ui4.loading') : t('ui4.connect_wa')}
     </Button>
   )
 }

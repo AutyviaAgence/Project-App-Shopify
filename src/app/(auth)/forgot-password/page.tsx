@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
 
     if (captchaReady && !captchaToken) {
-      toast.error('Veuillez compléter la vérification de sécurité.')
+      toast.error(t('ui5.captcha_required'))
       return
     }
 

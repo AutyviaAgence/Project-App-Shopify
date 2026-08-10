@@ -72,8 +72,8 @@ function resolveBody(body: string, samples: string[]): string {
 }
 
 /** Libellé humain d'un délai en minutes. */
-function delayLabel(min: number): string {
-  if (min <= 0) return 'Immédiat'
+function delayLabel(min: number, tr: TrFn): string {
+  if (min <= 0) return tr('ui4.immediate')
   if (min < 60) return `${min} min`
   if (min < 1440) return `${Math.round(min / 60)} h`
   return `${Math.round(min / 1440)} j`
@@ -97,20 +97,20 @@ function buttonBranchLabelsOf(graph: WorkflowGraph, nodeId: string): string[] {
   return labels
 }
 
-function samplesOf(t: SimTemplate | undefined): string[] {
+function samplesOf(t: SimTemplate | undefined, tr: TrFn): string[] {
   if (!t) return []
   if (Array.isArray(t.sample_values) && t.sample_values.length) return t.sample_values as string[]
   // Fallback lisible par position (prénom, boutique) si pas d'exemples stockés.
-  return ['Marie', 'Ma Boutique', 'https://exemple.com']
+  return ['Marie', tr('ui4.my_store'), 'https://exemple.com']
 }
 
 /** Construit l'item d'affichage `message` d'un nœud action : corps résolu, média
  *  (image/vidéo/doc ou carrousel) et boutons (template ou branches du graphe). */
-function buildMessageItem(graph: WorkflowGraph, nodeId: string, t: SimTemplate | undefined): Extract<SimItem, { kind: 'message' }> {
+function buildMessageItem(graph: WorkflowGraph, nodeId: string, t: SimTemplate | undefined, tr: TrFn): Extract<SimItem, { kind: 'message' }> {
   const tplButtons = quickLabels(t)
   const branchButtons = buttonBranchLabelsOf(graph, nodeId)
   const buttons = tplButtons.length > 0 ? tplButtons : branchButtons
-  const samples = samplesOf(t)
+  const samples = samplesOf(t, tr)
 
   // Carrousel : une carte par produit (image + court texte résolu).
   const isCarousel = t?.template_type === 'carousel'
@@ -130,7 +130,7 @@ function buildMessageItem(graph: WorkflowGraph, nodeId: string, t: SimTemplate |
     body: resolveBody(t?.body_text || '', samples),
     footer: t?.footer_text || undefined,
     buttons,
-    templateName: t?.name || 'Message',
+    templateName: t?.name || tr('ui4.message'),
     mediaType,
     mediaUrl,
     cards,
@@ -169,25 +169,25 @@ export function advance(
 
     if (node.type === 'delay') {
       const min = node.minutes || 0
-      items.push({ kind: 'delay', label: delayLabel(min), immediate: min <= 0 })
+      items.push({ kind: 'delay', label: delayLabel(min, tr), immediate: min <= 0 })
       cur = nextNodes(graph, node.id)[0]
       continue
     }
     if (node.type === 'condition') {
       // Aperçu : on suit la branche « oui ».
-      items.push({ kind: 'system', text: 'Condition évaluée', sub: 'branche « oui » (aperçu)' })
+      items.push({ kind: 'system', text: tr('ui4.condition_evaluated'), sub: tr('ui4.branch_yes') })
       cur = nextNodes(graph, node.id, 'yes')[0] || nextNodes(graph, node.id)[0]
       continue
     }
     if (node.type === 'ab_test') {
       const first = node.variants?.[0]?.key
-      items.push({ kind: 'system', text: 'Test A/B', sub: `variante ${first || 'A'} (aperçu)` })
+      items.push({ kind: 'system', text: 'Test A/B', sub: tr('ui4.variant', { key: first || 'A' }) })
       cur = nextNodes(graph, node.id, `variant:${first}`)[0]
       continue
     }
     if (node.type === 'action') {
       const t = tplOf(node.templateId, templates)
-      const msg = buildMessageItem(graph, node.id, t)
+      const msg = buildMessageItem(graph, node.id, t, tr)
       items.push(msg)
       // Message à boutons (template OU branches) → on s'arrête et on attend un clic.
       if (msg.buttons.length > 0) {
@@ -201,7 +201,7 @@ export function advance(
     cur = nextNodes(graph, node.id)[0]
   }
 
-  items.push({ kind: 'end', text: 'Fin du parcours' })
+  items.push({ kind: 'end', text: tr('ui4.flow_end') })
   return { items, waitingNodeId: null, waitingButtons: [], done: true }
 }
 
@@ -222,7 +222,7 @@ export function clickButton(
   // Ajoute la "réponse" du client (le libellé cliqué) puis avance.
   const withReply: SimItem[] = [...state.items, { kind: 'reply', text: clickedLabel }]
   if (!target) {
-    return { items: [...withReply, { kind: 'end', text: 'Aucune suite pour ce bouton' }], waitingNodeId: null, waitingButtons: [], done: true }
+    return { items: [...withReply, { kind: 'end', text: tr('ui4.no_next') }], waitingNodeId: null, waitingButtons: [], done: true }
   }
   return advance(graph, templates, target, withReply, tr)
 }
@@ -243,7 +243,7 @@ export function typeText(
   }
   const timeout = graph.edges.find((e) => e.from === state.waitingNodeId && e.branch === BUTTON_TIMEOUT_BRANCH)
   if (timeout) return advance(graph, templates, timeout.to, withReply, tr)
-  return { items: [...withReply, { kind: 'end', text: 'En attente d’un clic sur un bouton' }], waitingNodeId: state.waitingNodeId, waitingButtons: state.waitingButtons, done: false }
+  return { items: [...withReply, { kind: 'end', text: tr('ui4.awaiting_click') }], waitingNodeId: state.waitingNodeId, waitingButtons: state.waitingButtons, done: false }
 }
 
 /** Démarre une nouvelle simulation depuis le trigger. */
@@ -279,14 +279,14 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: Tr
 
       if (node.type === 'delay') {
         const min = node.minutes || 0
-        items.push({ kind: 'delay', label: delayLabel(min), immediate: min <= 0 }); budget--
+        items.push({ kind: 'delay', label: delayLabel(min, tr), immediate: min <= 0 }); budget--
         cur = nextNodes(graph, node.id)[0]; continue
       }
       if (node.type === 'condition') {
         // Démo : on montre les DEUX branches (oui puis non) si elles existent.
         const yes = nextNodes(graph, node.id, 'yes')[0]
         const no = nextNodes(graph, node.id, 'no')[0]
-        items.push({ kind: 'system', text: 'Condition', sub: yes && no ? 'branches oui / non' : 'branche évaluée' }); budget--
+        items.push({ kind: 'system', text: 'Condition', sub: yes && no ? tr('ui4.branches_yes_no') : tr('ui4.branch_evaluated') }); budget--
         if (yes) walk(yes, depth + 1)
         if (no) walk(no, depth + 1)
         return
@@ -294,10 +294,10 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: Tr
       if (node.type === 'ab_test') {
         // Démo : dérouler CHAQUE variante l'une après l'autre.
         const variants = node.variants || []
-        items.push({ kind: 'system', text: 'Test A/B', sub: `${variants.length} variantes` }); budget--
+        items.push({ kind: 'system', text: 'Test A/B', sub: tr('ui4.variants', { count: variants.length }) }); budget--
         for (const v of variants) {
           const target = nextNodes(graph, node.id, `variant:${v.key}`)[0]
-          if (target) { items.push({ kind: 'system', text: `Variante ${v.key}`, sub: `${v.weight ?? ''}%` }); budget--; walk(target, depth + 1) }
+          if (target) { items.push({ kind: 'system', text: tr('ui4.variant_n', { key: v.key }), sub: `${v.weight ?? ''}%` }); budget--; walk(target, depth + 1) }
         }
         return
       }
@@ -305,7 +305,7 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: Tr
         if (visitedActions.has(node.id)) return // anti-cycle
         visitedActions.add(node.id)
         const t = tplOf(node.templateId, templates)
-        const msg = buildMessageItem(graph, node.id, t)
+        const msg = buildMessageItem(graph, node.id, t, tr)
         items.push(msg); budget--
 
         if (msg.buttons.length > 0) {
@@ -332,7 +332,7 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: Tr
   }
 
   walk(start, 0)
-  items.push({ kind: 'end', text: 'Fin de la démo' })
+  items.push({ kind: 'end', text: tr('ui4.demo_end') })
   return items
 }
 

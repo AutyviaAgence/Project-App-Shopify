@@ -248,13 +248,13 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                           msg.rag.error ? "text-red-500" : msg.rag.chunksUsed > 0 ? "text-emerald-500" : "text-muted-foreground"
                         )} />
                         {msg.rag.error ? (
-                          <span className="text-red-600 dark:text-red-400">RAG erreur : {msg.rag.error}</span>
+                          <span className="text-red-600 dark:text-red-400">{t('ui5.rag_error')} {msg.rag.error}</span>
                         ) : msg.rag.chunksUsed > 0 ? (
                           <span className="text-emerald-700 dark:text-emerald-300">
-                            Base de connaissances : {msg.rag.chunksUsed} extrait{msg.rag.chunksUsed > 1 ? 's' : ''} trouvé{msg.rag.chunksUsed > 1 ? 's' : ''} dans {msg.rag.documentNames.join(', ')}
+                            {t('ui5.kb_found')} {msg.rag.documentNames.join(', ')} ({msg.rag.chunksUsed})
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">Base de connaissances : aucun résultat pertinent</span>
+                          <span className="text-muted-foreground">{t('ui5.kb_none')}</span>
                         )}
                       </div>
                     )}
@@ -263,7 +263,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                       <div className="flex items-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11px]">
                         <ImageIcon className="h-3 w-3 shrink-0 text-violet-500" />
                         <span className="text-violet-700 dark:text-violet-300">
-                          {msg.media.map(m => `${m.kind === 'video' ? 'Vidéo' : m.kind === 'document' ? 'Document' : 'Image'} : ${m.ref}`).join(' · ')}
+                          {msg.media.map(m => `${m.kind === 'video' ? t('ui5.video') : m.kind === 'document' ? t('ui5.document') : t('ui5.image')} : ${m.ref}`).join(' · ')}
                         </span>
                       </div>
                     )}
@@ -294,7 +294,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                       <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-sm">
                         <ArrowRightCircle className="h-4 w-4 text-blue-500 shrink-0" />
                         <span className="text-blue-700 dark:text-blue-300">
-                          Redirection vers <span className="font-semibold">{msg.event.routeTo}</span>
+                          {t('ui5.redirect_to')} <span className="font-semibold">{msg.event.routeTo}</span>
                         </span>
                       </div>
                     )}
@@ -364,7 +364,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                               <FileText className="h-5 w-5 shrink-0 text-blue-500" />
                               <div className="min-w-0">
                                 <p className="truncate text-xs font-medium">{m.filename || m.ref}</p>
-                                <p className="text-[11px] text-muted-foreground">Ouvrir le document</p>
+                                <p className="text-[11px] text-muted-foreground">{t('ui5.open_document')}</p>
                               </div>
                             </a>
                           )

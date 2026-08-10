@@ -246,7 +246,7 @@ export function LegalPageLayout({
               <div className="rounded-xl border bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
                 <div className="px-4 py-3 border-b bg-slate-50 dark:bg-slate-800/50">
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Sur cette page
+                    {lang === 'en' ? 'On this page' : 'Sur cette page'}
                   </p>
                 </div>
                 <nav className="p-3 space-y-0.5">
