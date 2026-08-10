@@ -105,8 +105,8 @@ const THEME_KEYS = [
 // Timezones les plus courants, groupés par région
 const TIMEZONES = [
   { value: 'Europe/Paris', label: 'Paris (UTC+1/+2)', region: 'Europe' },
-  { value: 'Europe/London', label: 'Londres (UTC+0/+1)', region: 'Europe' },
-  { value: 'Europe/Brussels', label: 'Bruxelles (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/London', label: 'London (UTC+0/+1)', region: 'Europe' },
+  { value: 'Europe/Brussels', label: 'Brussels (UTC+1/+2)', region: 'Europe' },
   { value: 'Europe/Zurich', label: 'Zurich (UTC+1/+2)', region: 'Europe' },
   { value: 'Europe/Berlin', label: 'Berlin (UTC+1/+2)', region: 'Europe' },
   { value: 'Europe/Madrid', label: 'Madrid (UTC+1/+2)', region: 'Europe' },
@@ -116,15 +116,15 @@ const TIMEZONES = [
   { value: 'America/Los_Angeles', label: 'Los Angeles (UTC-8/-7)', region: 'Amérique' },
   { value: 'America/Chicago', label: 'Chicago (UTC-6/-5)', region: 'Amérique' },
   { value: 'America/Toronto', label: 'Toronto (UTC-5/-4)', region: 'Amérique' },
-  { value: 'America/Montreal', label: 'Montréal (UTC-5/-4)', region: 'Amérique' },
+  { value: 'America/Montreal', label: 'Montreal (UTC-5/-4)', region: 'Amérique' },
   { value: 'America/Sao_Paulo', label: 'São Paulo (UTC-3)', region: 'Amérique' },
   { value: 'Africa/Casablanca', label: 'Casablanca (UTC+0/+1)', region: 'Afrique' },
   { value: 'Africa/Tunis', label: 'Tunis (UTC+1)', region: 'Afrique' },
-  { value: 'Africa/Algiers', label: 'Alger (UTC+1)', region: 'Afrique' },
+  { value: 'Africa/Algiers', label: 'Algiers (UTC+1)', region: 'Afrique' },
   { value: 'Africa/Dakar', label: 'Dakar (UTC+0)', region: 'Afrique' },
   { value: 'Africa/Abidjan', label: 'Abidjan (UTC+0)', region: 'Afrique' },
-  { value: 'Asia/Dubai', label: 'Dubaï (UTC+4)', region: 'Asie' },
-  { value: 'Asia/Singapore', label: 'Singapour (UTC+8)', region: 'Asie' },
+  { value: 'Asia/Dubai', label: 'Dubai (UTC+4)', region: 'Asie' },
+  { value: 'Asia/Singapore', label: 'Singapore (UTC+8)', region: 'Asie' },
   { value: 'Asia/Tokyo', label: 'Tokyo (UTC+9)', region: 'Asie' },
   { value: 'Asia/Shanghai', label: 'Shanghai (UTC+8)', region: 'Asie' },
   { value: 'Australia/Sydney', label: 'Sydney (UTC+10/+11)', region: 'Océanie' },
@@ -177,8 +177,7 @@ function ReferralSection() {
           {t('settings.referral')}
         </CardTitle>
         <CardDescription>
-          Invitez un marchand : dès qu’il s’abonne, vous recevez {months} mois offert
-          {months > 1 ? 's' : ''}, déduit de votre prochaine facture Shopify.
+          {t('settings2.referral_invite', { months: String(months), plural: months > 1 ? 's' : '' })}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -199,15 +198,15 @@ function ReferralSection() {
                 un marchand avec 3 inscrits et 1 seul mois offert croit à un bug. */}
             <div className="flex gap-8 text-sm">
               <div>
-                <p className="text-muted-foreground">Inscrits</p>
+                <p className="text-muted-foreground">{t('settings2.referral_signups')}</p>
                 <p className="text-xl font-bold">{data.stats.signups}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Devenus clients</p>
+                <p className="text-muted-foreground">{t('settings2.referral_converted')}</p>
                 <p className="text-xl font-bold">{data.stats.converted}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Mois offerts</p>
+                <p className="text-muted-foreground">{t('settings2.referral_free_months')}</p>
                 <p className="text-xl font-bold text-primary">{data.totals.freeMonths}</p>
               </div>
             </div>
@@ -216,8 +215,7 @@ function ReferralSection() {
                 crédits IA. Le marchand doit savoir ce qu'il a réellement reçu. */}
             {data.totals.aiCredits > 0 && (
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{data.totals.aiCredits} conversations IA</span>{' '}
-                vous ont été créditées grâce au parrainage.
+                {t('settings2.referral_ai_credited', { count: String(data.totals.aiCredits) })}
               </p>
             )}
           </>
@@ -274,11 +272,11 @@ export default function SettingsPage() {
       fd.append('file', file)
       const res = await fetch('/api/profile/avatar', { method: 'POST', body: fd })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Upload impossible')
+      if (!res.ok) throw new Error(json.error || t('settings2.upload_failed'))
       setFormAvatarUrl(json.data.url)
-      toast.success('Photo de profil mise à jour')
+      toast.success(t('settings2.avatar_updated'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur')
+      toast.error(err instanceof Error ? err.message : t('settings2.error'))
     } finally {
       setAvatarUploading(false)
     }
@@ -463,7 +461,7 @@ export default function SettingsPage() {
       if (!user?.email) {
         // Sortie silencieuse auparavant : le marchand cliquait, rien ne se
         // passait, aucun message. On le dit.
-        toast.error('Aucune adresse email sur ce compte.')
+        toast.error(t('settings2.no_email'))
         return
       }
       // ⚠️ L'ERREUR ÉTAIT IGNORÉE.
@@ -484,7 +482,7 @@ export default function SettingsPage() {
       })
       if (error) {
         console.error('[settings] envoi email mot de passe échoué:', error.message, error.status)
-        toast.error(`Envoi impossible : ${error.message}`)
+        toast.error(t('settings2.send_failed', { msg: error.message }))
         return
       }
       toast.success(t('settings.password_email_sent'))
@@ -739,7 +737,7 @@ export default function SettingsPage() {
 
             {/* Photo de profil : import de fichier (plus de saisie d'URL). */}
             <div className="space-y-2">
-              <Label>Photo de profil</Label>
+              <Label>{t('settings2.profile_photo')}</Label>
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={formAvatarUrl || undefined} alt="" />
@@ -759,10 +757,10 @@ export default function SettingsPage() {
                   onClick={() => avatarFileRef.current?.click()}
                 >
                   {avatarUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Importer une image
+                  {t('settings2.upload_image')}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">PNG, JPG ou WebP, 2 Mo maximum. Appliquée immédiatement.</p>
+              <p className="text-xs text-muted-foreground">{t('settings2.image_hint')}</p>
             </div>
 
             <Button onClick={handleSaveProfile} disabled={saving}>
@@ -950,7 +948,7 @@ export default function SettingsPage() {
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   {t('settings.oauth_no_password')}
-                  {typeof window !== 'undefined' ? window.location.hostname : 'cette application'}.
+                  {typeof window !== 'undefined' ? window.location.hostname : t('settings2.this_app')}.
                   {' '}{t('settings.oauth_set_password_hint')}
                 </p>
                 <Button variant="outline" onClick={handleSendSetPasswordEmail}>
@@ -1481,12 +1479,12 @@ export default function SettingsPage() {
                       <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1">
                         {purgeTagIds.length > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Tags : <strong>{purgeTagIds.map(id => allTags.find(t => t.id === id)?.name).filter(Boolean).join(' + ')}</strong>
+                            {t('settings2.tags_label')}<strong>{purgeTagIds.map(id => allTags.find(tg => tg.id === id)?.name).filter(Boolean).join(' + ')}</strong>
                           </p>
                         )}
                         {purgeMessageTypes.length > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Types : <strong>{purgeMessageTypes.map(mt => MESSAGE_TYPE_OPTIONS.find(o => o.value === mt)?.label).filter(Boolean).join(', ')}</strong>
+                            {t('settings2.types_label')}<strong>{purgeMessageTypes.map(mt => MESSAGE_TYPE_OPTIONS.find(o => o.value === mt)?.label).filter(Boolean).join(', ')}</strong>
                           </p>
                         )}
                       </div>

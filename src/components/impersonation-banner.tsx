@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { UserCog, LogOut, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Bannière PERMANENTE affichée quand un admin agit « en tant que » un client.
@@ -12,6 +13,7 @@ import { toast } from 'sonner'
  * impossible à rater.
  */
 export function ImpersonationBanner() {
+  const { t } = useTranslation()
   const [target, setTarget] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
 
@@ -19,7 +21,7 @@ export function ImpersonationBanner() {
     let active = true
     fetch('/api/admin/impersonate/status')
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (active && j?.isImpersonating) setTarget(j.targetEmail || 'un client') })
+      .then((j) => { if (active && j?.isImpersonating) setTarget(j.targetEmail || t('ui3.a_client')) })
       .catch(() => {})
     return () => { active = false }
   }, [])
@@ -30,11 +32,11 @@ export function ImpersonationBanner() {
     setLeaving(true)
     try {
       await fetch('/api/admin/impersonate/stop', { method: 'POST' })
-      toast.success('Retour à votre compte admin')
+      toast.success(t('ui3.back_to_admin'))
       // Rechargement dur : les Server Components doivent relire l'utilisateur réel.
       window.location.href = '/admin'
     } catch {
-      toast.error('Erreur')
+      toast.error(t('ui3.error'))
       setLeaving(false)
     }
   }
@@ -43,7 +45,7 @@ export function ImpersonationBanner() {
     <div className="flex shrink-0 items-center justify-center gap-3 bg-red-600 px-4 py-2 text-sm font-medium text-white">
       <UserCog className="h-4 w-4 shrink-0" />
       <span className="truncate">
-        Vous agissez en tant que <span className="font-semibold">{target}</span> (mode admin)
+        {t('ui3.acting_as', { name: target })}
       </span>
       <button
         onClick={leave}
@@ -51,7 +53,7 @@ export function ImpersonationBanner() {
         className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md bg-white/20 px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-white/30 disabled:opacity-60"
       >
         {leaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className="h-3 w-3" />}
-        Revenir à mon compte
+        {t('ui3.return_to_account')}
       </button>
     </div>
   )

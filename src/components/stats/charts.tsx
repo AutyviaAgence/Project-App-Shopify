@@ -14,6 +14,7 @@ import {
   Cell,
 } from 'recharts'
 import { useTenant, adjustColor } from '@/lib/tenant/context'
+import { useTranslation } from '@/i18n/context'
 import type { StatsMessagePoint, StatsTimePoint, StatsLifecycleStage, StatsDevicePoint, StatsCountryPoint, StatsUtmPoint, StatsPeakHourPoint } from '@/types/stats'
 
 /** Derive chart colors from tenant branding */
@@ -82,6 +83,7 @@ type MessagesChartProps = {
 
 export function MessagesChart({ data, height = 280 }: MessagesChartProps) {
   const c = useChartColors()
+  const { t } = useTranslation()
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -108,14 +110,14 @@ export function MessagesChart({ data, height = 280 }: MessagesChartProps) {
         />
         <Bar
           dataKey="outbound"
-          name="Envoyés"
+          name={t('ui2.sent')}
           stackId="messages"
           fill={c.primary}
           radius={[0, 0, 0, 0]}
         />
         <Bar
           dataKey="inbound"
-          name="Reçus"
+          name={t('ui2.received')}
           stackId="messages"
           fill={c.accent}
           radius={[4, 4, 0, 0]}
@@ -141,6 +143,7 @@ export function TimeSeriesChart({
   height = 280,
 }: TimeSeriesChartProps) {
   const c = useChartColors()
+  const { t } = useTranslation()
   const chartColor = color || c.accent
   const gradientId = `gradient-${title.replace(/\s+/g, '-') || 'default'}`
 
@@ -174,7 +177,7 @@ export function TimeSeriesChart({
         <Area
           type="monotone"
           dataKey="count"
-          name="Nombre"
+          name={t('ui2.count')}
           stroke={chartColor}
           fill={`url(#${gradientId})`}
           strokeWidth={2}
@@ -192,6 +195,7 @@ type AgentsComparisonChartProps = {
 
 export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
   const c = useChartColors()
+  const { t } = useTranslation()
   if (data.length === 0) return null
 
   return (
@@ -222,13 +226,13 @@ export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
         />
         <Bar
           dataKey="conversationsManaged"
-          name="Conversations"
+          name={t('ui2.conversations')}
           fill={c.primary}
           radius={[0, 4, 4, 0]}
         />
         <Bar
           dataKey="messagesHandled"
-          name="Messages traités"
+          name={t('ui2.messages_handled')}
           fill={c.accent}
           radius={[0, 4, 4, 0]}
         />
@@ -241,6 +245,7 @@ export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
 
 export function ContactsOverTimeChart({ data }: { data: StatsTimePoint[] }) {
   const c = useChartColors()
+  const { t } = useTranslation()
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -271,7 +276,7 @@ export function ContactsOverTimeChart({ data }: { data: StatsTimePoint[] }) {
         <Area
           type="monotone"
           dataKey="count"
-          name="Nouveaux contacts"
+          name={t('ui2.new_contacts')}
           stroke={c.sky}
           fill="url(#gradient-contacts)"
           strokeWidth={2}
@@ -289,6 +294,7 @@ type StageDistributionChartProps = {
 
 export function StageDistributionChart({ data }: StageDistributionChartProps) {
   const c = useChartColors()
+  const { t } = useTranslation()
   if (data.length === 0) return null
 
   return (
@@ -314,7 +320,7 @@ export function StageDistributionChart({ data }: StageDistributionChartProps) {
           content={<CustomTooltip />}
           cursor={{ fill: c.cursorFill }}
         />
-        <Bar dataKey="count" name="Conversations" radius={[0, 4, 4, 0]}>
+        <Bar dataKey="count" name={t('ui2.conversations')} radius={[0, 4, 4, 0]}>
           {data.map((entry, index) => (
             <Cell key={index} fill={entry.color} />
           ))}
@@ -332,6 +338,7 @@ type ResponseRateByStageChartProps = {
 
 export function ResponseRateByStageChart({ data }: ResponseRateByStageChartProps) {
   const c = useChartColors()
+  const { t } = useTranslation()
   if (data.length === 0) return null
 
   return (
@@ -358,7 +365,7 @@ export function ResponseRateByStageChart({ data }: ResponseRateByStageChartProps
           content={<CustomTooltip />}
           cursor={{ fill: c.cursorFill }}
         />
-        <Bar dataKey="responseRate" name="Taux de réponse" radius={[0, 4, 4, 0]}>
+        <Bar dataKey="responseRate" name={t('ui2.response_rate')} radius={[0, 4, 4, 0]}>
           {data.map((entry, index) => (
             <Cell key={index} fill={entry.color} />
           ))}
@@ -433,6 +440,7 @@ export function TransitionsOverTimeChart({ data, stages }: TransitionsOverTimeCh
 
 export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
   const c = useChartColors()
+  const { t } = useTranslation()
   const deviceColors: Record<string, string> = {
     mobile: c.accent,
     desktop: c.blue,
@@ -449,7 +457,7 @@ export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
         <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
         <YAxis type="category" dataKey="type" width={80} tick={{ fill: c.muted, fontSize: 12 }} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
-        <Bar dataKey="count" name="Clics" radius={[0, 4, 4, 0]}>
+        <Bar dataKey="count" name={t('ui2.clicks')} radius={[0, 4, 4, 0]}>
           {data.map((entry, i) => (
             <Cell key={i} fill={deviceColors[entry.type] ?? c.muted} />
           ))}
@@ -463,6 +471,7 @@ export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
 
 export function CountryBreakdownChart({ data }: { data: StatsCountryPoint[] }) {
   const c = useChartColors()
+  const { t } = useTranslation()
   if (data.length === 0) return null
 
   return (
@@ -472,7 +481,7 @@ export function CountryBreakdownChart({ data }: { data: StatsCountryPoint[] }) {
         <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
         <YAxis type="category" dataKey="country" width={50} tick={{ fill: c.muted, fontSize: 12 }} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
-        <Bar dataKey="count" name="Clics" fill={c.primary} radius={[0, 4, 4, 0]} />
+        <Bar dataKey="count" name={t('ui2.clicks')} fill={c.primary} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -482,6 +491,7 @@ export function CountryBreakdownChart({ data }: { data: StatsCountryPoint[] }) {
 
 export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
   const c = useChartColors()
+  const { t } = useTranslation()
   if (data.length === 0) return null
 
   return (
@@ -491,7 +501,7 @@ export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
         <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
         <YAxis type="category" dataKey="source" width={80} tick={{ fill: c.muted, fontSize: 12 }} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
-        <Bar dataKey="count" name="Clics" fill={c.sky} radius={[0, 4, 4, 0]} />
+        <Bar dataKey="count" name={t('ui2.clicks')} fill={c.sky} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -501,6 +511,7 @@ export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
 
 export function PeakHoursChart({ data }: { data: StatsPeakHourPoint[] }) {
   const c = useChartColors()
+  const { t } = useTranslation()
   if (data.length === 0) return null
 
   return (
@@ -517,7 +528,7 @@ export function PeakHoursChart({ data }: { data: StatsPeakHourPoint[] }) {
           content={<CustomTooltip labelFormatter={(h) => `${h}h00`} />}
           cursor={{ fill: c.cursorFill }}
         />
-        <Bar dataKey="count" name="Clics" fill={c.accent} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="count" name={t('ui2.clicks')} fill={c.accent} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

@@ -58,6 +58,7 @@ function PricingCard({
   loading: boolean
   disabled: boolean
 }) {
+  const { t } = useTranslation()
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
 
@@ -120,7 +121,7 @@ function PricingCard({
 
       {tier.isPopular && (
         <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 rounded-b-xl border-x border-b border-primary/20 bg-primary/15 px-4 py-1 text-xs font-medium text-primary backdrop-blur-md">
-          Le plus choisi
+          {t('ui2.most_popular')}
         </div>
       )}
 
@@ -140,11 +141,11 @@ function PricingCard({
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 className="block text-[56px] font-bold leading-none tracking-tighter text-foreground"
               >
-                {isFree ? 'Gratuit' : `${price}${currency}`}
+                {isFree ? t('ui2.free') : `${price}${currency}`}
               </motion.span>
             </AnimatePresence>
           </div>
-          {!isFree && <span className="ml-1 text-lg font-medium text-muted-foreground">/mois</span>}
+          {!isFree && <span className="ml-1 text-lg font-medium text-muted-foreground">{t('ui2.per_month')}</span>}
         </motion.div>
 
         {/* Mention explicite en annuel : le prix affiché est « par mois », mais la
@@ -152,7 +153,7 @@ function PricingCard({
             qu'il paie ce montant chaque mois. */}
         {!isFree && isAnnual && (
           <motion.p variants={legoVariant} className="-mt-1 mb-2 text-xs font-medium text-emerald-500">
-            facturé annuellement · 2 mois offerts
+            {t('ui2.billed_annually')}
           </motion.p>
         )}
 
@@ -189,7 +190,7 @@ function PricingCard({
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                {tier.cta ?? 'Choisir'}
+                {tier.cta ?? t('ui2.choose')}
                 <ArrowRight className="h-4 w-4" />
               </>
             )}

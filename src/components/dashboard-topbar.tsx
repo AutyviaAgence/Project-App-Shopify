@@ -7,6 +7,7 @@ import { AlertsDropdown } from '@/components/alerts-dropdown'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { UsageBar } from '@/components/usage-bar'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 type Profile = { full_name?: string | null; avatar_url?: string | null }
 
@@ -16,6 +17,7 @@ type Profile = { full_name?: string | null; avatar_url?: string | null }
  * À gauche (mobile) : bouton menu pour ouvrir la sidebar.
  */
 export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
+  const { t } = useTranslation()
   const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
       <button
         onClick={onOpenSidebar}
         className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-        aria-label="Ouvrir le menu"
+        aria-label={t('ui2.open_menu')}
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -61,7 +63,7 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
 
         <Link
           href="/settings"
-          aria-label="Réglages"
+          aria-label={t('ui2.settings')}
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
           )}
@@ -69,9 +71,9 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
           <Settings className="h-[18px] w-[18px]" />
         </Link>
 
-        <Link href="/settings" aria-label="Profil" className="ml-1 rounded-full ring-offset-2 ring-offset-background transition-all hover:ring-2 hover:ring-border">
+        <Link href="/settings" aria-label={t('ui2.profile')} className="ml-1 rounded-full ring-offset-2 ring-offset-background transition-all hover:ring-2 hover:ring-border">
           <Avatar size="default">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'Profil'} />}
+            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || t('ui2.profile')} />}
             <AvatarFallback className="text-[11px] font-semibold">{initials}</AvatarFallback>
           </Avatar>
         </Link>

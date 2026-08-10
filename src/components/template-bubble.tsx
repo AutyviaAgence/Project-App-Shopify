@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { ExternalLink, Phone, Copy, Clock, Image as ImageIcon } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
 
 /** Image d'une carte de carrousel. Gère une URL http directe (Shopify) OU un
@@ -56,13 +57,14 @@ export function renderWhatsAppFormat(text: string, labels?: string[]): React.Rea
 const httpUrl = /^https?:\/\//i
 
 function ButtonRow({ b }: { b: TemplateButton }) {
+  const { t } = useTranslation()
   const icon = b.type === 'URL' ? <ExternalLink className="h-3.5 w-3.5" />
     : b.type === 'PHONE_NUMBER' ? <Phone className="h-3.5 w-3.5" />
     : b.type === 'COPY_CODE' ? <Copy className="h-3.5 w-3.5" />
     : null
   return (
     <div className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-1.5 text-[13px] font-medium text-[#1ca5e0] first:border-t-0">
-      {icon}{b.text || 'Bouton'}
+      {icon}{b.text || t('ui3.button')}
     </div>
   )
 }
@@ -78,6 +80,7 @@ export function TemplateBubble({ template, labels, className }: {
   labels?: string[]
   className?: string
 }) {
+  const { t } = useTranslation()
   const buttons = (Array.isArray(template.buttons) ? template.buttons : []) as TemplateButton[]
   const cards = (Array.isArray(template.carousel_cards) ? template.carousel_cards : []) as TemplateCard[]
   const isCarousel = template.template_type === 'carousel'
@@ -106,7 +109,7 @@ export function TemplateBubble({ template, labels, className }: {
         </p>
         {isLto && template.lto_title && (
           <div className="mt-1.5 flex items-center gap-1.5 rounded bg-rose-50 px-2 py-1 text-[12px] font-medium text-rose-600">
-            <Clock className="h-3.5 w-3.5" /> {template.lto_title} · expire dans {template.lto_default_hours ?? 24}h
+            <Clock className="h-3.5 w-3.5" /> {template.lto_title} {t('ui3.expires_in_hours', { h: template.lto_default_hours ?? 24 })}
           </div>
         )}
         {template.footer_text && !isCarousel && (
@@ -129,7 +132,7 @@ export function TemplateBubble({ template, labels, className }: {
             return (
               <div key={i} className="w-[100px] shrink-0 overflow-hidden rounded-lg border">
                 <CardImage url={img} />
-                <p className="truncate px-1.5 py-1 text-[11px] font-medium text-gray-700">{text || `Carte ${i + 1}`}</p>
+                <p className="truncate px-1.5 py-1 text-[11px] font-medium text-gray-700">{text || t('ui3.card', { n: i + 1 })}</p>
               </div>
             )
           })}

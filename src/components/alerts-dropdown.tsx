@@ -260,7 +260,7 @@ export function AlertsDropdown() {
       if (!res.ok) throw new Error()
       setAlerts(prev => prev.map(a => ({ ...a, is_read: true })))
       setUnreadCount(0)
-      toast.success('Toutes les alertes marquées comme lues')
+      toast.success(t('ui3.all_marked_read'))
     } catch {
       toast.error(t('alerts.mark_read_error'))
     } finally {
@@ -276,7 +276,7 @@ export function AlertsDropdown() {
       setAlerts(prev => prev.filter(a => a.id !== alertId))
       if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
     } catch {
-      toast.error('Erreur lors de la suppression')
+      toast.error(t('ui3.delete_error'))
     }
   }
 
@@ -288,10 +288,10 @@ export function AlertsDropdown() {
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
 
-    if (diffMins < 1) return 'À l\'instant'
-    if (diffMins < 60) return `Il y a ${diffMins}min`
-    if (diffHours < 24) return `Il y a ${diffHours}h`
-    if (diffDays < 7) return `Il y a ${diffDays}j`
+    if (diffMins < 1) return t('ui3.just_now')
+    if (diffMins < 60) return t('ui3.minutes_ago', { n: diffMins })
+    if (diffHours < 24) return t('ui3.hours_ago', { n: diffHours })
+    if (diffDays < 7) return t('ui3.days_ago', { n: diffDays })
     return date.toLocaleDateString('fr-FR')
   }
 
@@ -332,7 +332,7 @@ export function AlertsDropdown() {
         toast.error(t('alerts.resume_ko'))
       }
     } catch {
-      toast.error('Erreur réseau.')
+      toast.error(t('ui3.network_error'))
     } finally {
       setResuming(null)
     }
@@ -356,7 +356,7 @@ export function AlertsDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-96">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notifications</span>
+          <span>{t('ui3.notifications')}</span>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -366,7 +366,7 @@ export function AlertsDropdown() {
               disabled={isLoading}
             >
               <Check className="mr-1 h-3 w-3" />
-              Tout lire
+              {t('ui3.mark_all_read')}
             </Button>
           )}
         </DropdownMenuLabel>
@@ -374,7 +374,7 @@ export function AlertsDropdown() {
 
         {alerts.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
-            Aucune notification
+            {t('ui3.no_notifications')}
           </div>
         ) : (
           <div className="max-h-[400px] overflow-y-auto">
@@ -462,7 +462,7 @@ export function AlertsDropdown() {
                           }}
                         >
                           <Check className="mr-0.5 h-2.5 w-2.5" />
-                          Lu
+                          {t('ui3.read')}
                         </Button>
                       )}
                       <Button

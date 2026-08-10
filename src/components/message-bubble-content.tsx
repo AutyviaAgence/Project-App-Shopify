@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play, Paperclip, Copy, ExternalLink, Clock, Reply } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/i18n/context'
 import type { Message } from '@/types/database'
 
 type ExtendedMessage = Message & {
@@ -10,6 +11,7 @@ type ExtendedMessage = Message & {
 }
 
 export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
+  const { t } = useTranslation()
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaLoading, setMediaLoading] = useState(false)
   const [mediaError, setMediaError] = useState(false)
@@ -61,10 +63,10 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
         setTranscription(json.transcription)
         setShowTranscription(true)
       } else {
-        toast.error(json.error || 'Transcription échouée')
+        toast.error(json.error || t('ui3.transcription_failed'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('ui3.network_error'))
     } finally {
       setTranscribing(false)
     }
@@ -102,7 +104,7 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
           ) : mediaUrl ? (
             <img
               src={mediaUrl}
-              alt={msg.content || 'Image'}
+              alt={msg.content || t('ui3.image')}
               className="max-w-[280px] max-h-[300px] rounded-lg cursor-pointer hover:opacity-90 transition-opacity object-cover"
               onClick={() => setLightboxOpen(true)}
               loading="lazy"
@@ -110,7 +112,7 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <ImageIcon className="h-4 w-4" />
-              <span>{msg.content || '[Image]'}</span>
+              <span>{msg.content || `[${t('ui3.image')}]`}</span>
             </div>
           )
         ) : (
@@ -139,7 +141,7 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mic className="h-4 w-4" />
-              <span>Message vocal</span>
+              <span>{t('ui3.voice_message')}</span>
             </div>
           )
         ) : (
@@ -171,10 +173,10 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
           <FileText className="h-8 w-8 text-muted-foreground shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate">
-              {msg.content?.match(/Document\s*:\s*(.+?)[\]]/)?.[1] || 'Document'}
+              {msg.content?.match(/Document\s*:\s*(.+?)[\]]/)?.[1] || t('ui3.document')}
             </p>
             <p className="text-[10px] text-muted-foreground">
-              {msg.media_mime_type || 'Document'}
+              {msg.media_mime_type || t('ui3.document')}
             </p>
           </div>
           {hasStoredMedia && (
@@ -228,8 +230,8 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
             <Eye className="h-3 w-3" />
           )}
           {transcription
-            ? (showTranscription ? 'Masquer la transcription' : 'Afficher la transcription')
-            : (msg.message_type === 'audio' ? 'Transcrire' : msg.message_type === 'image' ? 'Décrire' : 'Analyser')}
+            ? (showTranscription ? t('ui3.hide_transcription') : t('ui3.show_transcription'))
+            : (msg.message_type === 'audio' ? t('ui3.transcribe') : msg.message_type === 'image' ? t('ui3.describe') : t('ui3.analyze'))}
         </button>
       )}
 
@@ -252,7 +254,7 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
         >
           <img
             src={mediaUrl}
-            alt="Image en taille réelle"
+            alt={t('ui3.full_size_image')}
             className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
@@ -268,6 +270,7 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
  * Charge les vraies images via /api/messages/[id]/carousel (URLs signées).
  */
 function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
+  const { t } = useTranslation()
   // État initial calculé depuis `transcription` (cartes sans images) — évite un
   // setState synchrone dans l'effet.
   const initial = (() => {
@@ -306,7 +309,7 @@ function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound
       {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
       <div className={`flex items-center gap-1.5 text-[11px] ${isOutbound ? 'text-white/70' : 'text-muted-foreground'}`}>
         <ImageIcon className="h-3 w-3" />
-        Carrousel · {cards.length} carte{cards.length > 1 ? 's' : ''}
+        {t('ui3.carousel')} · {cards.length} carte{cards.length > 1 ? 's' : ''}
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {cards.map((c, i) => (
@@ -319,7 +322,7 @@ function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound
             <div className={`flex h-[100px] w-full items-center justify-center ${isOutbound ? 'bg-white/10' : 'bg-muted/50'}`}>
               {c.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.image} alt={c.body || `Carte ${i + 1}`} className="h-full w-full object-cover" loading="lazy" />
+                <img src={c.image} alt={c.body || t('ui3.card', { n: i + 1 })} className="h-full w-full object-cover" loading="lazy" />
               ) : loading ? (
                 <Loader2 className={`h-4 w-4 animate-spin ${isOutbound ? 'text-white/40' : 'text-muted-foreground/40'}`} />
               ) : (
@@ -327,7 +330,7 @@ function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound
               )}
             </div>
             <p className={`truncate px-2 py-1.5 text-[12px] font-medium ${isOutbound ? 'text-white' : 'text-foreground'}`}>
-              {c.body || `Carte ${i + 1}`}
+              {c.body || t('ui3.card', { n: i + 1 })}
             </p>
           </div>
         ))}
@@ -342,6 +345,7 @@ function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound
  * boutons (Copier le code / Visiter le site).
  */
 function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
+  const { t } = useTranslation()
   let parsed: {
     kind?: string; body?: string; lto_title?: string; lto_hours?: number
     buttons?: ({ type: string; text: string; url?: string; code?: string } | string)[]
@@ -388,7 +392,7 @@ function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbo
           }`}>
             <Clock className="h-3.5 w-3.5 shrink-0" />
             <span>{parsed.lto_title}</span>
-            <span className="opacity-70">· expire dans {parsed.lto_hours ?? 24}h</span>
+            <span className="opacity-70">{t('ui3.expires_in_hours', { h: parsed.lto_hours ?? 24 })}</span>
           </div>
         )}
         {buttons.length > 0 && (
@@ -400,7 +404,7 @@ function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbo
                   isOutbound ? 'text-white' : 'text-blue-600'
                 }`}>
                   {b.type === 'COPY_CODE' ? <Copy className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                  {b.text || (b.type === 'COPY_CODE' ? 'Copier le code' : 'Visiter le site')}
+                  {b.text || (b.type === 'COPY_CODE' ? t('ui3.copy_code') : t('ui3.visit_site'))}
                   {b.type === 'COPY_CODE' && b.code && <span className="opacity-70">({b.code})</span>}
                 </div>
               )

@@ -140,7 +140,7 @@ export function UsageBar() {
       : 'from-emerald-500 to-teal-400'
   const textColor = critical ? 'text-rose-500' : low ? 'text-amber-600' : 'text-foreground'
 
-  const planName = PLAN_LABEL[usage.plan] || usage.plan
+  const planName = usage.plan === 'free' ? t('ui3.free_plan') : (PLAN_LABEL[usage.plan] || usage.plan)
 
   return (
     <Link
