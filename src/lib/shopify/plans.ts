@@ -89,11 +89,31 @@ export async function getShopifyBilling(userId: string): Promise<{ billed: boole
 
 /**
  * Détermine le plan effectif d'un utilisateur (grille unifiée).
- * Source de vérité : billing_source. Si shopify → plan de shopify_stores
- * ('growth' legacy → 'pro') ; sinon → profiles.plan. Défaut : free (IA OFF).
+ *
+ * Source de vérité : la BOUTIQUE SHOPIFY. Tout est facturé via la Billing API
+ * Shopify (exigence App Store §1.2). Donc :
+ *   · admin interne              → scale (comptes démo/internes, sans boutique) ;
+ *   · boutique Shopify active    → son plan (si abonnement actif / annulé-mais-payé) ;
+ *   · AUCUNE boutique Shopify    → free (= pas d'abonnement, IA OFF).
+ *
+ * ⚠️ On NE retombe PLUS sur `profiles.plan`. C'était l'ancien modèle Stripe : un
+ * compte gardait `plan='pro'` même après avoir perdu sa boutique (déliaison,
+ * désinstallation) → il apparaissait payant SANS boutique ni paiement (plan
+ * fantôme, risque de double-« abonnement » affiché pour une seule boutique). Plus
+ * aucun compte Stripe légitime n'existe : la seule voie payante est la boutique.
  */
 export async function getUserPlan(userId: string): Promise<PlanDef> {
   const supabase = admin()
+
+  // Admin interne : accès complet sans boutique (comptes démo/support).
+  const { data: profileRole } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+  if ((profileRole as { role?: string } | null)?.role === 'admin') {
+    return GRID[resolvePlan('scale')]
+  }
 
   // Boutique Shopify liée ?
   const { data: store } = await supabase
@@ -135,14 +155,11 @@ export async function getUserPlan(userId: string): Promise<PlanDef> {
     return GRID.free
   }
 
-  // Sinon plan direct (profiles.plan) — défaut free
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('plan')
-    .eq('id', userId)
-    .maybeSingle()
-
-  return GRID[resolvePlan(profile?.plan)]
+  // Aucune boutique Shopify active → aucun abonnement. Le plan vient EXCLUSIVEMENT
+  // de la boutique (billing Shopify) ou du rôle admin (géré plus haut). On NE lit
+  // plus `profiles.plan` : c'était l'ancien fallback Stripe qui laissait un plan
+  // fantôme survivre à la perte de la boutique.
+  return GRID.free
 }
 
 /**

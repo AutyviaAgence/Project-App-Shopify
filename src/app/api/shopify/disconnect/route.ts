@@ -85,5 +85,18 @@ export async function POST() {
     return NextResponse.json({ error: 'Déconnexion impossible' }, { status: 500 })
   }
 
+  // ⚠️ NETTOYER LE PLAN FANTÔME. La boutique partie, le compte ne doit plus être
+  // payant : tout abonnement vient de la boutique Shopify. On remet `profiles.plan`
+  // à 'free' — sinon une vieille valeur ('pro'…) survivait à la déliaison et le
+  // compte apparaissait payant SANS boutique ni paiement. (getUserPlan ne lit plus
+  // profiles.plan, mais on nettoie la donnée pour ne pas laisser d'état trompeur.)
+  // `plan = null` (PAS 'free' : la contrainte profiles_plan_check rejette 'free' ;
+  // l'absence de plan est représentée par NULL en base).
+  const { error: planErr } = await admin
+    .from('profiles')
+    .update({ plan: null })
+    .eq('id', user.id)
+  if (planErr) console.error('[shopify/disconnect] reset plan échec (non bloquant):', planErr.message)
+
   return NextResponse.json({ data: { disconnected: true, documents_removed: docIds.length } })
 }

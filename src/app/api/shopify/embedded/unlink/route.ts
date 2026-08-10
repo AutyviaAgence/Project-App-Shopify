@@ -42,6 +42,16 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // On lit l'ancien propriétaire AVANT de délier, pour nettoyer son plan fantôme.
+  const { data: before } = await admin
+    .from('shopify_stores')
+    .select('user_id')
+    .eq('shop_domain', session.shop)
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { data, error } = await admin
     .from('shopify_stores')
     .update({ user_id: null, unlinked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -55,6 +65,16 @@ export async function POST(req: NextRequest) {
   }
   if (!data || data.length === 0) {
     return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })
+  }
+
+  // ⚠️ NETTOYER LE PLAN FANTÔME de l'ancien propriétaire : sans boutique, aucun
+  // abonnement. Sinon il reste 'pro'/'scale' alors qu'il n'a plus de boutique ni de
+  // paiement. Best-effort (ne bloque pas la déliaison).
+  // `plan = null` (PAS 'free' : la contrainte profiles_plan_check rejette 'free').
+  const prevUserId = (before as { user_id?: string | null } | null)?.user_id
+  if (prevUserId) {
+    const { error: planErr } = await admin.from('profiles').update({ plan: null }).eq('id', prevUserId)
+    if (planErr) console.error('[embedded/unlink] reset plan échec (non bloquant):', planErr.message)
   }
 
   console.log('[embedded/unlink] boutique déliée de son compte Xeyo :', session.shop)
