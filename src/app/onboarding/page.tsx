@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
+import { SHOPIFY_APP_STORE_URL, IS_APP_STORE_PUBLISHED } from '@/lib/shopify/app-store'
 import { triggersForKind } from '@/lib/automations/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -751,22 +751,30 @@ export default function OnboardingPage() {
                     autorise, et revient ici via le callback OAuth (qui crée/rattache
                     son compte). Ne JAMAIS réintroduire de saisie de domaine ici.
                   */}
-                  <a
-                    href={SHOPIFY_APP_STORE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
-                  >
-                    <Store className="h-4 w-4" />
-                    {t('wizard.onboarding.install_from_shopify')}
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-3.5 w-3.5" /> {t('wizard.onboarding.shopify_authorize_hint')}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t('wizard.onboarding.shopify_autorefresh_hint')}
-                  </p>
+                  {/* ⚠️ Fiche non publiée → le lien d'install mène au Dev Dashboard de
+                      notre org (cul-de-sac pour tout tiers). On n'affiche le bouton que
+                      si la fiche EST publiée ; sinon le message « déjà installé » ci-dessous
+                      est la seule instruction (ouvrir depuis l'admin Shopify). */}
+                  {IS_APP_STORE_PUBLISHED && (
+                    <>
+                      <a
+                        href={SHOPIFY_APP_STORE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
+                      >
+                        <Store className="h-4 w-4" />
+                        {t('wizard.onboarding.install_from_shopify')}
+                        <ArrowRight className="h-4 w-4" />
+                      </a>
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <ShieldCheck className="h-3.5 w-3.5" /> {t('wizard.onboarding.shopify_authorize_hint')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('wizard.onboarding.shopify_autorefresh_hint')}
+                      </p>
+                    </>
+                  )}
 
                   {/*
                     ⚠️ LA SORTIE DU CERCLE VICIEUX — ne pas retirer.

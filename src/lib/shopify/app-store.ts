@@ -26,3 +26,13 @@ const DEV_DASHBOARD_INSTALL_URL =
 
 export const SHOPIFY_APP_STORE_URL =
   process.env.NEXT_PUBLIC_SHOPIFY_APP_STORE_URL || DEV_DASHBOARD_INSTALL_URL
+
+/**
+ * La fiche App Store est-elle PUBLIÉE ? (= `NEXT_PUBLIC_SHOPIFY_APP_STORE_URL` défini).
+ *
+ * ⚠️ Sert à ne PAS montrer un bouton « Installer » qui mène au Dev Dashboard de
+ * NOTRE organisation — inutilisable par un tiers (reviewer App Store, marchand)
+ * et donc cul-de-sac / motif de rejet 2.1.1. Tant que la fiche n'est pas publiée,
+ * on affiche à la place un message « Ouvrez Xeyo depuis votre admin Shopify ».
+ */
+export const IS_APP_STORE_PUBLISHED = !!process.env.NEXT_PUBLIC_SHOPIFY_APP_STORE_URL

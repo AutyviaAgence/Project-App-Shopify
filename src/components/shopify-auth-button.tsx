@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
+import { SHOPIFY_APP_STORE_URL, IS_APP_STORE_PUBLISHED } from '@/lib/shopify/app-store'
 
 /**
  * Bouton « Continuer avec Shopify » (connexion + inscription).
@@ -37,7 +37,12 @@ export function ShopifyAuthButton({
     <Image src="/brand/shopify-logo.png" alt="" width={18} height={18} className="h-[18px] w-[18px]" aria-hidden="true" />
   )
 
-  if (disabled) {
+  // ⚠️ Fiche non publiée → `SHOPIFY_APP_STORE_URL` pointe vers le Dev Dashboard de
+  // notre org, inutilisable par un tiers. On désactive alors le bouton avec un
+  // libellé explicite plutôt que de mener à un cul-de-sac (rejet 2.1.1).
+  const unavailable = disabled || !IS_APP_STORE_PUBLISHED
+
+  if (unavailable) {
     return (
       <button
         type="button"

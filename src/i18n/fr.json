@@ -3010,6 +3010,8 @@
     "shopify_link_to_account": "Relier à mon compte",
     "shopify_install_btn": "Installer depuis le Shopify App Store",
     "shopify_install_hint": "Shopify vous demandera d'autoriser l'accès, puis vous ramènera ici. Cette page se mettra à jour automatiquement.",
+    "shopify_open_from_admin_title": "Ouvrez Xeyo depuis votre admin Shopify",
+    "shopify_open_from_admin_hint": "Une fois l'app installée sur votre boutique, ouvrez Xeyo depuis votre admin Shopify. Votre boutique se relie à votre compte automatiquement.",
     "shopify_toast_disconnect_err": "Erreur",
     "shopify_toast_disconnected": "Boutique déconnectée.",
     "shopify_toast_link_err": "Impossible de lier la boutique",
