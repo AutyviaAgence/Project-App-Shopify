@@ -50,7 +50,7 @@ export function ShopifyConnect() {
     try {
       const res = await fetch('/api/shopify/disconnect', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('components.error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.error')))
       setConfirmDisconnect(false)
       await fetchStatus()
       toast.success(t('components.shopify_toast_disconnected'))
@@ -77,7 +77,7 @@ export function ShopifyConnect() {
         return 'taken'
       }
       const j = await res.json().catch(() => ({}))
-      toast.error(j.error || t('components.shopify_toast_link_err'))
+      toast.error(j.code ? t(`api_errors.${j.code}`) : (j.error || t('components.shopify_toast_link_err')))
       return 'error'
     } catch {
       return 'error'
@@ -161,7 +161,7 @@ export function ShopifyConnect() {
     try {
       const res = await fetch('/api/shopify/resync', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('components.error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.error')))
       await fetchStatus()
       const n = json.data?.processed ?? 0
       toast.success(n > 0 ? t('components.shopify_toast_resynced') : t('components.shopify_toast_already_synced'))

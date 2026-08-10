@@ -214,7 +214,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       })
       const json = await res.json()
       if (!res.ok || !json?.data?.confirmationUrl) {
-        throw new Error(json?.error || t('subscription.sub_purchase_failed'))
+        throw new Error(json?.code ? t(`api_errors.${json.code}`) : (json?.error || t('subscription.sub_purchase_failed')))
       }
       window.location.href = json.data.confirmationUrl
     } catch (e) {
@@ -282,7 +282,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       })
       const json = await res.json()
       const confirmationUrl = json?.data?.confirmationUrl
-      if (!res.ok || !confirmationUrl) throw new Error(json.error || t('subscription.sub_billing_error'))
+      if (!res.ok || !confirmationUrl) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('subscription.sub_billing_error')))
       window.location.href = confirmationUrl
     } catch (error) {
       console.error('[Subscription] Error:', error)
@@ -299,7 +299,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       // 100 % Shopify — plus de chemin Stripe.
       const res = await fetch('/api/shopify/billing/cancel', { method: 'POST' })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.code ? t(`api_errors.${data.code}`) : data.error)
       toast.success(t('subscription.cancel_success'))
       await refetch()
     } catch {

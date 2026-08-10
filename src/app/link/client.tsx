@@ -77,7 +77,8 @@ export default function LinkClient() {
       })
       const json = await res.json()
       if (!res.ok) {
-        setError(json.error || t('link_store.err_failed'))
+        // Priorité au `code` machine (traduit ici) ; `json.error` (FR serveur) en repli.
+        setError(json.code ? t(`api_errors.${json.code}`) : (json.error || t('link_store.err_failed')))
         setPhase('error')
         return
       }

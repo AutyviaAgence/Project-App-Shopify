@@ -358,7 +358,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         if (json.window_closed) {
           setTemplateDialogOpen(true)
         } else {
-          toast.error(json.error || t('conversations.send_error'))
+          toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.send_error')))
         }
         return
       }
@@ -400,7 +400,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         body: JSON.stringify({ phone: newConvPhone, template_id: newConvTemplate }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('conversations.error_generic'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.error_generic')))
       toast.success(t('conversations.conversation_started'))
       setNewConvOpen(false)
       await fetchConversations()
@@ -424,7 +424,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || t('conversations.send_error'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.send_error')))
         return
       }
       if (json.data) setMessages((prev) => [...prev, json.data])
@@ -484,7 +484,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
       const json = await res.json()
 
       if (!res.ok) {
-        toast.error(json.error || t('conversations.send_media_error'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.send_media_error')))
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
         return
       }
@@ -528,7 +528,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         }
         toast.success(agentId ? t('conversations.agent_assigned') : t('conversations.agent_removed'))
       } else {
-        toast.error(json.error || t('conversations.agent_assign_error'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.agent_assign_error')))
       }
     } catch {
       toast.error(t('common.network_error'))
@@ -584,7 +584,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         toast.success(t('conversations.stage_label', { name: stageName }))
       } else {
         const json = await res.json()
-        toast.error(json.error || t('common.error'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('common.error')))
       }
     } catch {
       toast.error(t('common.network_error'))
@@ -617,7 +617,7 @@ function ConversationsPageContent({ openConvId }: { openConvId: string | null })
         await fetchAllConversationStages([convId])
         toast.success(`${result.stageName || t('conversations.unclassified')}, ${result.reason}`)
       } else {
-        toast.error(json.error || t('conversations.analysis_error'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.analysis_error')))
       }
     } catch {
       toast.error(t('common.network_error'))

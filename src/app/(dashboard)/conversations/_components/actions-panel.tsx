@@ -94,7 +94,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
         body: JSON.stringify({ decision, refund }),
       })
       const json = await res.json()
-      if (!res.ok && !json.data) throw new Error(json.error || t('conversations.error_generic'))
+      if (!res.ok && !json.data) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.error_generic')))
 
       // Remboursement réussi + case « prévenir le client » → envoyer le message
       // via l'endpoint de conversation existant (gère fenêtre 24h + persistance).
@@ -106,7 +106,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
           })
           if (!sendRes.ok) {
             const sj = await sendRes.json().catch(() => ({}))
-            toast.warning(t('conversations.refund_notified_fail', { reason: sj.error || t('conversations.refund_out_of_window') }))
+            toast.warning(t('conversations.refund_notified_fail', { reason: sj.code ? t(`api_errors.${sj.code}`) : (sj.error || t('conversations.refund_out_of_window')) }))
           } else {
             toast.success(t('conversations.client_notified_refund'))
           }
@@ -119,7 +119,7 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
       onChange?.()
       if (decision === 'reject') toast.success(t('conversations.action_rejected'))
       else if (json.data?.status === 'executed') toast.success(t('conversations.refund_done_shopify'))
-      else toast.error(json.error || t('conversations.execution_failed'))
+      else toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.execution_failed')))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('conversations.error_generic'))
     } finally {

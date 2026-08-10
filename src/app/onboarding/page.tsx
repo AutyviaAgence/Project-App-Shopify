@@ -286,7 +286,7 @@ export default function OnboardingPage() {
       .then((r) => r.json())
       .then((json) => {
         const items: PackItem[] = json.data?.items || []
-        if (items.length === 0) throw new Error(json.error || t('wizard.onboarding.pack_empty'))
+        if (items.length === 0) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('wizard.onboarding.pack_empty')))
         setPack(items)
         setSelTemplates(new Set(items.map((i) => i.trigger)))
         setSelAutomations(new Set(items.map((i) => i.trigger)))
@@ -313,8 +313,8 @@ export default function OnboardingPage() {
         setAgentName(c.name)
         setAgentPrompt(c.system_prompt || '')
         setAgentSituations(c.escalation_situations || '')
-      } else if (gen?.error) {
-        toast.error(gen.error)
+      } else if (gen?.error || gen?.code) {
+        toast.error(gen.code ? t(`api_errors.${gen.code}`) : gen.error)
       }
     }).finally(() => setAgentLoading(false))
   }
@@ -393,7 +393,7 @@ export default function OnboardingPage() {
         return 'taken'
       }
       const j = await res.json().catch(() => ({}))
-      toast.error(j.error || t('wizard.onboarding.toast_cant_link_shop'))
+      toast.error(j.code ? t(`api_errors.${j.code}`) : (j.error || t('wizard.onboarding.toast_cant_link_shop')))
       return 'error'
     } catch {
       return 'error'
@@ -417,7 +417,7 @@ export default function OnboardingPage() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('wizard.onboarding.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('wizard.onboarding.toast_error')))
       await fetchState()
       goTo('widget', t('wizard.onboarding.fb_wa_connected'))
     } catch (e) {
@@ -447,7 +447,7 @@ export default function OnboardingPage() {
       const res = agentId
         ? await fetch(`/api/agents/${agentId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         : await fetch('/api/agents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) throw new Error((await res.json()).error || t('wizard.onboarding.toast_error'))
+      if (!res.ok) { const j = await res.json(); throw new Error(j.code ? t(`api_errors.${j.code}`) : (j.error || t('wizard.onboarding.toast_error'))) }
       fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent_onboarding_done: true }) }).catch(() => {})
       goTo('templates', t('wizard.onboarding.fb_agent_activated'))
     } catch (e) {
@@ -467,7 +467,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({ templates: Array.from(selTemplates), edited }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('wizard.onboarding.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('wizard.onboarding.toast_error')))
       goTo('automations', t('wizard.onboarding.fb_templates_ready', { count: json.data?.templatesCreated ?? selTemplates.size }))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
@@ -486,7 +486,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({ automations }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('wizard.onboarding.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('wizard.onboarding.toast_error')))
       goTo('plan', t('wizard.onboarding.fb_automations_ready', { count: json.data?.automationsCreated ?? automations.length }))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('wizard.onboarding.toast_error'))
@@ -529,7 +529,7 @@ export default function OnboardingPage() {
       // (non imbriqué) → le flux Shopify jetait systématiquement « Erreur de
       // facturation Shopify », même quand l'abonnement était bien créé.
       const confirmationUrl = json?.data?.confirmationUrl
-      if (!res.ok || !confirmationUrl) throw new Error(json.error || t('wizard.onboarding.toast_billing_error'))
+      if (!res.ok || !confirmationUrl) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('wizard.onboarding.toast_billing_error')))
       // Onboarding terminé : le marchand a choisi une formule et part vers la
       // page d'approbation Shopify. Fin du funnel (avec plan + intervalle).
       track('onboarding_completed', { plan: planId, billing })

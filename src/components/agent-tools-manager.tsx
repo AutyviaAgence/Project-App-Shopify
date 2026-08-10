@@ -277,7 +277,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
           }),
         })
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error || t('components.tools_notif_create_err'))
+        if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.tools_notif_create_err')))
         id = json.data?.id as string
       } else if (newBody !== undefined && newBody !== notifTpls[preset.name]?.body_text) {
         const res = await fetch(`/api/templates/${id}`, {
@@ -285,14 +285,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
           body: JSON.stringify({ body_text: bodyText }),
         })
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error || t('components.tools_notif_update_err'))
+        if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.tools_notif_update_err')))
       }
       const sub = await fetch(`/api/templates/${id}/submit`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: formConfig.session_id || undefined }),
       })
       const sj = await sub.json().catch(() => ({}))
-      if (!sub.ok) toast.error(sj.error || t('components.tools_notif_submit_err'))
+      if (!sub.ok) toast.error(sj.code ? t(`api_errors.${sj.code}`) : (sj.error || t('components.tools_notif_submit_err')))
       else toast.success(t('components.tools_notif_submitted', { label: notifPresetLabel(preset.key) }))
       setNotifEditKey(null)
       setNotifVarWarn(null)
@@ -542,7 +542,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               }),
             })
             const credJson = await credRes.json()
-            if (!credRes.ok) throw new Error(credJson.error || t('components.tools_cred_create_err'))
+            if (!credRes.ok) throw new Error(credJson.code ? t(`api_errors.${credJson.code}`) : (credJson.error || t('components.tools_cred_create_err')))
             credentialId = credJson.data.id
             clientIdForOAuth = formConfig.client_id
             clientSecretForOAuth = formConfig.client_secret
@@ -562,7 +562,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               }),
             })
             const credJson = await credRes.json()
-            if (!credRes.ok) throw new Error(credJson.error || t('components.tools_cred_create_err'))
+            if (!credRes.ok) throw new Error(credJson.code ? t(`api_errors.${credJson.code}`) : (credJson.error || t('components.tools_cred_create_err')))
             credentialId = credJson.data.id
             // Remove secret fields from tool config
             for (const field of selectedTemplate.auth_fields) {
@@ -591,7 +591,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         })
 
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error)
+        if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : json.error)
 
         toast.success(t('tools.tool_updated'))
         setConfigOpen(false)
@@ -615,7 +615,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         })
 
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error)
+        if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : json.error)
 
         // For OAuth tools, trigger the OAuth flow if not yet connected
         const cred = credentialId ? credentials.find(c => c.id === credentialId) : null
@@ -663,7 +663,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : json.error)
 
       // Redirect to Google OAuth consent screen
       window.location.href = json.url
@@ -699,7 +699,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : json.error)
       window.location.href = json.url
     } catch (err: any) {
       toast.error(err.message || 'OAuth error')
@@ -727,7 +727,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     try {
       const res = await fetch(`/api/agents/${agentId}/tools/${toolToDelete.id}`, { method: 'DELETE' })
       const body = await res.json()
-      if (!res.ok) throw new Error(body?.error || t('components.tools_unknown_error'))
+      if (!res.ok) throw new Error(body?.code ? t(`api_errors.${body.code}`) : (body?.error || t('components.tools_unknown_error')))
       setTools(prev => prev.filter(t => t.id !== toolToDelete.id))
       toast.success(t('tools.tool_deleted'))
     } catch (err) {
@@ -964,7 +964,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         try {
                           const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
                           const body = await res.json()
-                          if (!res.ok) throw new Error(body?.error || t('components.tools_unknown_error'))
+                          if (!res.ok) throw new Error(body?.code ? t(`api_errors.${body.code}`) : (body?.error || t('components.tools_unknown_error')))
                           toast.success(t('components.tools_cred_deleted'))
                           fetchCredentials()
                           fetchTools() // refresh tools that may have lost their credential

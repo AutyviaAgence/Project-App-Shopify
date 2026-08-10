@@ -136,7 +136,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
           }])
         }
       } else {
-        setError(json.error || t('test_chat.generation_error'))
+        setError(json.code ? t(`api_errors.${json.code}`) : (json.error || t('test_chat.generation_error')))
       }
     } catch {
       setError(t('test_chat.network_error'))
@@ -500,7 +500,7 @@ function RefinePromptPanel({ agentId, transcript }: {
           applied: false,
         }])
       } else {
-        setError(json.error || t('test_chat.refine_error'))
+        setError(json.code ? t(`api_errors.${json.code}`) : (json.error || t('test_chat.refine_error')))
       }
     } catch {
       setError(t('test_chat.network_error'))
@@ -524,7 +524,7 @@ function RefinePromptPanel({ agentId, transcript }: {
         setEntries((prev) => prev.map((e, i) => (i === idx && e.kind === 'proposal' ? { ...e, applied: true } : e)))
         toast.success(t('test_chat.refine_applied'))
       } else {
-        toast.error(json.error || t('test_chat.refine_error'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('test_chat.refine_error')))
       }
     } catch {
       toast.error(t('test_chat.network_error'))

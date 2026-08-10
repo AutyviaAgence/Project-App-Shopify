@@ -212,7 +212,7 @@ export default function TemplatesPage() {
       fd.append('kind', headerType)
       const res = await fetch('/api/templates/media', { method: 'POST', body: fd })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_upload_failed'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_upload_failed')))
       setHeaderMediaUrl(json.data.storage_path)
       setMediaPreviewUrl(json.data.signed_url || '')
       setMediaFilename(json.data.filename || file.name)
@@ -314,7 +314,7 @@ export default function TemplatesPage() {
         body: JSON.stringify({ key }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       await Promise.all([fetchTemplates(), fetchLibrary()])
       track('template_created', { source: 'library', key })
       toast.success(t('templates.toast_template_added'))
@@ -367,7 +367,7 @@ export default function TemplatesPage() {
     try {
       const res = await fetch('/api/templates/seed', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       await fetchTemplates()
       const n = json.data?.created ?? 0
       toast.success(n > 0 ? t('templates.toast_n_templates_added', { count: n }) : t('templates.toast_all_defaults'))
@@ -409,7 +409,7 @@ export default function TemplatesPage() {
         body: JSON.stringify({ messages: nextChat, locale }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       if (json.mode === 'ready') {
         // L'IA a assez d'infos → propositions générées (variables auto).
         if (json.meta?.use_case) setAiUseCase(json.meta.use_case)
@@ -631,7 +631,7 @@ export default function TemplatesPage() {
     try {
       const res = await fetch(`/api/templates/${tpl.id}`, { method: 'PUT' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       const updated = json.data as WhatsAppTemplate
       // Met à jour la liste EN MÉMOIRE immédiatement (le badge/statut affiché en
       // dépend) puis recharge le formulaire — pas besoin de refresh manuel.
@@ -687,7 +687,7 @@ export default function TemplatesPage() {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       const saved = json.data as WhatsAppTemplate | undefined
       // Création manuelle (l'éditeur) — distincte de la création depuis la
       // bibliothèque (source: 'library') déjà trackée. Édition = template_saved.
@@ -745,7 +745,7 @@ export default function TemplatesPage() {
     try {
       const res = await fetch(`/api/templates/${tpl.id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       track('template_submitted', { template_id: tpl.id, template_type: tpl.template_type || 'standard' })
       await fetchTemplates()
       toast.success(t('templates.toast_submitted'))
@@ -790,7 +790,7 @@ export default function TemplatesPage() {
           })
           const json = await res.json()
           if (res.ok && json.ok) ok++
-          else failures.push(`${name} (${json.error || t('templates.toast_rejected')})`)
+          else failures.push(`${name} (${json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_rejected'))})`)
         } catch {
           failures.push(`${name} (${t('templates.toast_network')})`)
         }
@@ -821,7 +821,7 @@ export default function TemplatesPage() {
         body: JSON.stringify({ name: tpl.name }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
       await fetchTemplates()
       const results = (json.results || []) as { language: string; ok: boolean; error?: string }[]
       const ok = results.filter((r) => r.ok).map((r) => r.language.toUpperCase())
@@ -868,7 +868,7 @@ export default function TemplatesPage() {
       if (res.ok) {
         await fetchTemplates()
         toast.success(t('templates.toast_n_statuses_updated', { count: json.data?.synced ?? 0 }))
-      } else throw new Error(json.error || t('templates.toast_error'))
+      } else throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('templates.toast_error')))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('templates.toast_error'))
     } finally {

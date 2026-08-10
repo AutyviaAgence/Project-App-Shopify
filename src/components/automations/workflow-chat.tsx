@@ -75,8 +75,8 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
       })
       const json = await res.json()
       if (!res.ok) {
-        setCreated((c) => ({ ...c, [i]: { error: json.error || t('automations.builder.chat_creation_failed') } }))
-        toast.error(json.error || t('automations.builder.chat_creation_failed'))
+        setCreated((c) => ({ ...c, [i]: { error: json.code ? t(`api_errors.${json.code}`) : (json.error || t('automations.builder.chat_creation_failed')) } }))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('automations.builder.chat_creation_failed')))
         return
       }
       // Soumission refusée par Meta : le brouillon EXISTE quand même. On le dit
@@ -182,7 +182,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
         body: JSON.stringify({ messages: next, kind, createdTemplateIds, locale }),
       })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error || t('automations.builder.chat_assistant_error')); return }
+      if (!res.ok) { toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('automations.builder.chat_assistant_error'))); return }
 
       if (json.mode === 'need_templates') {
         setQuestion('')

@@ -74,7 +74,7 @@ export function ContactProfilePanel({
         setNotes(json.data.notes || '')
         setLanguage(json.data.preferred_language || '')
       } else {
-        toast.error(json.error || t('components.contact_toast_load_err'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.contact_toast_load_err')))
       }
     } catch {
       toast.error(t('components.contact_toast_network_err'))
@@ -112,7 +112,7 @@ export function ContactProfilePanel({
         setContact(json.data)
         toast.success(t('components.contact_toast_updated'))
       } else {
-        toast.error(json.error || t('components.contact_toast_update_err'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.contact_toast_update_err')))
       }
     } catch {
       toast.error(t('components.contact_toast_network_err'))
@@ -133,7 +133,7 @@ export function ContactProfilePanel({
         setContact(json.data)
         toast.success(t('components.contact_toast_summary_generated'))
       } else {
-        toast.error(json.error || t('components.contact_toast_summary_err'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.contact_toast_summary_err')))
       }
     } catch {
       toast.error(t('components.contact_toast_network_err'))
@@ -181,7 +181,7 @@ export function ContactProfilePanel({
           toast.info(t('components.contact_toast_nothing_to_complete'))
         }
       } else {
-        toast.error(json.error || t('components.contact_toast_extract_err'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.contact_toast_extract_err')))
       }
     } catch (err) {
       console.error('[extract-info] Error:', err)
@@ -212,7 +212,7 @@ export function ContactProfilePanel({
         onOpenChange(false)
         onContactDeleted?.()
       } else {
-        toast.error(json.error || t('components.contact_toast_delete_err'))
+        toast.error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('components.contact_toast_delete_err')))
       }
     } catch {
       toast.error(t('components.contact_toast_network_err'))

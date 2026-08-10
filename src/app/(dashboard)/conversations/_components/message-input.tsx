@@ -62,7 +62,7 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
     try {
       const res = await fetch(`/api/conversations/${conversationId}/suggest`, { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('conversations.error_generic'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.error_generic')))
       if (json.text) { setNewMessage(json.text); inputRef.current?.focus() }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('conversations.error_generic'))

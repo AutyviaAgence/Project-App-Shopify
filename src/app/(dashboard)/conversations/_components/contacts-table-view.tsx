@@ -190,7 +190,7 @@ export function ContactsTableView({
     try {
       const res = await fetch('/api/shopify/backfill-orders', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t('conversations.sync_failed'))
+      if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('conversations.sync_failed')))
       toast.success(t('conversations.sync_success', { saved: json.saved, linked: json.linkedToContact }))
       reload()
     } catch (e) {

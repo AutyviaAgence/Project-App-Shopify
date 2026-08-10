@@ -607,7 +607,9 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
-      if (!res.ok || !url) throw new Error(json.error || t.errPurchase)
+      // Message localisé (STRINGS) — on NE relaie PAS `json.error` (français serveur)
+      // dans l'iframe anglophone. L'app store rejette une UI mi-traduite.
+      if (!res.ok || !url) throw new Error(t.errPurchase)
       // ⚠️ `redirectTop`, PAS `openInTop` (qui préfixe par APP_BASE et casserait
       // l'URL Shopify). L'écran d'approbation refuse l'iframe : il doit s'ouvrir
       // au niveau supérieur — même mécanisme que pour l'abonnement.
@@ -635,7 +637,7 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
-      if (!res.ok || !url) throw new Error(json.error || t.errBilling)
+      if (!res.ok || !url) throw new Error(t.errBilling)
 
       // ⚠️ `window.open` DEPUIS UNE IFRAME EST BLOQUÉ PAR LE NAVIGATEUR.
       //
@@ -677,7 +679,7 @@ export default function ShopifyEmbeddedClient() {
     try {
       const res = await authenticatedFetch('/api/shopify/billing/cancel', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t.errGeneric)
+      if (!res.ok) throw new Error(t.errGeneric)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : t.errGeneric)
@@ -701,7 +703,7 @@ export default function ShopifyEmbeddedClient() {
     try {
       const res = await authenticatedFetch('/api/shopify/embedded/unlink', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || t.errGeneric)
+      if (!res.ok) throw new Error(t.errGeneric)
       setUnlinked(true)
       await load()
     } catch (e) {
@@ -735,7 +737,7 @@ export default function ShopifyEmbeddedClient() {
         body: JSON.stringify({ action: 'create' }),
       })
       const json = await res.json()
-      if (!res.ok || !json?.data?.linked) throw new Error(json?.error || t.errLink)
+      if (!res.ok || !json?.data?.linked) throw new Error(t.errLink)
       setUnlinked(false)
       await load()
     } catch (e) {
@@ -765,7 +767,7 @@ export default function ShopifyEmbeddedClient() {
         body: JSON.stringify({ action: 'link' }),
       })
       const json = await res.json()
-      if (!res.ok || !json?.data?.linkUrl) throw new Error(json?.error || t.errLink)
+      if (!res.ok || !json?.data?.linkUrl) throw new Error(t.errLink)
 
       // ⚠️ `window.open` depuis une iframe est BLOQUÉ par le navigateur — ce bouton
       // ne fonctionnait donc pas. Or c'est LE chemin qui permet au marchand de relier
@@ -801,7 +803,7 @@ export default function ShopifyEmbeddedClient() {
     try {
       const res = await authenticatedFetch('/api/shopify/embedded/login-link', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok || !json?.data?.url) throw new Error(json.error || t.errOpen)
+      if (!res.ok || !json?.data?.url) throw new Error(t.errOpen)
 
       // ⚠️ On ouvrait un onglet AVANT l'await pour esquiver le blocage des pop-ups.
       // Ça ne suffit pas : le navigateur bloque tout de même l'ouverture d'onglets

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Loader2, MessageSquare } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -37,6 +38,7 @@ export function WhatsAppEmbeddedSignup({
   onConnected?: () => void
   className?: string
 }) {
+  const { t } = useTranslation()
   const [sdkReady, setSdkReady] = useState(false)
   const [busy, setBusy] = useState(false)
   // Renseigné par l'event postMessage de Meta, lu au retour de FB.login.
@@ -106,7 +108,7 @@ export function WhatsAppEmbeddedSignup({
           body: JSON.stringify({ code, waba_id, phone_number_id }),
         })
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error || 'Connexion impossible')
+        if (!res.ok) throw new Error(json.code ? t(`api_errors.${json.code}`) : (json.error || t('api_errors.generic')))
 
         const n = json.imported_templates ?? 0
         toast.success(n > 0 ? `WhatsApp connecté ✓, ${n} modèle(s) importé(s)` : 'WhatsApp connecté ✓')
@@ -148,7 +150,7 @@ export function WhatsAppEmbeddedSignup({
         extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
       }
     )
-  }, [onConnected])
+  }, [onConnected, t])
 
   if (!configured) return null
 

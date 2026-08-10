@@ -73,7 +73,7 @@ export function UsageBar() {
       if (url) { window.location.href = url; return }
       // ⚠️ Ne PAS échouer en silence : le bouton se réactivait sans rien dire,
       // le marchand cliquait en boucle sans comprendre. On remonte la raison.
-      throw new Error(json?.error || t('components.usage_toast_purchase_err'))
+      throw new Error(json?.code ? t(`api_errors.${json.code}`) : (json?.error || t('components.usage_toast_purchase_err')))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('components.usage_toast_purchase_err'))
       setBuying(false)
