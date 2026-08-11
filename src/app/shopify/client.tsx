@@ -179,9 +179,10 @@ const STRINGS = {
       '« J’ai déjà un compte » ouvre app.xeyo.io : connectez-vous au compte de votre choix, la boutique y sera rattachée.',
 
     // ── Non installé ──
-    notInstalledTitle: 'Installation requise',
+    notInstalledTitle: 'Configuration en cours…',
     notInstalledDesc:
-      'Cette boutique n’est pas encore reliée à Xeyo. Réinstallez l’application depuis l’App Store.',
+      'La connexion à votre boutique se met en place. Si cet écran persiste, réessayez.',
+    retry: 'Réessayer',
 
     // ── Onboarding ──
     setupTitle: 'Terminez votre configuration',
@@ -329,9 +330,10 @@ const STRINGS = {
       '“I already have an account” opens app.xeyo.io: sign in with any account you like, and the store will be connected to it.',
 
     // ── Non installé ──
-    notInstalledTitle: 'Installation required',
+    notInstalledTitle: 'Setting things up…',
     notInstalledDesc:
-      'This store isn’t connected to Xeyo yet. Reinstall the app from the App Store.',
+      'We’re connecting your store. If this screen stays, please try again.',
+    retry: 'Try again',
 
     // ── Onboarding ──
     setupTitle: 'Finish your setup',
@@ -1020,6 +1022,18 @@ export default function ShopifyEmbeddedClient() {
             <p className="mt-2 text-sm text-gray-500">
               {t.notInstalledDesc}
             </p>
+            {/* ⚠️ Bouton « Réessayer » — SUPPRIME le cul-de-sac. Ce écran s'affiche si
+                le provisioning (token exchange) a échoué/timeout au 1er chargement ;
+                sans issue, le reviewer était coincé (rejet 2.1.1). Un simple `load()`
+                relance le token exchange et provisionne la boutique. */}
+            <button
+              type="button"
+              onClick={() => load()}
+              disabled={loading}
+              className="mt-5 inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {t.retry}
+            </button>
           </div>
         ) : (
           <>

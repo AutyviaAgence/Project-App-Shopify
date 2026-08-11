@@ -25,12 +25,15 @@ export async function GET() {
   // Déjà onboardé → rien à faire.
   if (profile?.agent_onboarding_done) return NextResponse.json({ shouldOnboard: false })
 
-  // Boutique connectée & active ?
+  // Boutique connectée & active ? `.limit(1)` : un compte à 2+ boutiques actives
+  // ferait planter `.maybeSingle()` (PGRST116). On prend la plus récente.
   const { data: store } = await supabase
     .from('shopify_stores')
     .select('id')
     .eq('user_id', user.id)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   return NextResponse.json({ shouldOnboard: Boolean(store) })

@@ -34,11 +34,15 @@ export async function GET() {
   )
 
   // L'utilisateur a-t-il déjà une boutique ? Si oui, rien à proposer.
+  // `.limit(1)` : sur 2+ boutiques actives, `.maybeSingle()` planterait (PGRST116)
+  // → `own` undefined → on proposerait à tort des orphelines. On prend la plus récente.
   const { data: own } = await admin
     .from('shopify_stores')
     .select('id')
     .eq('user_id', user.id)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
   if (own) return NextResponse.json({ data: { stores: [] } })
 
