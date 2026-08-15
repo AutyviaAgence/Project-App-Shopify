@@ -23,6 +23,10 @@ export type SimTemplate = Pick<WhatsAppTemplate,
   | 'template_type' | 'header_media_url' | 'carousel_cards'> & {
   variable_keys?: string[] | null
   sample_values?: string[] | null
+  // Requis pour l'aperçu multilingue : résoudre la variante de même `name` dans
+  // la langue de l'interface (cf. tplOf).
+  language?: string | null
+  status?: string | null
 }
 
 /** Aperçu d'une carte de carrousel (image + court texte). */
@@ -79,8 +83,29 @@ function delayLabel(min: number, tr: TrFn): string {
   return `${Math.round(min / 1440)} j`
 }
 
-function tplOf(templateId: string | null | undefined, templates: SimTemplate[]): SimTemplate | undefined {
-  return templateId ? templates.find((t) => t.id === templateId) : undefined
+/**
+ * Modèle référencé par un nœud, RÉSOLU DANS LA LANGUE DU MARCHAND.
+ *
+ * ⚠️ Le nœud pointe une ligne précise (souvent le FR, langue d'origine tapée par
+ * le marchand). L'aperçu téléphone doit suivre la langue de l'INTERFACE : un
+ * marchand/reviewer anglophone doit voir l'anglais. Sans ça, la timeline (nœud)
+ * s'affichait bien traduite mais le mockup à droite restait en français, car il
+ * cherchait par `templateId` brut. On bascule sur la variante de même `name`,
+ * dans la langue voulue, si elle existe ET est approuvée (une variante brouillon
+ * n'est pas représentative de ce qui part au client).
+ *
+ * AFFICHAGE UNIQUEMENT : l'envoi réel choisit la variante selon la langue du
+ * CLIENT (dispatch.ts), jamais celle-ci.
+ */
+function tplOf(templateId: string | null | undefined, templates: SimTemplate[], locale?: string): SimTemplate | undefined {
+  const base = templateId ? templates.find((t) => t.id === templateId) : undefined
+  if (!base || !locale) return base
+  const want = locale === 'en' ? 'en' : 'fr'
+  if (base.language === want) return base
+  const variant = templates.find(
+    (t) => t.name === base.name && t.language === want && t.status === 'approved'
+  )
+  return variant || base
 }
 
 /** Libellés des boutons DÉFINIS PAR LES BRANCHES sortantes d'un nœud (edges
@@ -151,6 +176,7 @@ export function advance(
   fromNodeId: string | null,
   base: SimItem[],
   tr: TrFn,
+  locale?: string,
 ): SimState {
   const items = [...base]
   let cur: string | undefined
@@ -186,7 +212,7 @@ export function advance(
       continue
     }
     if (node.type === 'action') {
-      const t = tplOf(node.templateId, templates)
+      const t = tplOf(node.templateId, templates, locale)
       const msg = buildMessageItem(graph, node.id, t, tr)
       items.push(msg)
       // Message à boutons (template OU branches) → on s'arrête et on attend un clic.
@@ -212,6 +238,7 @@ export function clickButton(
   state: SimState,
   clickedLabel: string,
   tr: TrFn,
+  locale?: string,
 ): SimState {
   if (!state.waitingNodeId) return state
   const nodeId = state.waitingNodeId
@@ -224,7 +251,7 @@ export function clickButton(
   if (!target) {
     return { items: [...withReply, { kind: 'end', text: tr('ui4.no_next') }], waitingNodeId: null, waitingButtons: [], done: true }
   }
-  return advance(graph, templates, target, withReply, tr)
+  return advance(graph, templates, target, withReply, tr, locale)
 }
 
 /** Le contact tape un message libre : on l'affiche puis on reprend depuis le
@@ -236,19 +263,20 @@ export function typeText(
   state: SimState,
   text: string,
   tr: TrFn,
+  locale?: string,
 ): SimState {
   const withReply: SimItem[] = [...state.items, { kind: 'reply', text }]
   if (!state.waitingNodeId) {
     return { ...state, items: withReply }
   }
   const timeout = graph.edges.find((e) => e.from === state.waitingNodeId && e.branch === BUTTON_TIMEOUT_BRANCH)
-  if (timeout) return advance(graph, templates, timeout.to, withReply, tr)
+  if (timeout) return advance(graph, templates, timeout.to, withReply, tr, locale)
   return { items: [...withReply, { kind: 'end', text: tr('ui4.awaiting_click') }], waitingNodeId: state.waitingNodeId, waitingButtons: state.waitingButtons, done: false }
 }
 
 /** Démarre une nouvelle simulation depuis le trigger. */
-export function startSim(graph: WorkflowGraph, templates: SimTemplate[], tr: TrFn): SimState {
-  return advance(graph, templates, null, [], tr)
+export function startSim(graph: WorkflowGraph, templates: SimTemplate[], tr: TrFn, locale?: string): SimState {
+  return advance(graph, templates, null, [], tr, locale)
 }
 
 /**
@@ -261,7 +289,7 @@ export function startSim(graph: WorkflowGraph, templates: SimTemplate[], tr: TrF
  * Anti-boucle : un nœud action déjà visité n'est pas re-déroulé (évite les
  * cycles) ; garde globale sur le nombre d'items.
  */
-export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: TrFn): SimItem[] {
+export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: TrFn, locale?: string): SimItem[] {
   const items: SimItem[] = []
   const trig = triggerNode(graph)
   if (trig) items.push({ kind: 'system', text: tr('automations.builder.sim_trigger_prefix', { label: humanTrigger(trig, tr) }) })
@@ -304,7 +332,7 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[], tr: Tr
       if (node.type === 'action') {
         if (visitedActions.has(node.id)) return // anti-cycle
         visitedActions.add(node.id)
-        const t = tplOf(node.templateId, templates)
+        const t = tplOf(node.templateId, templates, locale)
         const msg = buildMessageItem(graph, node.id, t, tr)
         items.push(msg); budget--
 
