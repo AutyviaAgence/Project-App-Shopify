@@ -72,6 +72,19 @@ export async function GET() {
   //  - Shopify connecté = au moins une boutique active.
   const whatsappConnected = new Set<string>()
   const shopifyConnected = new Set<string>()
+
+  // ⚠️ PLAN & ABONNEMENT EFFECTIFS — la source de vérité est `shopify_stores`,
+  // PAS `profiles`.
+  //
+  // Les colonnes `profiles.plan` / `profiles.subscription_status` sont l'ancien
+  // modèle Stripe : pour un marchand Shopify normal elles restent NULL, car
+  // l'abonnement réel vit sur SA ligne `shopify_stores` (cf. getUserPlan). La
+  // liste admin lisait le profil → tout le monde s'affichait « Aucun / — »
+  // alors que les comptes payaient bien. On calcule ici le plan/statut réels
+  // depuis la boutique (mêmes règles que getUserPlan : abonnement actif, ou
+  // annulé-mais-payé jusqu'à l'échéance) et on écrase les valeurs du profil.
+  const effPlan: Record<string, string | null> = {}
+  const effStatus: Record<string, string | null> = {}
   if (clientIds.length > 0) {
     const { data: sessions } = await adminSupabase
       .from('whatsapp_sessions')
@@ -82,10 +95,28 @@ export async function GET() {
 
     const { data: stores } = await adminSupabase
       .from('shopify_stores')
-      .select('user_id, is_active')
+      .select('user_id, is_active, plan, subscription_status, billing_source, current_period_end, updated_at')
       .in('user_id', clientIds)
       .eq('is_active', true)
-    for (const s of (stores || []) as Array<{ user_id: string }>) shopifyConnected.add(s.user_id)
+      .order('updated_at', { ascending: false })
+    const now = Date.now()
+    for (const s of (stores || []) as Array<{
+      user_id: string; plan: string | null; subscription_status: string | null
+      billing_source: string | null; current_period_end: string | null
+    }>) {
+      shopifyConnected.add(s.user_id)
+      // .order desc + première vue = boutique la plus récente (comme getUserPlan).
+      if (s.user_id in effPlan) continue
+      if (s.billing_source !== 'shopify') continue
+      const active = s.subscription_status === 'active'
+      const paidCanceled = s.subscription_status === 'canceled'
+        && !!s.current_period_end && new Date(s.current_period_end).getTime() > now
+      if (active || paidCanceled) {
+        effPlan[s.user_id] = s.plan
+        // On garde le statut réel (active/canceled) pour la pastille.
+        effStatus[s.user_id] = s.subscription_status
+      }
+    }
   }
 
   // Conversations IA du mois (l'unité RÉELLE du plan, à côté des tokens). On
@@ -150,8 +181,15 @@ export async function GET() {
     // informations complémentaires échouent.
   }
 
-  const enriched = (clients || []).map((c: { id: string; tenant_id: string | null }) => ({
+  const enriched = (clients || []).map((c: {
+    id: string; tenant_id: string | null; plan?: string | null; subscription_status?: string | null
+  }) => ({
     ...c,
+    // Plan/abonnement EFFECTIFS : la boutique Shopify l'emporte sur le profil.
+    // Si pas de boutique payante, on garde la valeur du profil (octroi manuel
+    // admin via /api/admin/activate, ou rien).
+    plan: c.id in effPlan ? effPlan[c.id] : c.plan,
+    subscription_status: c.id in effStatus ? effStatus[c.id] : c.subscription_status,
     onboarding_config: configsByUser[c.id] || null,
     promo_code: promoByUser[c.id] || null,
     growth_code: growthByUser[c.id] || null,
