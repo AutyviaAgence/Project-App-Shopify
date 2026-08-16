@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getEffectiveUserId } from '@/lib/admin/impersonation'
 
 /**
  * GET /api/dashboard — les chiffres de l'accueil.
@@ -26,9 +26,11 @@ function admin() {
 }
 
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  // ⚠️ IMPERSONATION : l'accueil montre les chiffres de l'utilisateur EFFECTIF.
+  // Ce route lit déjà tout via le client service_role scopé par id → il suffit de
+  // prendre l'id effectif (cible si « se connecter en tant que », sinon soi-même).
+  const userId = await getEffectiveUserId()
+  if (!userId) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const db = admin()
 
@@ -38,7 +40,7 @@ export async function GET() {
   const { data: sessions } = await db
     .from('whatsapp_sessions')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
 
   const sessionIds = (sessions || []).map((s) => s.id)
 
@@ -60,7 +62,7 @@ export async function GET() {
   const { data: orders } = await (db as any)
     .from('shopify_orders')
     .select('total_price, currency, is_whatsapp')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .gte('ordered_at', monthStart.toISOString())
 
   const orderRows = (orders || []) as { total_price: number; currency: string; is_whatsapp: boolean }[]
@@ -76,7 +78,7 @@ export async function GET() {
   const { data: latencies } = await db
     .from('ai_usage_log')
     .select('latency_ms')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('feature', 'sav_reply')
     .not('latency_ms', 'is', null)
     .gte('created_at', monthStart.toISOString())
@@ -110,7 +112,7 @@ export async function GET() {
   // Il n'existe aucune table d'événements unifiée : on fusionne plusieurs sources
   // et on trie par date. On en prend un peu de chaque, puis on garde les plus
   // récentes — sinon une source bavarde (les messages) noierait tout le reste.
-  const activity = await recentActivity(db, user.id, sessionIds)
+  const activity = await recentActivity(db, userId, sessionIds)
 
   return NextResponse.json({
     data: {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { checkPlanQuota } from '@/lib/plan-quota'
 import { OPT_OUT_PROMPT, HANDOFF_PROMPT } from '@/lib/agents/opt-out-prompt'
 
@@ -20,19 +21,20 @@ const MASCOT_KEYS = [
 const MASCOT_BG_KEYS = ['green', 'blue', 'violet', 'coral', 'amber', 'sky']
 const pickRandom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 
-/** GET /api/agents — Lister les agents IA de l'utilisateur */
+/** GET /api/agents — Lister les agents IA de l'utilisateur
+ *
+ * ⚠️ IMPERSONATION : scope sur l'utilisateur EFFECTIF (getScopedClient), pour que
+ * « se connecter en tant que » montre les agents de la CIBLE, pas ceux (vides) de
+ * l'admin. */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   const { data: allAgents, error } = await supabase
     .from('ai_agents')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) {

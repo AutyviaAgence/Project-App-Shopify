@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 /**
  * GET /api/onboarding/state
@@ -7,17 +7,22 @@ import { createClient } from '@/lib/supabase/server'
  * Source de vérité de l'avancement du grand onboarding bloquant.
  * Le layout dashboard redirige vers /onboarding tant que `completed` est faux.
  * Les admins et les comptes grandfathered (migration) sont toujours `completed`.
+ *
+ * ⚠️ IMPERSONATION : on scope sur l'utilisateur EFFECTIF (getScopedClient), sinon
+ * un admin qui « se connecte en tant que » verrait sa propre boutique/état — et
+ * le court-circuit `role==='admin'` (l.36) sauterait toujours. La cible étant un
+ * user normal, on lit bien SON onboarding, SA boutique, SES sessions.
  */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile, error: profileError } = await (supabase as any)
     .from('profiles')
     .select('onboarding_completed_at, onboarding_step, onboarding_pack, agent_onboarding_done, plan, role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   // FAIL-OPEN : erreur de lecture (ex : migration non appliquée) → on ne
@@ -50,7 +55,7 @@ export async function GET() {
   const { data: store } = await supabase
     .from('shopify_stores')
     .select('id, shop_name, shop_domain, last_synced_at, last_sync_summary, billing_source')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('is_active', true)
     .order('updated_at', { ascending: false })
     .limit(1)
@@ -60,7 +65,7 @@ export async function GET() {
   const { count: waCount } = await supabase
     .from('whatsapp_sessions')
     .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('status', 'connected')
 
   return NextResponse.json({

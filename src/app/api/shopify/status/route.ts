@@ -21,10 +21,10 @@ export async function GET(req: NextRequest) {
   if (!shop) {
     // Hors embedded (dashboard web) : on autorise via le cookie, et on ne sert que
     // la boutique DE L'UTILISATEUR — pas un domaine arbitraire.
-    const { createClient } = await import('@/lib/supabase/server')
-    const supa = await createClient()
-    const { data: { user } } = await supa.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    // ⚠️ IMPERSONATION : boutique de l'utilisateur EFFECTIF (getEffectiveUserId).
+    const { getEffectiveUserId } = await import('@/lib/admin/impersonation')
+    const effUserId = await getEffectiveUserId()
+    if (!effUserId) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     const adminEarly = createAdminSupabase(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     // store-status). On prend la plus récente au lieu de casser « installed ».
     const { data: own } = await adminEarly
       .from('shopify_stores').select('shop_domain')
-      .eq('user_id', user.id).eq('is_active', true)
+      .eq('user_id', effUserId).eq('is_active', true)
       .order('updated_at', { ascending: false }).limit(1).maybeSingle()
     shop = own?.shop_domain ?? null
     if (!shop) return NextResponse.json({ data: { installed: false } })

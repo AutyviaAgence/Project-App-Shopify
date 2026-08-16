@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { getUserPlan, checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 
@@ -13,17 +13,16 @@ import { canUseAi } from '@/lib/plans/gate'
  * page abonnement.
  */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  // ⚠️ IMPERSONATION : tokens, plan et quota de l'utilisateur EFFECTIF, pas de
+  // l'admin. Sinon « se connecter en tant que » montrait les crédits de l'admin.
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('tokens_used, tokens_limit, token_usage_period_start')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (error || !profile) {
@@ -38,9 +37,9 @@ export async function GET() {
     : 0
 
   const [plan, gate, quota] = await Promise.all([
-    getUserPlan(user.id),
-    canUseAi(user.id),
-    checkConversationQuota(user.id),
+    getUserPlan(userId),
+    canUseAi(userId),
+    checkConversationQuota(userId),
   ])
 
   // Conso RÉELLE de conversations IA du mois (le vrai compteur qui bloque),

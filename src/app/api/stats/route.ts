@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { getDateRange, computeTrend, groupByDate, groupMessagesByDate, groupTransitionsByDate } from '@/lib/stats/helpers'
 import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsLifecycle, StatsLifecycleStage, StatsLifecycleTransitionPoint } from '@/types/stats'
 
-/** GET /api/stats?period=30&session_id=all */
+/** GET /api/stats?period=30&session_id=all
+ *
+ * ⚠️ IMPERSONATION : stats de l'utilisateur EFFECTIF (getScopedClient). En
+ * impersonation le client passe en service_role (bypass RLS) et TOUT est scopé
+ * explicitement par `userId`/`sessionIds` de la cible — sinon la RLS de l'admin
+ * bloquerait les lignes de la cible et le graphe s'afficherait vide. */
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   const { searchParams } = req.nextUrl
   const period = Math.min(Number(searchParams.get('period') || '30'), 365)
@@ -22,7 +25,7 @@ export async function GET(req: NextRequest) {
   const { data: sessions } = await supabase
     .from('whatsapp_sessions')
     .select('id, instance_name')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: emptyResponse() })
@@ -122,22 +125,22 @@ export async function GET(req: NextRequest) {
     supabase
       .from('ai_agents')
       .select('id, name, is_active, booking_url')
-      .eq('user_id', user.id),
+      .eq('user_id', userId),
     // Liens (utilisateur)
     supabase
       .from('wa_links')
       .select('id, slug, name, click_count, is_active')
-      .eq('user_id', user.id),
+      .eq('user_id', userId),
     // Campagnes (utilisateur)
     supabase
       .from('campaigns')
       .select('id, name, status, total_recipients, sent_count, delivered_count, replied_count, failed_count, started_at, completed_at')
-      .eq('user_id', user.id),
+      .eq('user_id', userId),
     // Lifecycle stages
     supabase
       .from('lifecycle_stages')
       .select('id, name, color, icon, position')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('position'),
   ])
 

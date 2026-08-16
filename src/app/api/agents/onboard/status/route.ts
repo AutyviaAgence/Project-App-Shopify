@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 /**
  * GET /api/agents/onboard/status
@@ -11,15 +11,17 @@ import { createClient } from '@/lib/supabase/server'
  * Sert au déclenchement automatique au 1er accès après connexion.
  */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ shouldOnboard: false })
+  // ⚠️ IMPERSONATION : état d'onboarding de l'utilisateur EFFECTIF, sinon le
+  // déclencheur d'onboarding auto se baserait sur l'admin.
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ shouldOnboard: false })
+  const { supabase, userId } = scoped
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (supabase as any)
     .from('profiles')
     .select('agent_onboarding_done')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   // Déjà onboardé → rien à faire.
@@ -30,7 +32,7 @@ export async function GET() {
   const { data: store } = await supabase
     .from('shopify_stores')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('is_active', true)
     .order('updated_at', { ascending: false })
     .limit(1)

@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { PLANS, resolvePlan } from '@/lib/plans'
 
-/** GET /api/subscription — Récupérer le statut d'abonnement de l'utilisateur */
+/** GET /api/subscription — Récupérer le statut d'abonnement de l'utilisateur
+ *
+ * ⚠️ IMPERSONATION : plan/abonnement de l'utilisateur EFFECTIF (getScopedClient),
+ * pas de l'admin — sinon « se connecter en tant que » affichait l'abonnement de
+ * l'admin. La vérité vient déjà de shopify_stores, on la scope juste sur la cible. */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('subscription_status, trial_ends_at, subscription_ends_at, stripe_customer_id, stripe_subscription_id, tokens_used, tokens_limit, tokens_extra, plan, pending_plan, role, audit_status, onboarding_plan')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (error || !profile) {
@@ -26,7 +27,7 @@ export async function GET() {
   const { data: onboardingConfig } = await (supabase as any)
     .from('onboarding_configs')
     .select('submitted_at')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle() as { data: { submitted_at: string | null } | null }
 
   // aiEnabled : l'IA (agent, génération, assistant) est-elle disponible ?
@@ -43,7 +44,7 @@ export async function GET() {
   // Stripe (checkout, packs de crédits) : sur l'App Store, le billing hors
   // plateforme est interdit — ces marchands passent par la Billing API.
   const { getShopifyBilling } = await import('@/lib/shopify/plans')
-  const { billed: shopifyBilled, shopDomain } = await getShopifyBilling(user.id)
+  const { billed: shopifyBilled, shopDomain } = await getShopifyBilling(userId)
 
   // ⚠️ LA VÉRITÉ EST DANS `shopify_stores`, PAS DANS `profiles`.
   //
@@ -71,7 +72,7 @@ export async function GET() {
     const { data: store } = await admin
       .from('shopify_stores')
       .select('plan, subscription_status, current_period_end, pending_plan, billing_interval')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_active', true)
       // Deux boutiques actives → maybeSingle seul planterait. On prend la plus récente.
       .order('updated_at', { ascending: false })
