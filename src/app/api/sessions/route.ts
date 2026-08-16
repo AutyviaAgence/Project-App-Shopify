@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { createWabaSession } from '@/lib/whatsapp-cloud/create-session'
 import { checkPlanQuota } from '@/lib/plan-quota'
 
@@ -92,19 +93,19 @@ export async function POST(req: NextRequest) {
 }
 
 /** GET /api/sessions — Lister les sessions de l'utilisateur (+ équipes avec permissions) */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   // Sessions de l'utilisateur (système d'équipes retiré). Champs sensibles exclus.
   const { data: sessions, error } = await supabase
     .from('whatsapp_sessions')
     .select('id, user_id, instance_name, status, phone_number, display_name, integration_type, waba_phone_number_id, waba_business_account_id, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) {

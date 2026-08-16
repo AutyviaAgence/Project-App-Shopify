@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 /** GET /api/automation-folders — Dossiers de workflows de l'utilisateur */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('automation_folders')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('position')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

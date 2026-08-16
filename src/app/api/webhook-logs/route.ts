@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 /** Verifie que l'utilisateur est authentifie ET admin. Renvoie le client + user,
  * ou une reponse d'erreur. Les logs webhook sont reserves aux admins. */
@@ -17,10 +18,16 @@ async function requireAdmin() {
 }
 
 /** GET /api/webhook-logs — Liste des logs webhook (admin uniquement) */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET(req: NextRequest) {
+  // Porte 1 : l'utilisateur CONNECTÉ doit être un admin réel (les logs sont réservés aux admins).
   const auth = await requireAdmin()
   if (auth.error) return auth.error
-  const { supabase, user } = auth
+
+  // Porte 2 : identité/données de l'utilisateur EFFECTIF (cible d'impersonation le cas échéant).
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   // Parse query params
   const { searchParams } = new URL(req.url)
@@ -34,7 +41,7 @@ export async function GET(req: NextRequest) {
   const { data: sessions } = await supabase
     .from('whatsapp_sessions')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } })

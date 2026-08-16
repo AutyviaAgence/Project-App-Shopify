@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { checkPlanQuota } from '@/lib/plan-quota'
 
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 /** GET /api/links — Lister les liens WA de l'utilisateur */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   // Récupérer les liens avec les sessions associées
   const { data: links, error } = await supabase
     .from('wa_links')
     .select('*, whatsapp_sessions(phone_number, instance_name, status)')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) {

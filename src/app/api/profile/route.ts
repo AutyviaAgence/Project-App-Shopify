@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 /** GET /api/profile — Récupérer le profil de l'utilisateur connecté */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const scoped = await getScopedClient()
+  if (!scoped) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+  const { supabase, userId } = scoped
 
+  // Métadonnées d'auth de l'utilisateur EFFECTIF (email/full_name/avatar/provider) :
+  // lecture scopée par userId via le client admin (fonctionne en impersonation comme hors).
+  const { data: { user }, error: authError } = await getAdminSupabase().auth.admin.getUserById(userId)
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
@@ -14,7 +23,7 @@ export async function GET() {
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   // Extraire les données de auth.users
@@ -27,7 +36,7 @@ export async function GET() {
     const { data: newProfile, error: insertError } = await supabase
       .from('profiles')
       .insert({
-        id: user.id,
+        id: userId,
         email: user.email || '',
         full_name: authFullName || user.email?.split('@')[0] || null,
         avatar_url: authAvatarUrl || null,
@@ -57,7 +66,7 @@ export async function GET() {
         avatar_url: existingProfile.avatar_url || authAvatarUrl,
         email: user.email || existingProfile.email,
       })
-      .eq('id', user.id)
+      .eq('id', userId)
       .select()
       .single()
 

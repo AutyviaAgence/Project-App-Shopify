@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 /** GET /api/lifecycle/stages — Liste des stages de l'utilisateur */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   const { data: stages, error } = await supabase
     .from('lifecycle_stages')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('position')
 
   if (error) {

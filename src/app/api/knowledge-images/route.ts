@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 const BUCKET = 'knowledge-images'
 
@@ -22,16 +23,17 @@ async function ensureBucket(admin: any) {
 }
 
 /** GET /api/knowledge-images — Lister les images de l'utilisateur */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('knowledge_images')
     .select('id, ref, filename, mime_type, storage_path, agent_id, media_kind, created_at')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

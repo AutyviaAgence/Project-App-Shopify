@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 // FUSION Tags → Lifecycle : ces routes pointent désormais sur lifecycle_stages.
 // L'UI inbox (qui appelle /api/tags) gère ainsi les étiquettes lifecycle sans
 // changer de code. Les champs id/name/color restent compatibles.
 
 /** GET /api/tags — Liste des étiquettes lifecycle de l'utilisateur */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   const { data: stages, error } = await supabase
     .from('lifecycle_stages')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('position')
 
   if (error) {

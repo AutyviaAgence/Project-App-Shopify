@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import type { CampaignStatus } from '@/types/database'
 
 const VALID_STATUSES: CampaignStatus[] = ['draft', 'scheduled', 'running', 'paused', 'completed', 'cancelled']
 
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 /** GET /api/campaigns — Lister les campagnes de l'utilisateur */
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   const { searchParams } = new URL(req.url)
   const statusParam = searchParams.get('status')
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('campaigns')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   // Filtrer par statut si spécifié

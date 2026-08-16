@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import type { TemplateButton, TemplateCard } from '@/types/database'
 import { guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
 import { canCreateContent } from '@/lib/plans/gate'
@@ -13,17 +14,18 @@ function countVariables(text: string): number {
 }
 
 /** GET /api/templates — Liste des modèles de l'utilisateur */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
     .select('id, session_id, meta_id, name, language, category, use_case, body_text, header_text, footer_text, header_type, header_media_url, buttons, template_type, carousel_cards, approved_carousel_cards, lto_title, lto_default_hours, variables_count, sample_values, variable_keys, status, has_pending_changes, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

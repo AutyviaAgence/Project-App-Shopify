@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { checkPlanQuota } from '@/lib/plan-quota'
 
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 /** GET /api/knowledge — Lister les documents de l'utilisateur */
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { supabase, userId } = scoped
 
   const { data: documents, error } = await supabase
     .from('knowledge_documents')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   if (error) {

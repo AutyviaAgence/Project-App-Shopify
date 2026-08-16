@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 import { checkPlanQuota } from '@/lib/plan-quota'
 
 /** GET /api/automations — liste des automatisations. `?kind=marketing|transactional`
  *  filtre par onglet (Campagnes vs Automatisations) ; absent = tout. */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase, userId } = scoped
 
   const kind = new URL(req.url).searchParams.get('kind')
   const run = (withKind: boolean) => {
@@ -15,7 +17,7 @@ export async function GET(req: NextRequest) {
     let q = (supabase as any)
       .from('automations')
       .select(`id, name, trigger_event, trigger_button_text, template_id, delay_minutes, quiet_start, quiet_end, timezone, conditions, is_active, graph, builder_mode, folder_id${withKind ? ', kind' : ''}, created_at, updated_at`)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
     if (withKind && (kind === 'marketing' || kind === 'transactional')) q = q.eq('kind', kind)
     return q

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 /**
  * GET /api/growth — ce que l'utilisateur a gagné en amenant des marchands.
@@ -12,12 +12,13 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
  * n'étaient lisibles que par l'admin — un partenaire ne pouvait pas savoir ce
  * qu'on lui devait, ni même si son lien fonctionnait (et il ne fonctionnait pas).
  */
+// IMPERSONATION : données de l'utilisateur EFFECTIF (getScopedClient).
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
+  const scoped = await getScopedClient()
+  if (!scoped) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+  const { userId } = scoped
 
   const admin = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +30,7 @@ export async function GET() {
   const { data: codes } = await admin
     .from('growth_codes')
     .select('id, kind, code, label, commission_percent, reward_months, is_active')
-    .eq('owner_user_id', user.id)
+    .eq('owner_user_id', userId)
     .eq('is_active', true)
 
   const referralCode = codes?.find((c) => c.kind === 'referral') ?? null
@@ -50,7 +51,7 @@ export async function GET() {
   const { data: rewards } = await admin
     .from('growth_rewards')
     .select('id, reward_type, months, credits, amount_cents, currency, status, created_at, paid_at, granted_at')
-    .eq('beneficiary_user_id', user.id)
+    .eq('beneficiary_user_id', userId)
     .order('created_at', { ascending: false })
 
   const list = rewards || []
