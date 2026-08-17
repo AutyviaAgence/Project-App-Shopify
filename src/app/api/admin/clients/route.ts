@@ -39,9 +39,10 @@ export async function GET() {
 
   // Récupérer les noms des tenants
   const tenantIds = [...new Set((clients || []).map((c: { tenant_id: string | null }) => c.tenant_id).filter(Boolean))] as string[]
-  let tenantNames: Record<string, string> = {}
+  const tenantNames: Record<string, string> = {}
   if (tenantIds.length > 0) {
     const { data: tenants } = await adminSupabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('tenants' as any)
       .select('id, app_name, slug')
       .in('id', tenantIds) as unknown as { data: Array<{ id: string; app_name: string; slug: string }> | null, error: unknown }
@@ -54,7 +55,7 @@ export async function GET() {
 
   // Récupérer les configurateurs soumis
   const clientIds = (clients || []).map((c: { id: string }) => c.id)
-  let configsByUser: Record<string, unknown> = {}
+  const configsByUser: Record<string, unknown> = {}
   if (clientIds.length > 0) {
     const { data: configs } = await adminSupabase
       .from('onboarding_configs')
@@ -182,14 +183,30 @@ export async function GET() {
   }
 
   const enriched = (clients || []).map((c: {
-    id: string; tenant_id: string | null; plan?: string | null; subscription_status?: string | null
-  }) => ({
+    id: string; tenant_id: string | null; plan?: string | null; subscription_status?: string | null; role?: string | null
+  }) => {
+    // Plan/abonnement EFFECTIFS — même arbitrage que getUserPlan, dans l'ordre :
+    //   1. boutique Shopify payante (effPlan/effStatus, calculés plus haut) ;
+    //   2. compte ADMIN interne → Scale actif (accès complet sans boutique :
+    //      démos, support). Sans cette règle, un admin sans boutique s'affichait
+    //      « Aucun / — » alors que son quota IA montrait déjà 4 500 (Scale) ;
+    //   3. sinon, la valeur du profil (octroi manuel via /api/admin/activate).
+    let plan: string | null
+    let subscription_status: string | null
+    if (c.id in effPlan) {
+      plan = effPlan[c.id]
+      subscription_status = effStatus[c.id]
+    } else if (c.role === 'admin') {
+      plan = 'scale'
+      subscription_status = 'active'
+    } else {
+      plan = c.plan ?? null
+      subscription_status = c.subscription_status ?? null
+    }
+    return {
     ...c,
-    // Plan/abonnement EFFECTIFS : la boutique Shopify l'emporte sur le profil.
-    // Si pas de boutique payante, on garde la valeur du profil (octroi manuel
-    // admin via /api/admin/activate, ou rien).
-    plan: c.id in effPlan ? effPlan[c.id] : c.plan,
-    subscription_status: c.id in effStatus ? effStatus[c.id] : c.subscription_status,
+    plan,
+    subscription_status,
     onboarding_config: configsByUser[c.id] || null,
     promo_code: promoByUser[c.id] || null,
     growth_code: growthByUser[c.id] || null,
@@ -198,7 +215,8 @@ export async function GET() {
     has_shopify: shopifyConnected.has(c.id),
     ai_conversations_used: convByUser[c.id]?.used ?? 0,
     ai_conversations_limit: convByUser[c.id]?.limit ?? null, // null = illimité
-  }))
+    }
+  })
 
   return NextResponse.json({ clients: enriched })
 }
